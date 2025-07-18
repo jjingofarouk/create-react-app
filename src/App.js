@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { auth, db, onSnapshot, collection, query } from "./firebase";
 import HomePage from "./components/HomePage";
-import IncomePage from "./components/IncomePage";
+import SalesPage from "./components/SalesPage";
 import ExpensesPage from "./components/ExpensesPage";
 import DebtsPage from "./components/DebtsPage";
-import ProfilePage from "./components/ProfilePage";
 import ReportsPage from "./components/ReportsPage";
+import ProfilePage from "./components/ProfilePage";
 import Auth from "./components/Auth";
 import { Home, DollarSign, TrendingUp, TrendingDown, FileText, User, AlertCircle } from "lucide-react";
 import "./index.css";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [transactions, setTransactions] = useState([]);
+  const [sales, setSales] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [debtors, setDebtors] = useState([]);
+  const [payees, setPayees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("home");
@@ -25,24 +27,26 @@ function App() {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
-        const transQuery = query(collection(db, `users/${user.uid}/transactions`));
+        const salesQuery = query(collection(db, `users/${user.uid}/sales`));
         const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
+        const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
+        const productsQuery = query(collection(db, `users/${user.uid}/products`));
+        const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
 
-        const unsubscribeTrans = onSnapshot(
-          transQuery,
+        const unsubscribeSales = onSnapshot(
+          salesQuery,
           (snapshot) => {
-            const transData = snapshot.docs.map((doc) => ({
+            const salesData = snapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            setTransactions(transData);
-            setClients([...new Set(transData.map((t) => t.client).filter(Boolean))]);
-            setCategories([...new Set(transData.map((t) => t.category).filter(Boolean))]);
+            setSales(salesData);
+            setClients([...new Set(salesData.map((s) => s.client).filter(Boolean))]);
             setLoading(false);
           },
           (err) => {
-            console.error("Error fetching transactions:", err);
-            setError("Failed to load transactions. Please try again.");
+            console.error("Error fetching sales:", err);
+            setError("Failed to load sales. Please try again.");
             setLoading(false);
           }
         );
@@ -55,7 +59,6 @@ function App() {
               ...doc.data(),
             }));
             setDebts(debtData);
-            setDebtors([...new Set(debtData.map((d) => d.debtor).filter(Boolean))]);
             setLoading(false);
           },
           (err) => {
@@ -65,16 +68,76 @@ function App() {
           }
         );
 
+        const unsubscribeExpenses = onSnapshot(
+          expensesQuery,
+          (snapshot) => {
+            const expenseData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setExpenses(expenseData);
+            setCategories([...new Set(expenseData.map((e) => e.category).filter(Boolean))]);
+            setPayees([...new Set(expenseData.map((e) => e.payee).filter(Boolean))]);
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Error fetching expenses:", err);
+            setError("Failed to load expenses. Please try again.");
+            setLoading(false);
+          }
+        );
+
+        const unsubscribeProducts = onSnapshot(
+          productsQuery,
+          (snapshot) => {
+            const productData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setProducts(productData);
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Error fetching products:", err);
+            setError("Failed to load products. Please try again.");
+            setLoading(false);
+          }
+        );
+
+        const unsubscribeClients = onSnapshot(
+          clientsQuery,
+          (snapshot) => {
+            const clientData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setClients((prev) => [
+              ...new Set([...prev, ...clientData.map((c) => c.name).filter(Boolean)]),
+            ]);
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Error fetching clients:", err);
+            setError("Failed to load clients. Please try again.");
+            setLoading(false);
+          }
+        );
+
         return () => {
-          unsubscribeTrans();
+          unsubscribeSales();
           unsubscribeDebts();
+          unsubscribeExpenses();
+          unsubscribeProducts();
+          unsubscribeClients();
         };
       } else {
-        setTransactions([]);
+        setSales([]);
         setDebts([]);
+        setExpenses([]);
         setClients([]);
+        setProducts([]);
         setCategories([]);
-        setDebtors([]);
+        setPayees([]);
         setLoading(false);
         setError(null);
       }
@@ -84,7 +147,7 @@ function App() {
 
   const tabs = [
     { id: "home", name: "Home", icon: Home },
-    { id: "income", name: "Income", icon: TrendingUp },
+    { id: "sales", name: "Sales", icon: TrendingUp },
     { id: "expenses", name: "Expenses", icon: TrendingDown },
     { id: "debts", name: "Debts", icon: DollarSign },
     { id: "reports", name: "Reports", icon: FileText },
@@ -123,27 +186,28 @@ function App() {
       case "home":
         return (
           <HomePage
-            transactions={transactions}
+            sales={sales}
+            debts={debts}
+            expenses={expenses}
             clients={clients}
-            categories={categories}
             userId={user.uid}
           />
         );
-      case "income":
+      case "sales":
         return (
-          <IncomePage
-            transactions={transactions.filter((t) => t.type === "income")}
+          <SalesPage
+            sales={sales}
             clients={clients}
-            categories={categories}
+            products={products}
             userId={user.uid}
           />
         );
       case "expenses":
         return (
           <ExpensesPage
-            transactions={transactions.filter((t) => t.type === "expense")}
-            clients={clients}
+            expenses={expenses}
             categories={categories}
+            payees={payees}
             userId={user.uid}
           />
         );
@@ -151,15 +215,17 @@ function App() {
         return (
           <DebtsPage
             debts={debts}
-            debtors={debtors}
+            clients={clients}
+            sales={sales}
             userId={user.uid}
           />
         );
       case "reports":
         return (
           <ReportsPage
-            transactions={transactions}
+            sales={sales}
             debts={debts}
+            expenses={expenses}
             userId={user.uid}
           />
         );
@@ -174,7 +240,7 @@ function App() {
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">MyMoney</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">Product Distribution</h1>
           {user && (
             <div className="flex items-center gap-4">
               <button
@@ -193,7 +259,7 @@ function App() {
           )}
         </div>
       </header>
-      
+
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderContent()}
       </main>
