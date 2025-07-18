@@ -1,6 +1,6 @@
 // src/components/DebtsPage.jsx
 import React, { useState, useEffect } from "react";
-import { collection, addDoc, updateDoc, doc, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, CreditCard } from "lucide-react";
 import { useReactTable } from "@tanstack/react-table";
