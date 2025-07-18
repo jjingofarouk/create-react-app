@@ -1,14 +1,10 @@
 import React from "react";
 import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 
-function BalanceSummary({ transactions }) {
-  const income = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const expenses = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const balance = income - expenses;
+function BalanceSummary({ sales, expenses }) {
+  const income = sales.reduce((sum, s) => sum + s.amountPaid, 0);
+  const expenseTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const balance = income - expenseTotal;
 
   const formatCurrency = (amount) => `UGX ${amount.toLocaleString()}`;
 
@@ -37,7 +33,7 @@ function BalanceSummary({ transactions }) {
           <div className="flex-1">
             <h3 className="text-sm font-medium text-neutral-500">Total Expenses</h3>
             <p className="text-lg sm:text-xl font-bold text-neutral-800">
-              {formatCurrency(expenses)}
+              {formatCurrency(expenseTotal)}
             </p>
           </div>
         </div>
