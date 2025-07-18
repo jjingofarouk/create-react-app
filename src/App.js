@@ -9,6 +9,7 @@ import ProfilePage from "./components/ProfilePage";
 import ReportsPage from "./components/ReportsPage";
 import Auth from "./components/Auth";
 import { Home, ShoppingCart, TrendingDown, FileText, User, AlertCircle, CreditCard } from "lucide-react";
+import './index.css';
 
 function App() {
   const [user, setUser] = useState(null);
