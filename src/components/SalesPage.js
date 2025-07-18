@@ -23,11 +23,14 @@ const SalesPage = ({ sales, clients, products, userId }) => {
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
+    if (!newProduct.name.trim() || !newProduct.price) return;
+    
     try {
       await addDoc(collection(db, `users/${userId}/products`), {
-        name: newProduct.name,
+        name: newProduct.name.trim(),
         price: parseFloat(newProduct.price),
-        createdAt: new Date()
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
       setNewProduct({ name: "", price: "" });
       setShowProductForm(false);
@@ -41,72 +44,106 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Client",
         accessorKey: "client",
-        cell: info => info.getValue(),
+        cell: info => (
+          <div className="font-medium text-neutral-900">
+            {info.getValue()}
+          </div>
+        ),
       },
       {
         header: "Product",
         accessorKey: "product",
-        cell: info => info.getValue(),
+        cell: info => (
+          <div className="text-neutral-800">
+            {info.getValue()}
+          </div>
+        ),
       },
       {
         header: "Quantity",
         accessorKey: "quantity",
-        cell: info => info.getValue(),
+        cell: info => (
+          <div className="text-center font-medium">
+            {info.getValue()}
+          </div>
+        ),
       },
       {
         header: "Unit Price",
         accessorKey: "unitPrice",
-        cell: info => `UGX ${info.getValue().toLocaleString()}`,
+        cell: info => (
+          <div className="font-mono text-sm">
+            UGX {info.getValue().toLocaleString()}
+          </div>
+        ),
       },
       {
         header: "Discount",
         accessorKey: "discount",
-        cell: info => `UGX ${info.getValue().toLocaleString()}`,
+        cell: info => (
+          <div className="font-mono text-sm text-orange-600">
+            {info.getValue() > 0 ? `-UGX ${info.getValue().toLocaleString()}` : '-'}
+          </div>
+        ),
       },
       {
         header: "Total",
         accessorKey: "totalAmount",
-        cell: info => `UGX ${info.getValue().toLocaleString()}`,
+        cell: info => (
+          <div className="font-mono font-semibold text-primary">
+            UGX {info.getValue().toLocaleString()}
+          </div>
+        ),
       },
       {
-        header: "Payment",
+        header: "Payment Status",
         accessorKey: "paymentStatus",
         cell: info => (
-          <span className={`px-2 py-1 rounded-full text-xs ${
-            info.getValue() === 'paid' ? 'bg-success-100 text-success-800' :
-            info.getValue() === 'partial' ? 'bg-warning-100 text-warning-800' :
-            'bg-error-100 text-error-800'
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            info.getValue() === 'paid' ? 'bg-green-100 text-green-800' :
+            info.getValue() === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-red-100 text-red-800'
           }`}>
-            {info.getValue()}
+            {info.getValue().charAt(0).toUpperCase() + info.getValue().slice(1)}
           </span>
         ),
       },
       {
-        header: "Paid",
+        header: "Amount Paid",
         accessorKey: "amountPaid",
-        cell: info => `UGX ${info.getValue().toLocaleString()}`,
+        cell: info => (
+          <div className="font-mono text-sm">
+            UGX {info.getValue().toLocaleString()}
+          </div>
+        ),
       },
       {
         header: "Date",
         accessorKey: "date",
-        cell: info => format(info.getValue().toDate(), 'MMM dd, yyyy'),
+        cell: info => (
+          <div className="text-sm text-neutral-600">
+            {format(info.getValue().toDate(), 'MMM dd, yyyy')}
+          </div>
+        ),
       },
       {
         header: "Actions",
         cell: info => (
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
               onClick={() => {
                 setEditingSale(info.row.original);
                 setShowForm(true);
               }}
-              className="p-1 text-neutral-500 hover:text-primary hover:bg-neutral-100 rounded"
+              className="p-2 text-neutral-500 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+              title="Edit sale"
             >
               <Edit className="w-4 h-4" />
             </button>
             <button
               onClick={() => handleDeleteSale(info.row.original.id)}
-              className="p-1 text-neutral-500 hover:text-danger hover:bg-neutral-100 rounded"
+              className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete sale"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -126,8 +163,11 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     globalFilterFn: (row, columnId, filterValue) => {
       const client = row.getValue('client')?.toLowerCase() || '';
       const product = row.getValue('product')?.toLowerCase() || '';
+      const paymentStatus = row.getValue('paymentStatus')?.toLowerCase() || '';
       const searchTerm = filterValue.toLowerCase();
-      return client.includes(searchTerm) || product.includes(searchTerm);
+      return client.includes(searchTerm) || 
+             product.includes(searchTerm) || 
+             paymentStatus.includes(searchTerm);
     },
     state: {
       globalFilter,
@@ -136,9 +176,10 @@ const SalesPage = ({ sales, clients, products, userId }) => {
   });
 
   const handleDeleteSale = async (id) => {
-    if (window.confirm("Are you sure you want to delete this sale?")) {
+    if (window.confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
       try {
         await deleteDoc(doc(db, `users/${userId}/sales`, id));
+        
         // Check if this sale has an associated debt and delete it
         const debtsQuery = query(
           collection(db, `users/${userId}/debts`),
@@ -150,28 +191,50 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         });
       } catch (err) {
         console.error("Error deleting sale:", err);
+        alert("Failed to delete sale. Please try again.");
       }
     }
   };
 
+  // Calculate summary statistics
+  const salesSummary = useMemo(() => {
+    const totalSales = sales.length;
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalPaid = sales.reduce((sum, sale) => sum + sale.amountPaid, 0);
+    const totalOutstanding = totalRevenue - totalPaid;
+    
+    return {
+      totalSales,
+      totalRevenue,
+      totalPaid,
+      totalOutstanding
+    };
+  }, [sales]);
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
+          <p className="text-sm text-neutral-600 mt-1">
+            Manage your sales transactions and track payments
+          </p>
+        </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <button
             onClick={() => {
               setEditingSale(null);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             <span>Add Sale</span>
           </button>
           <button
             onClick={() => setShowProductForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-green-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             <span>Add Product</span>
@@ -179,23 +242,57 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search sales..."
-              value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-            />
-            {globalFilter && (
-              <X
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400 cursor-pointer"
-                onClick={() => setGlobalFilter("")}
+      {/* Summary Cards */}
+      {sales.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Total Sales</div>
+            <div className="text-2xl font-bold text-neutral-900">{salesSummary.totalSales}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Total Revenue</div>
+            <div className="text-2xl font-bold text-primary">
+              UGX {salesSummary.totalRevenue.toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Amount Paid</div>
+            <div className="text-2xl font-bold text-green-600">
+              UGX {salesSummary.totalPaid.toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Outstanding</div>
+            <div className="text-2xl font-bold text-orange-600">
+              UGX {salesSummary.totalOutstanding.toLocaleString()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sales Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-neutral-200">
+        <div className="p-4 border-b border-neutral-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 className="text-lg font-semibold text-neutral-800">All Sales</h3>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search by client, product, or status..."
+                value={globalFilter ?? ""}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               />
-            )}
+              {globalFilter && (
+                <button
+                  onClick={() => setGlobalFilter("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -207,7 +304,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100"
+                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
                       onClick={header.column.getToggleSortingHandler()}
                     >
                       <div className="flex items-center gap-2">
@@ -215,10 +312,12 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                           header.column.columnDef.header,
                           header.getContext()
                         )}
-                        {{
-                          asc: ' ↑',
-                          desc: ' ↓',
-                        }[header.column.getIsSorted()] ?? null}
+                        <span className="text-neutral-400">
+                          {{
+                            asc: '↑',
+                            desc: '↓',
+                          }[header.column.getIsSorted()] ?? '↕'}
+                        </span>
                       </div>
                     </th>
                   ))}
@@ -227,9 +326,9 @@ const SalesPage = ({ sales, clients, products, userId }) => {
             </thead>
             <tbody className="bg-white divide-y divide-neutral-200">
               {table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="hover:bg-neutral-50">
+                <tr key={row.id} className="hover:bg-neutral-50 transition-colors">
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -243,12 +342,26 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         </div>
 
         {table.getRowModel().rows.length === 0 && (
-          <div className="text-center py-8 text-neutral-500">
-            {globalFilter ? "No matching sales found" : "No sales recorded yet"}
+          <div className="text-center py-12 text-neutral-500">
+            <div className="mb-2">
+              {globalFilter ? "No matching sales found" : "No sales recorded yet"}
+            </div>
+            {!globalFilter && (
+              <button
+                onClick={() => {
+                  setEditingSale(null);
+                  setShowForm(true);
+                }}
+                className="text-primary hover:text-blue-700 font-medium"
+              >
+                Create your first sale
+              </button>
+            )}
           </div>
         )}
       </div>
 
+      {/* Sales Form Modal */}
       {showForm && (
         <SalesForm
           sale={editingSale}
@@ -262,31 +375,42 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         />
       )}
 
+      {/* Add Product Modal */}
       {showProductForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-neutral-800">Add New Product</h3>
               <button
-                onClick={() => setShowProductForm(false)}
-                className="text-neutral-400 hover:text-neutral-600"
+                onClick={() => {
+                  setShowProductForm(false);
+                  setNewProduct({ name: "", price: "" });
+                }}
+                className="text-neutral-400 hover:text-neutral-600 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
+            
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Product Name</label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={newProduct.name}
                   onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  placeholder="Enter product name"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Default Price (UGX)</label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Default Price (UGX) <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
                   value={newProduct.price}
@@ -294,20 +418,26 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                   required
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 />
               </div>
+              
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowProductForm(false)}
-                  className="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
+                  onClick={() => {
+                    setShowProductForm(false);
+                    setNewProduct({ name: "", price: "" });
+                  }}
+                  className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700"
+                  disabled={!newProduct.name.trim() || !newProduct.price}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
                 >
                   Add Product
                 </button>
