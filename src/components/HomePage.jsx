@@ -1,75 +1,210 @@
-import React, { useMemo } from "react";
-import { format } from "date-fns";
-import BalanceSummary from "./BalanceSummary";
-import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+// src/components/HomePage.jsx
+import React, { useState, useEffect } from "react";
+import { format, startOfDay, endOfDay } from "date-fns";
+import { Bar, Pie } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
+import { CreditCard, ShoppingCart, TrendingDown, AlertCircle } from "lucide-react";
 
-function HomePage({ sales, debts, expenses, clients, userId }) {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const dailySales = useMemo(
-    () => sales.filter((s) => format(new Date(s.date), "yyyy-MM-dd") === today),
-    [sales, today]
-  );
-  const totalSales = useMemo(
-    () => dailySales.reduce((sum, s) => sum + s.totalAmount, 0),
-    [dailySales]
-  );
-  const totalPaid = useMemo(
-    () => dailySales.reduce((sum, s) => sum + s.amountPaid, 0),
-    [dailySales]
-  );
-  const totalDebts = useMemo(
-    () => debts.reduce((sum, d) => (d.status === "outstanding" ? sum + d.amount : sum), 0),
-    [debts]
-  );
-  const totalExpenses = useMemo(
-    () => expenses.reduce((sum, e) => sum + e.amount, 0),
-    [expenses]
-  );
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+
+const HomePage = ({ sales, debts, expenses, clients, products, categories }) => {
+  const [todaySales, setTodaySales] = useState([]);
+  const [todayDebts, setTodayDebts] = useState([]);
+  const [todayExpenses, setTodayExpenses] = useState([]);
+
+  useEffect(() => {
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    setTodaySales(
+      sales.filter(s => {
+        const saleDate = s.date.toDate();
+        return saleDate >= todayStart && saleDate <= todayEnd;
+      })
+    );
+
+    setTodayDebts(
+      debts.filter(d => {
+        const debtDate = d.date.toDate();
+        return debtDate >= todayStart && debtDate <= todayEnd;
+      })
+    );
+
+    setTodayExpenses(
+      expenses.filter(e => {
+        const expenseDate = e.date.toDate();
+        return expenseDate >= todayStart && expenseDate <= todayEnd;
+      })
+    );
+  }, [sales, debts, expenses]);
+
+  const totalTodaySales = todaySales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalTodayPaid = todaySales.reduce((sum, sale) => sum + sale.amountPaid, 0);
+  const totalTodayDebts = todayDebts.reduce((sum, debt) => sum + debt.amount, 0);
+  const totalTodayExpenses = todayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const todayBalance = totalTodayPaid - totalTodayExpenses;
+
+  const salesChartData = {
+    labels: ["Sales", "Paid", "Debts"],
+    datasets: [
+      {
+        label: "Amount (UGX)",
+        data: [totalTodaySales, totalTodayPaid, totalTodayDebts],
+        backgroundColor: [
+          "rgba(59, 130, 246, 0.7)",
+          "rgba(16, 185, 129, 0.7)",
+          "rgba(239, 68, 68, 0.7)",
+        ],
+        borderColor: [
+          "rgba(59, 130, 246, 1)",
+          "rgba(16, 185, 129, 1)",
+          "rgba(239, 68, 68, 1)",
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const expensesChartData = {
+    labels: todayExpenses.map(e => e.category),
+    datasets: [
+      {
+        data: todayExpenses.map(e => e.amount),
+        backgroundColor: [
+          "rgba(255, 99, 132, 0.7)",
+          "rgba(54, 162, 235, 0.7)",
+          "rgba(255, 206, 86, 0.7)",
+          "rgba(75, 192, 192, 0.7)",
+          "rgba(153, 102, 255, 0.7)",
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-neutral-800">Dashboard</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-primary" />
-            <h3 className="text-lg font-semibold text-neutral-700">Daily Sales</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-600">Today's Sales</p>
+              <p className="text-2xl font-bold">UGX {totalTodaySales.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-primary/10 rounded-full">
+              <ShoppingCart className="w-6 h-6 text-primary" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-neutral-800 mt-2">
-            UGX {totalSales.toLocaleString()}
-          </p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-success-600" />
-            <h3 className="text-lg font-semibold text-neutral-700">Total Paid</h3>
+
+        <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-600">Today's Paid</p>
+              <p className="text-2xl font-bold">UGX {totalTodayPaid.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-success/10 rounded-full">
+              <CreditCard className="w-6 h-6 text-success" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-neutral-800 mt-2">
-            UGX {totalPaid.toLocaleString()}
-          </p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-error-600" />
-            <h3 className="text-lg font-semibold text-neutral-700">Outstanding Debts</h3>
+
+        <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-600">Today's Debts</p>
+              <p className="text-2xl font-bold">UGX {totalTodayDebts.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-error/10 rounded-full">
+              <AlertCircle className="w-6 h-6 text-error" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-neutral-800 mt-2">
-            UGX {totalDebts.toLocaleString()}
-          </p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-          <div className="flex items-center gap-2">
-            <TrendingDown className="w-6 h-6 text-neutral-600" />
-            <h3 className="text-lg font-semibold text-neutral-700">Total Expenses</h3>
+
+        <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-neutral-600">Today's Expenses</p>
+              <p className="text-2xl font-bold">UGX {totalTodayExpenses.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-secondary/10 rounded-full">
+              <TrendingDown className="w-6 h-6 text-secondary" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-neutral-800 mt-2">
-            UGX {totalExpenses.toLocaleString()}
-          </p>
         </div>
       </div>
-      <BalanceSummary sales={sales} debts={debts} expenses={expenses} />
+
+      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Today's Summary</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-md font-medium text-neutral-700 mb-2">Sales Overview</h4>
+            <div className="h-64">
+              <Bar
+                data={salesChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "top",
+                    },
+                    title: {
+                      display: true,
+                      text: "Today's Sales, Paid Amount, and Debts",
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <h4 className="text-md font-medium text-neutral-700 mb-2">Expenses Breakdown</h4>
+            <div className="h-64">
+              <Pie
+                data={expensesChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "right",
+                    },
+                    title: {
+                      display: true,
+                      text: "Today's Expenses by Category",
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Quick Stats</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-neutral-50 rounded-lg p-4">
+            <p className="text-sm text-neutral-600">Total Clients</p>
+            <p className="text-2xl font-bold">{clients.length}</p>
+          </div>
+          <div className="bg-neutral-50 rounded-lg p-4">
+            <p className="text-sm text-neutral-600">Total Products</p>
+            <p className="text-2xl font-bold">{products.length}</p>
+          </div>
+          <div className="bg-neutral-50 rounded-lg p-4">
+            <p className="text-sm text-neutral-600">Today's Balance</p>
+            <p className={`text-2xl font-bold ${todayBalance >= 0 ? "text-success-600" : "text-error-600"}`}>
+              UGX {todayBalance.toLocaleString()}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+};
 
 export default HomePage;
