@@ -1,312 +1,566 @@
-import React, { useState, useEffect } from "react";
-import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
+import React, { useState, useEffect, useMemo } from "react";
+import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import AutocompleteInput from "./AutocompleteInput";
-import { ArrowLeft, Save } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X } from "lucide-react";
+import { 
+  useReactTable, 
+  getCoreRowModel, 
+  getFilteredRowModel, 
+  getSortedRowModel,
+  flexRender 
+} from "@tanstack/react-table";
 import { format } from "date-fns";
+import AutocompleteInput from "./AutocompleteInput";
+import SalesForm from "./SalesForm";
 
-const SalesForm = ({ sale, clients, products, userId, onClose }) => {
-  const [formData, setFormData] = useState({
-    client: sale?.client || "",
-    product: sale?.product || "",
-    quantity: sale?.quantity || 1,
-    unitPrice: sale?.unitPrice || 0,
-    discount: sale?.discount || 0,
-    totalAmount: sale?.totalAmount || 0,
-    paymentStatus: sale?.paymentStatus || "unpaid",
-    amountPaid: sale?.amountPaid || 0,
-    notes: sale?.notes || "",
-    date: sale?.date?.toDate() || new Date(),
-  });
+const SalesPage = ({ sales, clients, products, userId }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [editingSale, setEditingSale] = useState(null);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: "", price: "" });
+  const [newClient, setNewClient] = useState({ name: "", phone: "", email: "" });
 
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (formData.product) {
-      const selectedProduct = products.find(p => p.name === formData.product);
-      if (selectedProduct) {
-        setFormData(prev => ({
-          ...prev,
-          unitPrice: selectedProduct.price,
-          totalAmount: (prev.quantity * selectedProduct.price) - (prev.discount || 0)
-        }));
-      }
-    }
-  }, [formData.product, products]);
-
-  useEffect(() => {
-    const newTotal = (formData.quantity * formData.unitPrice) - formData.discount;
-    setFormData(prev => ({
-      ...prev,
-      totalAmount: newTotal > 0 ? newTotal : 0,
-      amountPaid: prev.paymentStatus === "unpaid" ? 0 : 
-                 prev.paymentStatus === "paid" ? newTotal : prev.amountPaid
-    }));
-  }, [formData.quantity, formData.unitPrice, formData.discount, formData.paymentStatus]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === "quantity" || name === "unitPrice" || name === "discount" || name === "amountPaid" 
-        ? parseFloat(value) || 0 
-        : value
-    }));
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.client.trim()) newErrors.client = "Client is required";
-    if (!formData.product) newErrors.product = "Product is required";
-    if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0";
-    if (formData.unitPrice <= 0) newErrors.unitPrice = "Unit price must be greater than 0";
-    if (formData.discount < 0) newErrors.discount = "Discount cannot be negative";
-    if (formData.totalAmount < 0) newErrors.totalAmount = "Total amount cannot be negative";
-    if (formData.paymentStatus === "partial" && formData.amountPaid <= 0) {
-      newErrors.amountPaid = "Partial payment must be greater than 0";
-    }
-    if (formData.paymentStatus === "partial" && formData.amountPaid >= formData.totalAmount) {
-      newErrors.amountPaid = "Partial payment must be less than total amount";
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
+  const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
+    if (!newProduct.name.trim() || !newProduct.price) return;
+    
     try {
-      const saleData = {
-        ...formData,
-        client: formData.client.trim(),
+      await addDoc(collection(db, `users/${userId}/products`), {
+        name: newProduct.name.trim(),
+        price: parseFloat(newProduct.price),
         createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      if (sale) {
-        await updateDoc(doc(db, `users/${userId}/sales`, sale.id), saleData);
-      } else {
-        await addDoc(collection(db, `users/${userId}/sales`), saleData);
-      }
-      onClose();
+        updatedAt: new Date()
+      });
+      setNewProduct({ name: "", price: "" });
+      setShowProductForm(false);
     } catch (err) {
-      console.error("Error saving sale:", err);
-      setErrors({ submit: "Failed to save sale. Please try again." });
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error adding product:", err);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-neutral-50">
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-40">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-neutral-600" />
-              </button>
-              <h1 className="text-xl font-semibold text-neutral-800">
-                {sale ? "Edit Sale" : "New Sale"}
-              </h1>
-            </div>
+  const handleAddClient = async (e) => {
+    e.preventDefault();
+    if (!newClient.name.trim()) return;
+    
+    try {
+      await addDoc(collection(db, `users/${userId}/clients`), {
+        name: newClient.name.trim(),
+        phone: newClient.phone.trim(),
+        email: newClient.email.trim(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      setNewClient({ name: "", phone: "", email: "" });
+      setShowClientForm(false);
+    } catch (err) {
+      console.error("Error adding client:", err);
+    }
+  };
+
+  const columns = useMemo(
+    () => [
+      {
+        header: "Client",
+        accessorKey: "client",
+        cell: info => (
+          <div className="font-medium text-neutral-900">
+            {info.getValue()}
+          </div>
+        ),
+      },
+      {
+        header: "Product",
+        accessorKey: "product",
+        cell: info => (
+          <div className="text-neutral-800">
+            {info.getValue()}
+          </div>
+        ),
+      },
+      {
+        header: "Quantity",
+        accessorKey: "quantity",
+        cell: info => (
+          <div className="text-center font-medium">
+            {info.getValue()}
+          </div>
+        ),
+      },
+      {
+        header: "Unit Price",
+        accessorKey: "unitPrice",
+        cell: info => (
+          <div className="font-mono text-sm">
+            UGX {info.getValue().toLocaleString()}
+          </div>
+        ),
+      },
+      {
+        header: "Discount",
+        accessorKey: "discount",
+        cell: info => (
+          <div className="font-mono text-sm text-orange-600">
+            {info.getValue() > 0 ? `-UGX ${info.getValue().toLocaleString()}` : '-'}
+          </div>
+        ),
+      },
+      {
+        header: "Total",
+        accessorKey: "totalAmount",
+        cell: info => (
+          <div className="font-mono font-semibold text-primary">
+            UGX {info.getValue().toLocaleString()}
+          </div>
+        ),
+      },
+      {
+        header: "Payment Status",
+        accessorKey: "paymentStatus",
+        cell: info => (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            info.getValue() === 'paid' ? 'bg-green-100 text-green-800' :
+            info.getValue() === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-red-100 text-red-800'
+          }`}>
+            {info.getValue().charAt(0).toUpperCase() + info.getValue().slice(1)}
+          </span>
+        ),
+      },
+      {
+        header: "Amount Paid",
+        accessorKey: "amountPaid",
+        cell: info => (
+          <div className="font-mono text-sm">
+            UGX {info.getValue().toLocaleString()}
+          </div>
+        ),
+      },
+      {
+        header: "Date",
+        accessorKey: "date",
+        cell: info => (
+          <div className="text-sm text-neutral-600">
+            {format(info.getValue().toDate(), 'MMM dd, yyyy')}
+          </div>
+        ),
+      },
+      {
+        header: "Actions",
+        cell: info => (
+          <div className="flex gap-1">
             <button
-              type="submit"
-              form="sales-form"
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+              onClick={() => {
+                setEditingSale(info.row.original);
+                setShowForm(true);
+              }}
+              className="p-2 text-neutral-500 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+              title="Edit sale"
             >
-              <Save className="w-4 h-4" />
-              {isSubmitting ? "Saving..." : "Save"}
+              <Edit className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleDeleteSale(info.row.original.id)}
+              className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete sale"
+            >
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
+        ),
+      },
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: sales,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    globalFilterFn: (row, columnId, filterValue) => {
+      const client = row.getValue('client')?.toLowerCase() || '';
+      const product = row.getValue('product')?.toLowerCase() || '';
+      const paymentStatus = row.getValue('paymentStatus')?.toLowerCase() || '';
+      const searchTerm = filterValue.toLowerCase();
+      return client.includes(searchTerm) || 
+             product.includes(searchTerm) || 
+             paymentStatus.includes(searchTerm);
+    },
+    state: {
+      globalFilter,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+  });
+
+  const handleDeleteSale = async (id) => {
+    if (window.confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
+      try {
+        await deleteDoc(doc(db, `users/${userId}/sales`, id));
+        
+        // Check if this sale has an associated debt and delete it
+        const debtsQuery = query(
+          collection(db, `users/${userId}/debts`),
+          where("saleId", "==", id)
+        );
+        const querySnapshot = await getDocs(debtsQuery);
+        querySnapshot.forEach(async (doc) => {
+          await deleteDoc(doc.ref);
+        });
+      } catch (err) {
+        console.error("Error deleting sale:", err);
+        alert("Failed to delete sale. Please try again.");
+      }
+    }
+  };
+
+  // Calculate summary statistics
+  const salesSummary = useMemo(() => {
+    const totalSales = sales.length;
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalPaid = sales.reduce((sum, sale) => sum + sale.amountPaid, 0);
+    const totalOutstanding = totalRevenue - totalPaid;
+    
+    return {
+      totalSales,
+      totalRevenue,
+      totalPaid,
+      totalOutstanding
+    };
+  }, [sales]);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
+          <p className="text-sm text-neutral-600 mt-1">
+            Manage your sales transactions and track payments
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => {
+              setEditingSale(null);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Sale</span>
+          </button>
+          <button
+            onClick={() => setShowProductForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Product</span>
+          </button>
+          <button
+            onClick={() => setShowClientForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add Client</span>
+          </button>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-          {errors.submit && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
-              {errors.submit}
+      {/* Summary Cards */}
+      {sales.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Total Sales</div>
+            <div className="text-2xl font-bold text-neutral-900">{salesSummary.totalSales}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Total Revenue</div>
+            <div className="text-2xl font-bold text-primary">
+              UGX {salesSummary.totalRevenue.toLocaleString()}
             </div>
-          )}
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Amount Paid</div>
+            <div className="text-2xl font-bold text-green-600">
+              UGX {salesSummary.totalPaid.toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Outstanding</div>
+            <div className="text-2xl font-bold text-orange-600">
+              UGX {salesSummary.totalOutstanding.toLocaleString()}
+            </div>
+          </div>
+        </div>
+      )}
 
-          <form id="sales-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Client <span className="text-red-500">*</span>
-                </label>
-                <AutocompleteInput
-                  options={clients}
-                  value={formData.client}
-                  onChange={(value) => setFormData({ ...formData, client: value })}
-                  placeholder="Select or enter client name"
-                />
-                {errors.client && <p className="mt-1 text-sm text-red-600">{errors.client}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Product <span className="text-red-500">*</span>
-                </label>
-                <AutocompleteInput
-                  options={products.map(p => p.name)}
-                  value={formData.product}
-                  onChange={(value) => setFormData({ ...formData, product: value })}
-                  placeholder="Select or enter product"
-                />
-                {errors.product && <p className="mt-1 text-sm text-red-600">{errors.product}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Quantity <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="quantity"
-                  value={formData.quantity}
-                  onChange={handleChange}
-                  min="1"
-                  step="1"
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Unit Price (UGX) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="unitPrice"
-                  value={formData.unitPrice}
-                  onChange={handleChange}
-                  min="0"
-                  step="0.01"
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                {errors.unitPrice && <p className="mt-1 text-sm text-red-600">{errors.unitPrice}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Discount (UGX)
-                </label>
-                <input
-                  type="number"
-                  name="discount"
-                  value={formData.discount}
-                  onChange={handleChange}
-                  min="0"
-                  step="0.01"
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                {errors.discount && <p className="mt-1 text-sm text-red-600">{errors.discount}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Total Amount (UGX)
-                </label>
-                <div className="px-4 py-3 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-700 font-medium">
-                  UGX {formData.totalAmount.toLocaleString()}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Payment Status
-                </label>
-                <select
-                  name="paymentStatus"
-                  value={formData.paymentStatus}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+      {/* Sales Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-neutral-200">
+        <div className="p-4 border-b border-neutral-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 className="text-lg font-semibold text-neutral-800">All Sales</h3>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search by client, product, or status..."
+                value={globalFilter ?? ""}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              />
+              {globalFilter && (
+                <button
+                  onClick={() => setGlobalFilter("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
                 >
-                  <option value="paid">Paid</option>
-                  <option value="partial">Partial</option>
-                  <option value="unpaid">Unpaid</option>
-                </select>
-              </div>
-
-              {formData.paymentStatus !== "unpaid" && (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
-                    Amount Paid (UGX)
-                  </label>
-                  <input
-                    type="number"
-                    name="amountPaid"
-                    value={formData.amountPaid}
-                    onChange={handleChange}
-                    min="0"
-                    max={formData.paymentStatus === "partial" ? formData.totalAmount - 0.01 : undefined}
-                    step="0.01"
-                    className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                  {errors.amountPaid && <p className="mt-1 text-sm text-red-600">{errors.amountPaid}</p>}
-                </div>
+                  <X className="w-4 h-4" />
+                </button>
               )}
+            </div>
+          </div>
+        </div>
 
-              <div className="sm:col-span-2">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-neutral-200">
+            <thead className="bg-neutral-50">
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th
+                      key={header.id}
+                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <div className="flex items-center gap-2">
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                        <span className="text-neutral-400">
+                          {{
+                            asc: '↑',
+                            desc: '↓',
+                          }[header.column.getIsSorted()] ?? '↕'}
+                        </span>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="bg-white divide-y divide-neutral-200">
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id} className="hover:bg-neutral-50 transition-colors">
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {table.getRowModel().rows.length === 0 && (
+          <div className="text-center py-12 text-neutral-500">
+            <div className="mb-2">
+              {globalFilter ? "No matching sales found" : "No sales recorded yet"}
+            </div>
+            {!globalFilter && (
+              <button
+                onClick={() => {
+                  setEditingSale(null);
+                  setShowForm(true);
+                }}
+                className="text-primary hover:text-blue-700 font-medium"
+              >
+                Create your first sale
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sales Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto">
+            <SalesForm
+              sale={editingSale}
+              clients={clients}
+              products={products}
+              userId={userId}
+              onClose={() => {
+                setShowForm(false);
+                setEditingSale(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Add Product Modal */}
+      {showProductForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-neutral-800">Add New Product</h3>
+              <button
+                onClick={() => {
+                  setShowProductForm(false);
+                  setNewProduct({ name: "", price: "" });
+                }}
+                className="text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Date
+                  Product Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="datetime-local"
-                  name="date"
-                  value={format(formData.date, "yyyy-MM-dd'T'HH:mm")}
-                  onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  type="text"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  required
+                  placeholder="Enter product name"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 />
               </div>
-
-              <div className="sm:col-span-2">
+              
+              <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Notes
+                  Default Price (UGX) <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows="4"
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
-                  placeholder="Additional notes about this sale..."
+                <input
+                  type="number"
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                  required
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                 />
               </div>
-            </div>
-
-            <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
-              <h3 className="font-medium text-neutral-800 mb-3">Sale Summary</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">Subtotal:</span>
-                  <span className="font-medium">UGX {(formData.quantity * formData.unitPrice).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">Discount:</span>
-                  <span className="font-medium">-UGX {formData.discount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-lg sm:col-span-2 pt-2 border-t border-neutral-300">
-                  <span>Total:</span>
-                  <span className="text-primary">UGX {formData.totalAmount.toLocaleString()}</span>
-                </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProductForm(false);
+                    setNewProduct({ name: "", price: "" });
+                  }}
+                  className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newProduct.name.trim() || !newProduct.price}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add Product
+                </button>
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Add Client Modal */}
+      {showClientForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-neutral-800">Add New Client</h3>
+              <button
+                onClick={() => {
+                  setShowClientForm(false);
+                  setNewClient({ name: "", phone: "", email: "" });
+                }}
+                className="text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddClient} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Client Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                  required
+                  placeholder="Enter client name"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={newClient.phone}
+                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                  placeholder="Enter phone number"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={newClient.email}
+                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                  placeholder="Enter email address"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowClientForm(false);
+                    setNewClient({ name: "", phone: "", email: "" });
+                  }}
+                  className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newClient.name.trim()}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add Client
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default SalesForm;
+export default SalesPage;
