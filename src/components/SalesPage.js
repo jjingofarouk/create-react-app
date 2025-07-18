@@ -3,7 +3,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X } from "lucide-react";
-import { useReactTable, useFilters, useSortBy } from "@tanstack/react-table";
+import { 
+  useReactTable, 
+  getCoreRowModel, 
+  getFilteredRowModel, 
+  getSortedRowModel,
+  flexRender 
+} from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import SalesForm from "./SalesForm";
@@ -11,19 +17,9 @@ import SalesForm from "./SalesForm";
 const SalesPage = ({ sales, clients, products, userId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
-  const [filter, setFilter] = useState("");
-  const [filteredSales, setFilteredSales] = useState(sales);
+  const [globalFilter, setGlobalFilter] = useState("");
   const [showProductForm, setShowProductForm] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", price: "" });
-
-  useEffect(() => {
-    const filtered = sales.filter(sale => {
-      const matchesClient = sale.client?.toLowerCase().includes(filter.toLowerCase());
-      const matchesProduct = sale.product?.toLowerCase().includes(filter.toLowerCase());
-      return matchesClient || matchesProduct;
-    });
-    setFilteredSales(filtered);
-  }, [filter, sales]);
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
@@ -121,14 +117,23 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     []
   );
 
-  const table = useReactTable(
-    {
-      columns,
-      data: filteredSales,
+  const table = useReactTable({
+    data: sales,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    globalFilterFn: (row, columnId, filterValue) => {
+      const client = row.getValue('client')?.toLowerCase() || '';
+      const product = row.getValue('product')?.toLowerCase() || '';
+      const searchTerm = filterValue.toLowerCase();
+      return client.includes(searchTerm) || product.includes(searchTerm);
     },
-    useFilters,
-    useSortBy
-  );
+    state: {
+      globalFilter,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+  });
 
   const handleDeleteSale = async (id) => {
     if (window.confirm("Are you sure you want to delete this sale?")) {
@@ -181,14 +186,14 @@ const SalesPage = ({ sales, clients, products, userId }) => {
             <input
               type="text"
               placeholder="Search sales..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all"
             />
-            {filter && (
+            {globalFilter && (
               <X
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400 cursor-pointer"
-                onClick={() => setFilter("")}
+                onClick={() => setGlobalFilter("")}
               />
             )}
           </div>
@@ -202,9 +207,19 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100"
+                      onClick={header.column.getToggleSortingHandler()}
                     >
-                      {header.column.columnDef.header}
+                      <div className="flex items-center gap-2">
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                        {{
+                          asc: ' ↑',
+                          desc: ' ↓',
+                        }[header.column.getIsSorted()] ?? null}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -215,7 +230,10 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                 <tr key={row.id} className="hover:bg-neutral-50">
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                      {cell.renderCell()}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -224,9 +242,9 @@ const SalesPage = ({ sales, clients, products, userId }) => {
           </table>
         </div>
 
-        {filteredSales.length === 0 && (
+        {table.getRowModel().rows.length === 0 && (
           <div className="text-center py-8 text-neutral-500">
-            {filter ? "No matching sales found" : "No sales recorded yet"}
+            {globalFilter ? "No matching sales found" : "No sales recorded yet"}
           </div>
         )}
       </div>
