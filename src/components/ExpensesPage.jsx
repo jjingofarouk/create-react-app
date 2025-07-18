@@ -1,106 +1,81 @@
-import React, { useState } from "react";
-import { db, addDoc, collection } from "../firebase";
+// src/components/ExpensesPage.jsx
+import React, { useState, useMemo } from "react";
+import ExpenseForm from "./ExpenseForm";
 import TransactionTable from "./TransactionTable";
-import AutocompleteInput from "./AutocompleteInput";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { TrendingDown } from "lucide-react";
 
-function ExpensesPage({ transactions, clients, categories, userId }) {
-  const [amount, setAmount] = useState("");
-  const [client, setClient] = useState("");
-  const [category, setCategory] = useState("");
-  const [loading, setLoading] = useState(false);
+function ExpensesPage({ expenses, categories, payees, userId }) {
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterDate, setFilterDate] = useState("all");
 
-  const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!amount || isNaN(amount) || amount <= 0) {
-      alert("Please enter a valid amount");
-      return;
+  const filteredExpenses = useMemo(() => {
+    let filtered = expenses;
+    if (filterCategory) {
+      filtered = filtered.filter((e) => e.category.toLowerCase().includes(filterCategory.toLowerCase()));
     }
-
-    setLoading(true);
-    try {
-      await addDoc(collection(db, `users/${userId}/transactions`), {
-        type: "expense",
-        amount: parseFloat(amount),
-        client: client || null,
-        category: category || null,
-        timestamp: new Date().toISOString(),
-      });
-      setAmount("");
-      setClient("");
-      setCategory("");
-    } catch (error) {
-      console.error("Error adding expense:", error);
-      alert("Error adding expense. Please try again.");
-    } finally {
-      setLoading(false);
+    if (filterDate === "today") {
+      const today = new Date();
+      filtered = filtered.filter(
+        (e) => new Date(e.date) >= startOfDay(today) && new Date(e.date) <= endOfDay(today)
+      );
+    } else if (filterDate === "week") {
+      const weekStart = startOfWeek(new Date());
+      const weekEnd = endOfWeek(new Date());
+      filtered = filtered.filter(
+        (e) => new Date(e.date) >= weekStart && new Date(e.date) <= weekEnd
+      );
+    } else if (filterDate === "month") {
+      const monthStart = startOfMonth(new Date());
+      const monthEnd = endOfMonth(new Date());
+      filtered = filtered.filter(
+        (e) => new Date(e.date) >= monthStart && new Date(e.date) <= monthEnd
+      );
     }
-  };
+    return filtered;
+  }, [expenses, filterCategory, filterDate]);
+
+  const totalExpenses = useMemo(
+    () => filteredExpenses.reduce((sum, e) => sum + e.amount, 0),
+    [filteredExpenses]
+  );
 
   return (
-    <div className="grid grid-cols-1 gap-6">
-      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingDown className="w-6 h-6 text-primary" />
-          <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
-            Add Expense
-          </h2>
-        </div>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400">UGX</span>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Amount"
-              required
-              disabled={loading}
-              step="0.01"
-              min="0"
-              className="w-full pl-10 pr-4 py-3 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-neutral-800 placeholder-neutral-400 disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-          </div>
-          <AutocompleteInput
-            value={client}
-            onChange={setClient}
-            suggestions={clients}
-            placeholder="Client Name"
-            disabled={loading}
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-neutral-800 flex items-center gap-2">
+        <TrendingDown className="w-6 h-6 text-primary" />
+        Expenses
+      </h2>
+      <ExpenseForm categories={categories} payees={payees} userId={userId} />
+      <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
+        <h3 className="text-lg font-semibold text-neutral-700 mb-4">Filters</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <input
+            type="text"
+            placeholder="Filter by category"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
           />
-          <AutocompleteInput
-            value={category}
-            onChange={setCategory}
-            suggestions={categories}
-            placeholder="Category (e.g., Fuel)"
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full sm:col-span-2 py-3 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-neutral-500 disabled:hover:shadow-none disabled:hover:translate-y-0"
+          <select
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
           >
-            <TrendingDown className="w-5 h-5" />
-            {loading ? "Adding..." : "Add Expense"}
-          </button>
-        </form>
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingDown className="w-6 h-6 text-primary" />
-            <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
-              Expense Records
-            </h2>
-          </div>
-          <div className="text-sm font-semibold text-neutral-800">
-            Total: UGX {totalExpenses.toLocaleString()}
-          </div>
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+          </select>
         </div>
-        <TransactionTable transactions={transactions} />
       </div>
+      <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
+        <h3 className="text-lg font-semibold text-neutral-700">Total Expenses</h3>
+        <p className="text-2xl font-bold text-neutral-800 mt-2">
+          UGX {totalExpenses.toLocaleString()}
+        </p>
+      </div>
+      <TransactionTable expenses={filteredExpenses} userId={userId} />
     </div>
   );
 }
