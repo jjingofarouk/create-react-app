@@ -4,6 +4,7 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   useReactTable,
+  flexRender,
 } from "@tanstack/react-table";
 import { Search } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
