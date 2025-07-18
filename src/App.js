@@ -4,6 +4,7 @@ import HomePage from "./components/HomePage";
 import IncomePage from "./components/IncomePage";
 import ExpensesPage from "./components/ExpensesPage";
 import DebtsPage from "./components/DebtsPage";
+import ProfilePage from "./components/ProfilePage";
 import ReportsPage from "./components/ReportsPage";
 import Auth from "./components/Auth";
 import { Home, DollarSign, TrendingUp, TrendingDown, FileText, User, AlertCircle } from "lucide-react";
