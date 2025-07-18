@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyMoney - Offline</title>
+  <link href="/src/output.css" rel="stylesheet">
+</head>
+<body class="bg-neutral-50 flex items-center justify-center min-h-screen">
+  <div class="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 text-center max-w-md mx-4">
+    <h1 class="text-2xl font-semibold text-neutral-800 mb-4">You're Offline</h1>
+    <p class="text-neutral-600 mb-4">Please check your internet connection and try again.</p>
+    <button 
+      class="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
+      onclick="window.location.reload()"
+    >
+      Retry
+    </button>
+  </div>
+</body>
+</html>
