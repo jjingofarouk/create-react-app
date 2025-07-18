@@ -1,4 +1,3 @@
-// src/components/SalesForm.jsx
 import React, { useState, useEffect } from "react";
 import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
@@ -58,7 +57,7 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.client) newErrors.client = "Client is required";
+    if (!formData.client.trim()) newErrors.client = "Client is required";
     if (!formData.product) newErrors.product = "Product is required";
     if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0";
     if (formData.unitPrice <= 0) newErrors.unitPrice = "Unit price must be greater than 0";
@@ -82,15 +81,14 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
     try {
       const saleData = {
         ...formData,
+        client: formData.client.trim(),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
       if (sale) {
-        // Update existing sale
         await updateDoc(doc(db, `users/${userId}/sales`, sale.id), saleData);
       } else {
-        // Add new sale
         await addDoc(collection(db, `users/${userId}/sales`), saleData);
       }
       onClose();
@@ -103,10 +101,9 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-20">
-      {/* Header */}
+    <div className="min-h-screen bg-neutral-50">
       <div className="bg-white border-b border-neutral-200 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -132,9 +129,8 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
         </div>
       </div>
 
-      {/* Form Content */}
-      <div className="max-w-3xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
           {errors.submit && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
               {errors.submit}
@@ -142,7 +138,7 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
           )}
 
           <form id="sales-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Client <span className="text-red-500">*</span>
@@ -261,7 +257,7 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                 </div>
               )}
 
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Date
                 </label>
@@ -274,7 +270,7 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Notes
                 </label>
@@ -289,10 +285,9 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
               </div>
             </div>
 
-            {/* Summary Card */}
             <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
               <h3 className="font-medium text-neutral-800 mb-3">Sale Summary</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-neutral-600">Subtotal:</span>
                   <span className="font-medium">UGX {(formData.quantity * formData.unitPrice).toLocaleString()}</span>
@@ -301,7 +296,7 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                   <span className="text-neutral-600">Discount:</span>
                   <span className="font-medium">-UGX {formData.discount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between font-semibold text-lg col-span-2 pt-2 border-t border-neutral-300">
+                <div className="flex justify-between font-semibold text-lg sm:col-span-2 pt-2 border-t border-neutral-300">
                   <span>Total:</span>
                   <span className="text-primary">UGX {formData.totalAmount.toLocaleString()}</span>
                 </div>
