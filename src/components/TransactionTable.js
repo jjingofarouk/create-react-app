@@ -1,6 +1,6 @@
 // src/components/TransactionTable.jsx
-import React, { useMemo, useState } from "react";
-import { useReactTable, useSortBy, useFilters, getCoreRowModel } from "@tanstack/react-table";
+import React, { useMemo, useState, useCallback } from "react";
+import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Edit, Trash2, DollarSign } from "lucide-react";
 import { db, setDoc, doc, deleteDoc } from "../firebase";
@@ -9,6 +9,88 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [error, setError] = useState("");
+
+  const handleDelete = useCallback(async (id, collection) => {
+    setError("");
+    try {
+      await deleteDoc(doc(db, `users/${userId}/${collection}`, id));
+      if (collection === "sales") {
+        await deleteDoc(doc(db, `users/${userId}/debts`, id));
+      }
+    } catch (err) {
+      setError("Failed to delete record. Please try again.");
+      console.error(err);
+    }
+  }, [userId]);
+
+  const handleEdit = useCallback(async () => {
+    setError("");
+    try {
+      if (editData.type === "sale") {
+        const saleRef = doc(db, `users/${userId}/sales`, editingId);
+        const remainingDebt = editData.totalAmount - editData.amountPaid;
+        await setDoc(
+          saleRef,
+          {
+            ...editData,
+            quantity: Number(editData.quantity),
+            unitPrice: Number(editData.unitPrice),
+            discount: Number(editData.discount),
+            totalAmount: Number(editData.totalAmount),
+            amountPaid: Number(editData.amountPaid),
+            remainingDebt,
+            date: new Date(editData.date).toISOString(),
+          },
+          { merge: true }
+        );
+
+        if (remainingDebt > 0 && editData.paymentStatus !== "paid") {
+          const debtRef = doc(db, `users/${userId}/debts`, editingId);
+          await setDoc(
+            debtRef,
+            {
+              debtor: editData.client,
+              amount: remainingDebt,
+              notes: editData.notes,
+              date: new Date(editData.date).toISOString(),
+              status: "outstanding",
+              saleId: editingId,
+            },
+            { merge: true }
+          );
+        } else {
+          await deleteDoc(doc(db, `users/${userId}/debts`, editingId));
+        }
+      } else if (editData.type === "debt") {
+        const debtRef = doc(db, `users/${userId}/debts`, editingId);
+        await setDoc(
+          debtRef,
+          {
+            ...editData,
+            amount: Number(editData.amount),
+            date: new Date(editData.date).toISOString(),
+          },
+          { merge: true }
+        );
+      } else if (editData.type === "expense") {
+        const expenseRef = doc(db, `users/${userId}/expenses`, editingId);
+        await setDoc(
+          expenseRef,
+          {
+            ...editData,
+            amount: Number(editData.amount),
+            date: new Date(editData.date).toISOString(),
+          },
+          { merge: true }
+        );
+      }
+      setEditingId(null);
+      setEditData({});
+    } catch (err) {
+      setError("Failed to update record. Please try again.");
+      console.error(err);
+    }
+  }, [editData, editingId, userId]);
 
   const data = useMemo(() => {
     if (sales.length) {
@@ -202,7 +284,7 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
       ];
     }
     return [];
-  }, [sales, debts, expenses, onDebtPayment]);
+  }, [sales, debts, expenses, onDebtPayment, handleDelete]);
 
   const table = useReactTable({
     data,
@@ -211,88 +293,6 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
     enableSorting: true,
     enableFilters: true,
   });
-
-  const handleEdit = async () => {
-    setError("");
-    try {
-      if (editData.type === "sale") {
-        const saleRef = doc(db, `users/${userId}/sales`, editingId);
-        const remainingDebt = editData.totalAmount - editData.amountPaid;
-        await setDoc(
-          saleRef,
-          {
-            ...editData,
-            quantity: Number(editData.quantity),
-            unitPrice: Number(editData.unitPrice),
-            discount: Number(editData.discount),
-            totalAmount: Number(editData.totalAmount),
-            amountPaid: Number(editData.amountPaid),
-            remainingDebt,
-            date: new Date(editData.date).toISOString(),
-          },
-          { merge: true }
-        );
-
-        if (remainingDebt > 0 && editData.paymentStatus !== "paid") {
-          const debtRef = doc(db, `users/${userId}/debts`, editingId);
-          await setDoc(
-            debtRef,
-            {
-              debtor: editData.client,
-              amount: remainingDebt,
-              notes: editData.notes,
-              date: new Date(editData.date).toISOString(),
-              status: "outstanding",
-              saleId: editingId,
-            },
-            { merge: true }
-          );
-        } else {
-          await deleteDoc(doc(db, `users/${userId}/debts`, editingId));
-        }
-      } else if (editData.type === "debt") {
-        const debtRef = doc(db, `users/${userId}/debts`, editingId);
-        await setDoc(
-          debtRef,
-          {
-            ...editData,
-            amount: Number(editData.amount),
-            date: new Date(editData.date).toISOString(),
-          },
-          { merge: true }
-        );
-      } else if (editData.type === "expense") {
-        const expenseRef = doc(db, `users/${userId}/expenses`, editingId);
-        await setDoc(
-          expenseRef,
-          {
-            ...editData,
-            amount: Number(editData.amount),
-            date: new Date(editData.date).toISOString(),
-          },
-          { merge: true }
-        );
-      }
-      setEditingId(null);
-      setEditData({});
-    } catch (err) {
-      setError("Failed to update record. Please try again.");
-      console.error(err);
-    }
-  };
-
-  const handleDelete = async (id, collection) => {
-    setError("");
-    try {
-      await deleteDoc(doc(db, `users/${userId}/${collection}`, id));
-      if (collection === "sales") {
-        await deleteDoc(doc(db, `users/${userId}/debts`, id));
-      }
-    } catch (err) {
-      setError("Failed to delete record. Please try again.");
-      console.error(err);
-    }
-  };
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200 overflow-x-auto">
@@ -348,21 +348,21 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                 <>
                   <input
                     type="text"
-                    value={editData.client}
+                    value={editData.client || ""}
                     onChange={(e) => setEditData({ ...editData, client: e.target.value })}
                     placeholder="Client"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <input
                     type="text"
-                    value={editData.product}
+                    value={editData.product || ""}
                     onChange={(e) => setEditData({ ...editData, product: e.target.value })}
                     placeholder="Product"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <input
                     type="number"
-                    value={editData.quantity}
+                    value={editData.quantity || ""}
                     onChange={(e) => setEditData({ ...editData, quantity: e.target.value })}
                     placeholder="Quantity"
                     min="1"
@@ -370,7 +370,7 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   />
                   <input
                     type="number"
-                    value={editData.unitPrice}
+                    value={editData.unitPrice || ""}
                     onChange={(e) => setEditData({ ...editData, unitPrice: e.target.value })}
                     placeholder="Unit Price (UGX)"
                     min="0"
@@ -378,7 +378,7 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   />
                   <input
                     type="number"
-                    value={editData.discount}
+                    value={editData.discount || ""}
                     onChange={(e) => setEditData({ ...editData, discount: e.target.value })}
                     placeholder="Discount (UGX)"
                     min="0"
@@ -386,14 +386,14 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   />
                   <input
                     type="number"
-                    value={editData.totalAmount}
+                    value={editData.totalAmount || ""}
                     onChange={(e) => setEditData({ ...editData, totalAmount: e.target.value })}
                     placeholder="Total Amount (UGX)"
                     min="0"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <select
-                    value={editData.paymentStatus}
+                    value={editData.paymentStatus || ""}
                     onChange={(e) => setEditData({ ...editData, paymentStatus: e.target.value })}
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   >
@@ -403,7 +403,7 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   </select>
                   <input
                     type="number"
-                    value={editData.amountPaid}
+                    value={editData.amountPaid || ""}
                     onChange={(e) => setEditData({ ...editData, amountPaid: e.target.value })}
                     placeholder="Amount Paid (UGX)"
                     min="0"
@@ -411,12 +411,12 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   />
                   <input
                     type="date"
-                    value={format(new Date(editData.date), "yyyy-MM-dd")}
+                    value={editData.date ? format(new Date(editData.date), "yyyy-MM-dd") : ""}
                     onChange={(e) => setEditData({ ...editData, date: e.target.value })}
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <textarea
-                    value={editData.notes}
+                    value={editData.notes || ""}
                     onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
                     placeholder="Notes"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
@@ -427,14 +427,14 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                 <>
                   <input
                     type="text"
-                    value={editData.debtor}
+                    value={editData.debtor || ""}
                     onChange={(e) => setEditData({ ...editData, debtor: e.target.value })}
                     placeholder="Debtor"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <input
                     type="number"
-                    value={editData.amount}
+                    value={editData.amount || ""}
                     onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
                     placeholder="Amount (UGX)"
                     min="0"
@@ -442,12 +442,12 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   />
                   <input
                     type="date"
-                    value={format(new Date(editData.date), "yyyy-MM-dd")}
+                    value={editData.date ? format(new Date(editData.date), "yyyy-MM-dd") : ""}
                     onChange={(e) => setEditData({ ...editData, date: e.target.value })}
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <textarea
-                    value={editData.notes}
+                    value={editData.notes || ""}
                     onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
                     placeholder="Notes"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
@@ -458,14 +458,14 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                 <>
                   <input
                     type="text"
-                    value={editData.category}
+                    value={editData.category || ""}
                     onChange={(e) => setEditData({ ...editData, category: e.target.value })}
                     placeholder="Category"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <input
                     type="number"
-                    value={editData.amount}
+                    value={editData.amount || ""}
                     onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
                     placeholder="Amount (UGX)"
                     min="0"
@@ -473,19 +473,19 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
                   />
                   <input
                     type="text"
-                    value={editData.payee}
+                    value={editData.payee || ""}
                     onChange={(e) => setEditData({ ...editData, payee: e.target.value })}
                     placeholder="Payee"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <input
                     type="date"
-                    value={format(new Date(editData.date), "yyyy-MM-dd")}
+                    value={editData.date ? format(new Date(editData.date), "yyyy-MM-dd") : ""}
                     onChange={(e) => setEditData({ ...editData, date: e.target.value })}
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
                   />
                   <textarea
-                    value={editData.description}
+                    value={editData.description || ""}
                     onChange={(e) => setEditData({ ...editData, description: e.target.value })}
                     placeholder="Description"
                     className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
