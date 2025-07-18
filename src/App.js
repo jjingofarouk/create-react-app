@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { auth, db, onSnapshot, collection, query, where } from "./firebase";
+import { auth, db, onSnapshot, collection, query } from "./firebase";
 import TransactionForm from "./components/TransactionForm";
 import TransactionTable from "./components/TransactionTable";
 import BalanceSummary from "./components/BalanceSummary";
@@ -12,6 +12,7 @@ function App() {
   const [transactions, setTransactions] = useState([]);
   const [clients, setClients] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -26,15 +27,26 @@ function App() {
           setTransactions(transData);
           setClients([...new Set(transData.map((t) => t.client).filter(Boolean))]);
           setCategories([...new Set(transData.map((t) => t.category).filter(Boolean))]);
+          setLoading(false);
         });
       } else {
         setTransactions([]);
         setClients([]);
         setCategories([]);
+        setLoading(false);
       }
     });
     return () => unsubscribe();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Auth />;
@@ -42,14 +54,34 @@ function App() {
 
   return (
     <div className="app">
-      <div className="header">
-        <h1>MyMoney</h1>
-        <button onClick={() => auth.signOut()}>Sign Out</button>
-      </div>
-      <BalanceSummary transactions={transactions} />
-      <IncomeExpenseChart transactions={transactions} />
-      <TransactionForm clients={clients} categories={categories} userId={user.uid} />
-      <TransactionTable transactions={transactions} />
+      <header className="header">
+        <div className="header-content">
+          <h1 className="app-title">MyMoney</h1>
+          <button className="sign-out-btn" onClick={() => auth.signOut()}>
+            Sign Out
+          </button>
+        </div>
+      </header>
+      
+      <main className="main-content">
+        <div className="dashboard-grid">
+          <div className="summary-section">
+            <BalanceSummary transactions={transactions} />
+          </div>
+          
+          <div className="chart-section">
+            <IncomeExpenseChart transactions={transactions} />
+          </div>
+          
+          <div className="form-section">
+            <TransactionForm clients={clients} categories={categories} userId={user.uid} />
+          </div>
+          
+          <div className="table-section">
+            <TransactionTable transactions={transactions} />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
