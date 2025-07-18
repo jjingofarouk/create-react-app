@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
-import { X } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { format } from "date-fns";
 
 const SalesForm = ({ sale, clients, products, userId, onClose }) => {
@@ -103,174 +103,212 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-neutral-800">
-            {sale ? "Edit Sale" : "Add New Sale"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-error-100 text-error-800 rounded-md">
-            {errors.submit}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
-              <AutocompleteInput
-                options={clients}
-                value={formData.client}
-                onChange={(value) => setFormData({ ...formData, client: value })}
-                placeholder="Select client"
-              />
-              {errors.client && <p className="mt-1 text-sm text-error-600">{errors.client}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Product</label>
-              <AutocompleteInput
-                options={products.map(p => p.name)}
-                value={formData.product}
-                onChange={(value) => setFormData({ ...formData, product: value })}
-                placeholder="Select product"
-              />
-              {errors.product && <p className="mt-1 text-sm text-error-600">{errors.product}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
-              <input
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleChange}
-                min="1"
-                step="1"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-              {errors.quantity && <p className="mt-1 text-sm text-error-600">{errors.quantity}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Unit Price (UGX)</label>
-              <input
-                type="number"
-                name="unitPrice"
-                value={formData.unitPrice}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-              {errors.unitPrice && <p className="mt-1 text-sm text-error-600">{errors.unitPrice}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Discount (UGX)</label>
-              <input
-                type="number"
-                name="discount"
-                value={formData.discount}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-              {errors.discount && <p className="mt-1 text-sm text-error-600">{errors.discount}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Total Amount (UGX)</label>
-              <input
-                type="number"
-                name="totalAmount"
-                value={formData.totalAmount.toFixed(2)}
-                readOnly
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Payment Status</label>
-              <select
-                name="paymentStatus"
-                value={formData.paymentStatus}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+    <div className="min-h-screen bg-neutral-50 pb-20">
+      {/* Header */}
+      <div className="bg-white border-b border-neutral-200 sticky top-0 z-40">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
               >
-                <option value="paid">Paid</option>
-                <option value="partial">Partial</option>
-                <option value="unpaid">Unpaid</option>
-              </select>
+                <ArrowLeft className="w-5 h-5 text-neutral-600" />
+              </button>
+              <h1 className="text-xl font-semibold text-neutral-800">
+                {sale ? "Edit Sale" : "New Sale"}
+              </h1>
             </div>
-
-            {formData.paymentStatus !== "unpaid" && (
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Amount Paid (UGX)</label>
-                <input
-                  type="number"
-                  name="amountPaid"
-                  value={formData.amountPaid}
-                  onChange={handleChange}
-                  min="0"
-                  max={formData.paymentStatus === "partial" ? formData.totalAmount - 0.01 : undefined}
-                  step="0.01"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                {errors.amountPaid && <p className="mt-1 text-sm text-error-600">{errors.amountPaid}</p>}
-              </div>
-            )}
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
-              <input
-                type="datetime-local"
-                name="date"
-                value={format(formData.date, "yyyy-MM-dd'T'HH:mm")}
-                onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows="3"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
-            >
-              Cancel
-            </button>
             <button
               type="submit"
+              form="sales-form"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? "Saving..." : sale ? "Update Sale" : "Save Sale"}
+              <Save className="w-4 h-4" />
+              {isSubmitting ? "Saving..." : "Save"}
             </button>
           </div>
-        </form>
+        </div>
+      </div>
+
+      {/* Form Content */}
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
+          {errors.submit && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
+              {errors.submit}
+            </div>
+          )}
+
+          <form id="sales-form" onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Client <span className="text-red-500">*</span>
+                </label>
+                <AutocompleteInput
+                  options={clients}
+                  value={formData.client}
+                  onChange={(value) => setFormData({ ...formData, client: value })}
+                  placeholder="Select or enter client name"
+                />
+                {errors.client && <p className="mt-1 text-sm text-red-600">{errors.client}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Product <span className="text-red-500">*</span>
+                </label>
+                <AutocompleteInput
+                  options={products.map(p => p.name)}
+                  value={formData.product}
+                  onChange={(value) => setFormData({ ...formData, product: value })}
+                  placeholder="Select or enter product"
+                />
+                {errors.product && <p className="mt-1 text-sm text-red-600">{errors.product}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Quantity <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  min="1"
+                  step="1"
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Unit Price (UGX) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="unitPrice"
+                  value={formData.unitPrice}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                {errors.unitPrice && <p className="mt-1 text-sm text-red-600">{errors.unitPrice}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Discount (UGX)
+                </label>
+                <input
+                  type="number"
+                  name="discount"
+                  value={formData.discount}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                {errors.discount && <p className="mt-1 text-sm text-red-600">{errors.discount}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Total Amount (UGX)
+                </label>
+                <div className="px-4 py-3 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-700 font-medium">
+                  UGX {formData.totalAmount.toLocaleString()}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Payment Status
+                </label>
+                <select
+                  name="paymentStatus"
+                  value={formData.paymentStatus}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="paid">Paid</option>
+                  <option value="partial">Partial</option>
+                  <option value="unpaid">Unpaid</option>
+                </select>
+              </div>
+
+              {formData.paymentStatus !== "unpaid" && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Amount Paid (UGX)
+                  </label>
+                  <input
+                    type="number"
+                    name="amountPaid"
+                    value={formData.amountPaid}
+                    onChange={handleChange}
+                    min="0"
+                    max={formData.paymentStatus === "partial" ? formData.totalAmount - 0.01 : undefined}
+                    step="0.01"
+                    className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                  {errors.amountPaid && <p className="mt-1 text-sm text-red-600">{errors.amountPaid}</p>}
+                </div>
+              )}
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Date
+                </label>
+                <input
+                  type="datetime-local"
+                  name="date"
+                  value={format(formData.date, "yyyy-MM-dd'T'HH:mm")}
+                  onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows="4"
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  placeholder="Additional notes about this sale..."
+                />
+              </div>
+            </div>
+
+            {/* Summary Card */}
+            <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
+              <h3 className="font-medium text-neutral-800 mb-3">Sale Summary</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-600">Subtotal:</span>
+                  <span className="font-medium">UGX {(formData.quantity * formData.unitPrice).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600">Discount:</span>
+                  <span className="font-medium">-UGX {formData.discount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-lg col-span-2 pt-2 border-t border-neutral-300">
+                  <span>Total:</span>
+                  <span className="text-primary">UGX {formData.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
