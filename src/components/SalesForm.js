@@ -1,274 +1,279 @@
+// src/components/SalesForm.jsx
 import React, { useState, useEffect } from "react";
+import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
+import { db } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
-import { db, addDoc, collection, setDoc, doc } from "../firebase";
-import { Plus, Package, TrendingUp } from "lucide-react";
+import { X } from "lucide-react";
+import { format } from "date-fns";
 
-function SalesForm({ clients, products, userId }) {
-  const [client, setClient] = useState("");
-  const [product, setProduct] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [unitPrice, setUnitPrice] = useState(0);
-  const [discount, setDiscount] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [paymentStatus, setPaymentStatus] = useState("paid");
-  const [amountPaid, setAmountPaid] = useState(0);
-  const [notes, setNotes] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [error, setError] = useState("");
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [newProductName, setNewProductName] = useState("");
-  const [newProductPrice, setNewProductPrice] = useState(0);
-  const [loading, setLoading] = useState(false);
+const SalesForm = ({ sale, clients, products, userId, onClose }) => {
+  const [formData, setFormData] = useState({
+    client: sale?.client || "",
+    product: sale?.product || "",
+    quantity: sale?.quantity || 1,
+    unitPrice: sale?.unitPrice || 0,
+    discount: sale?.discount || 0,
+    totalAmount: sale?.totalAmount || 0,
+    paymentStatus: sale?.paymentStatus || "unpaid",
+    amountPaid: sale?.amountPaid || 0,
+    notes: sale?.notes || "",
+    date: sale?.date?.toDate() || new Date(),
+  });
 
-  useEffect(() => {
-    const selectedProduct = products.find((p) => p.name === product);
-    if (selectedProduct) {
-      setUnitPrice(selectedProduct.defaultPrice || 0);
-    }
-  }, [product, products]);
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const total = quantity * unitPrice - discount;
-    setTotalAmount(total > 0 ? total : 0);
-    if (paymentStatus === "paid") {
-      setAmountPaid(total);
-    } else if (paymentStatus === "unpaid") {
-      setAmountPaid(0);
+    if (formData.product) {
+      const selectedProduct = products.find(p => p.name === formData.product);
+      if (selectedProduct) {
+        setFormData(prev => ({
+          ...prev,
+          unitPrice: selectedProduct.price,
+          totalAmount: (prev.quantity * selectedProduct.price) - (prev.discount || 0)
+        }));
+      }
     }
-  }, [quantity, unitPrice, discount, paymentStatus]);
+  }, [formData.product, products]);
+
+  useEffect(() => {
+    const newTotal = (formData.quantity * formData.unitPrice) - formData.discount;
+    setFormData(prev => ({
+      ...prev,
+      totalAmount: newTotal > 0 ? newTotal : 0,
+      amountPaid: prev.paymentStatus === "unpaid" ? 0 : 
+                 prev.paymentStatus === "paid" ? newTotal : prev.amountPaid
+    }));
+  }, [formData.quantity, formData.unitPrice, formData.discount, formData.paymentStatus]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === "quantity" || name === "unitPrice" || name === "discount" || name === "amountPaid" 
+        ? parseFloat(value) || 0 
+        : value
+    }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.client) newErrors.client = "Client is required";
+    if (!formData.product) newErrors.product = "Product is required";
+    if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0";
+    if (formData.unitPrice <= 0) newErrors.unitPrice = "Unit price must be greater than 0";
+    if (formData.discount < 0) newErrors.discount = "Discount cannot be negative";
+    if (formData.totalAmount < 0) newErrors.totalAmount = "Total amount cannot be negative";
+    if (formData.paymentStatus === "partial" && formData.amountPaid <= 0) {
+      newErrors.amountPaid = "Partial payment must be greater than 0";
+    }
+    if (formData.paymentStatus === "partial" && formData.amountPaid >= formData.totalAmount) {
+      newErrors.amountPaid = "Partial payment must be less than total amount";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    if (!validateForm()) return;
 
-    if (!client || !product || quantity <= 0 || unitPrice <= 0) {
-      setError("Please fill in all required fields correctly.");
-      setLoading(false);
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
       const saleData = {
-        client,
-        product,
-        quantity: Number(quantity),
-        unitPrice: Number(unitPrice),
-        discount: Number(discount),
-        totalAmount: Number(totalAmount),
-        paymentStatus,
-        amountPaid: Number(amountPaid),
-        remainingDebt: paymentStatus !== "paid" ? totalAmount - amountPaid : 0,
-        notes,
-        date: new Date(date).toISOString(),
+        ...formData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
-      await addDoc(collection(db, `users/${userId}/sales`), saleData);
-
-      if (paymentStatus !== "paid" && totalAmount - amountPaid > 0) {
-        await addDoc(collection(db, `users/${userId}/debts`), {
-          debtor: client,
-          amount: totalAmount - amountPaid,
-          notes: `Debt from sale of ${product} on ${date}`,
-          date: new Date(date).toISOString(),
-          status: "outstanding",
-          saleId: saleData.id,
-        });
+      if (sale) {
+        // Update existing sale
+        await updateDoc(doc(db, `users/${userId}/sales`, sale.id), saleData);
+      } else {
+        // Add new sale
+        await addDoc(collection(db, `users/${userId}/sales`), saleData);
       }
-
-      if (!clients.includes(client)) {
-        await addDoc(collection(db, `users/${userId}/clients`), { name: client });
-      }
-
-      setClient("");
-      setProduct("");
-      setQuantity(1);
-      setUnitPrice(0);
-      setDiscount(0);
-      setTotalAmount(0);
-      setPaymentStatus("paid");
-      setAmountPaid(0);
-      setNotes("");
-      setDate(new Date().toISOString().split("T")[0]);
+      onClose();
     } catch (err) {
-      setError("Failed to save sale. Please try again.");
-      console.error(err);
+      console.error("Error saving sale:", err);
+      setErrors({ submit: "Failed to save sale. Please try again." });
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    if (!newProductName || newProductPrice <= 0) {
-      setError("Please provide a valid product name and price.");
-      return;
-    }
-    try {
-      await addDoc(collection(db, `users/${userId}/products`), {
-        name: newProductName,
-        defaultPrice: Number(newProductPrice),
-      });
-      setNewProductName("");
-      setNewProductPrice(0);
-      setShowProductModal(false);
-    } catch (err) {
-      setError("Failed to add product. Please try again.");
-      console.error(err);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md border border-neutral-200">
-      <h3 className="text-lg font-semibold text-neutral-700 mb-4">Record Sale</h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <AutocompleteInput
-            suggestions={clients}
-            value={client}
-            onChange={setClient}
-            placeholder="Client Name"
-            required
-          />
-          <div className="relative">
-            <AutocompleteInput
-              suggestions={products.map((p) => p.name)}
-              value={product}
-              onChange={setProduct}
-              placeholder="Product"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowProductModal(true)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-primary hover:text-blue-700"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-          <input
-            type="number"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            placeholder="Quantity"
-            min="1"
-            required
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <input
-            type="number"
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-            placeholder="Unit Price (UGX)"
-            min="0"
-            required
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <input
-            type="number"
-            value={discount}
-            onChange={(e) => setDiscount(e.target.value)}
-            placeholder="Discount (UGX)"
-            min="0"
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <input
-            type="text"
-            value={totalAmount}
-            disabled
-            placeholder="Total Amount (UGX)"
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg bg-neutral-100 text-neutral-600"
-          />
-          <select
-            value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-neutral-800">
+            {sale ? "Edit Sale" : "Add New Sale"}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-neutral-400 hover:text-neutral-600"
           >
-            <option value="paid">Paid</option>
-            <option value="partial">Partial</option>
-            <option value="unpaid">Unpaid</option>
-          </select>
-          <input
-            type="number"
-            value={amountPaid}
-            onChange={(e) => setAmountPaid(e.target.value)}
-            placeholder="Amount Paid (UGX)"
-            min="0"
-            disabled={paymentStatus === "paid" || paymentStatus === "unpaid"}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes"
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
+            <X className="w-6 h-6" />
+          </button>
         </div>
-        {error && (
-          <p className="text-error-600 text-sm text-center bg-error-50 p-2 rounded-lg">{error}</p>
-        )}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <TrendingUp className="w-5 h-5" />
-          {loading ? "Saving..." : "Record Sale"}
-        </button>
-      </form>
 
-      {showProductModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-            <h3 className="text-lg font-semibold text-neutral-700 mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" />
-              Add New Product
-            </h3>
-            <form onSubmit={handleAddProduct} className="space-y-4">
-              <input
-                type="text"
-                value={newProductName}
-                onChange={(e) => setNewProductName(e.target.value)}
-                placeholder="Product Name"
-                required
-                className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-error-100 text-error-800 rounded-md">
+            {errors.submit}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
+              <AutocompleteInput
+                options={clients}
+                value={formData.client}
+                onChange={(value) => setFormData({ ...formData, client: value })}
+                placeholder="Select client"
               />
+              {errors.client && <p className="mt-1 text-sm text-error-600">{errors.client}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Product</label>
+              <AutocompleteInput
+                options={products.map(p => p.name)}
+                value={formData.product}
+                onChange={(value) => setFormData({ ...formData, product: value })}
+                placeholder="Select product"
+              />
+              {errors.product && <p className="mt-1 text-sm text-error-600">{errors.product}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
               <input
                 type="number"
-                value={newProductPrice}
-                onChange={(e) => setNewProductPrice(e.target.value)}
-                placeholder="Default Price (UGX)"
-                min="0"
-                required
-                className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+                name="quantity"
+                value={formData.quantity}
+                onChange={handleChange}
+                min="1"
+                step="1"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
-                >
-                  Add Product
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowProductModal(false)}
-                  className="flex-1 py-2 bg-neutral-200 text-neutral-800 rounded-lg font-medium hover:bg-neutral-300 transition-all duration-200"
-                >
-                  Cancel
-                </button>
+              {errors.quantity && <p className="mt-1 text-sm text-error-600">{errors.quantity}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Unit Price (UGX)</label>
+              <input
+                type="number"
+                name="unitPrice"
+                value={formData.unitPrice}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              {errors.unitPrice && <p className="mt-1 text-sm text-error-600">{errors.unitPrice}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Discount (UGX)</label>
+              <input
+                type="number"
+                name="discount"
+                value={formData.discount}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              {errors.discount && <p className="mt-1 text-sm text-error-600">{errors.discount}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Total Amount (UGX)</label>
+              <input
+                type="number"
+                name="totalAmount"
+                value={formData.totalAmount.toFixed(2)}
+                readOnly
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Payment Status</label>
+              <select
+                name="paymentStatus"
+                value={formData.paymentStatus}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="paid">Paid</option>
+                <option value="partial">Partial</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </div>
+
+            {formData.paymentStatus !== "unpaid" && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Amount Paid (UGX)</label>
+                <input
+                  type="number"
+                  name="amountPaid"
+                  value={formData.amountPaid}
+                  onChange={handleChange}
+                  min="0"
+                  max={formData.paymentStatus === "partial" ? formData.totalAmount - 0.01 : undefined}
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                {errors.amountPaid && <p className="mt-1 text-sm text-error-600">{errors.amountPaid}</p>}
               </div>
-            </form>
+            )}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
+              <input
+                type="datetime-local"
+                name="date"
+                value={format(formData.date, "yyyy-MM-dd'T'HH:mm")}
+                onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                rows="3"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Saving..." : sale ? "Update Sale" : "Save Sale"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
-}
+};
 
 export default SalesForm;
