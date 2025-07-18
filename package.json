@@ -22,8 +22,7 @@
     "postcss": "^8.4.47"
   },
   "devDependencies": {
-    "workbox-cli": "^7.1.0",
-    "eslint-plugin-pwa": "^0.2.0"
+    "workbox-cli": "^7.1.0"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -37,8 +36,7 @@
   "eslintConfig": {
     "extends": [
       "react-app",
-      "react-app/jest",
-      "plugin:pwa/recommended"
+      "react-app/jest"
     ]
   },
   "browserslist": {
