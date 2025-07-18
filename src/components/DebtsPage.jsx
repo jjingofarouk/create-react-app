@@ -1,4 +1,3 @@
-// src/components/DebtsPage.jsx
 import React, { useState, useMemo } from "react";
 import DebtForm from "./DebtForm";
 import TransactionTable from "./TransactionTable";
@@ -12,6 +11,13 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 function DebtsPage({ debts, clients, sales, userId }) {
   const [filterDebtor, setFilterDebtor] = useState("");
   const [filterDate, setFilterDate] = useState("all");
+  const [selectedDebtId, setSelectedDebtId] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  const handlePayment = (debtId) => {
+    setSelectedDebtId(debtId);
+    setShowPaymentModal(true);
+  };
 
   const filteredDebts = useMemo(() => {
     let filtered = debts;
@@ -86,7 +92,7 @@ function DebtsPage({ debts, clients, sales, userId }) {
         <DollarSign className="w-6 h-6 text-primary" />
         Debts
       </h2>
-      <DebtForm clients={clients} userId={userId} sales={sales} />
+      <DebtForm clients={clients} userId={userId} sales={sales} debts={debts} onDebtPayment={handlePayment} />
       <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
         <h3 className="text-lg font-semibold text-neutral-700 mb-4">Filters</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -133,7 +139,7 @@ function DebtsPage({ debts, clients, sales, userId }) {
           }}
         />
       </div>
-      <TransactionTable debts={filteredDebts} userId={userId} sales={sales} />
+      <TransactionTable debts={filteredDebts} userId={userId} sales={sales} onDebtPayment={handlePayment} />
     </div>
   );
 }
