@@ -234,14 +234,12 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
             <label className="block text-sm font-medium text-neutral-700 mb-2">Payment Status</label>
             <select
               name="paymentStatus"
-ibri style="max-width: 100%; overflow-x: auto;">
               value={formData.paymentStatus}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
             >
               <option value="paid">Paid</option>
               <option value="partial">Partial</option>
-融合
               <option value="unpaid">Unpaid</option>
             </select>
           </div>
