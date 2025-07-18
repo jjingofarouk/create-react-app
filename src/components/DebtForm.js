@@ -35,8 +35,12 @@ function DebtForm({ clients, userId, sales, debts }) {
         status: "outstanding",
       });
 
+      // Log the created debt reference ID for debugging
+      console.log("Created debt with ID:", debtRef.id);
+
       if (!clients.includes(debtor)) {
-        await addDoc(collection(db, `users/${userId}/clients`), { name: debtor });
+        const clientRef = await addDoc(collection(db, `users/${userId}/clients`), { name: debtor });
+        console.log("Created client with ID:", clientRef.id);
       }
 
       setDebtor("");
@@ -74,8 +78,10 @@ function DebtForm({ clients, userId, sales, debts }) {
 
       if (newAmount <= 0) {
         await setDoc(debtRef, { status: "paid", amount: 0 }, { merge: true });
+        console.log("Debt fully paid, updated debt:", debtRef.id);
       } else {
         await setDoc(debtRef, { amount: newAmount }, { merge: true });
+        console.log("Partial payment processed for debt:", debtRef.id);
       }
 
       if (debt.saleId) {
@@ -88,6 +94,7 @@ function DebtForm({ clients, userId, sales, debts }) {
           { amountPaid: newAmountPaid, paymentStatus: newStatus, remainingDebt: sale.totalAmount - newAmountPaid },
           { merge: true }
         );
+        console.log("Updated related sale:", saleRef.id);
       }
 
       setPaymentAmount(0);
@@ -183,6 +190,19 @@ function DebtForm({ clients, userId, sales, debts }) {
           </div>
         </div>
       )}
+
+      {/* Debug section - remove in production */}
+      <div className="mt-4 p-4 bg-neutral-50 rounded-lg">
+        <h4 className="font-semibold text-neutral-700 mb-2">Debug Info:</h4>
+        <p className="text-sm text-neutral-600">
+          Total debts: {debts.length} | Total sales: {sales.length} | Total clients: {clients.length}
+        </p>
+        {selectedDebtId && (
+          <p className="text-sm text-neutral-600">
+            Selected debt ID: {selectedDebtId}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
