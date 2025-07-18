@@ -39,7 +39,7 @@ function App() {
         setError(null);
         
         let loadedQueries = 0;
-        const totalQueries = 5; // sales, debts, expenses, products, clients
+        const totalQueries = 5;
         
         const handleQueryComplete = (err) => {
           if (err) {
@@ -53,26 +53,28 @@ function App() {
           }
         };
 
+        const salesQuery = query(collection(db, `users/${user.uid}/sales`));
         const unsubscribeSales = onSnapshot(
-  query(collection(db, `users/${user.uid}/sales`)),
-  (snapshot) => {
-    const salesData = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setSales(salesData);
-    setClients(prev => [
-      ...new Set([...prev, ...salesData.map((s) => s.client).filter(Boolean)])
-    ]);
-    handleQueryComplete();
-  },
-  (err) => {
-    handleQueryComplete(err);
-  }
-);
+          salesQuery,
+          (snapshot) => {
+            const salesData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setSales(salesData);
+            setClients(prev => [
+              ...new Set([...prev, ...salesData.map((s) => s.client).filter(Boolean)])
+            ]);
+            handleQueryComplete();
+          },
+          (err) => {
+            handleQueryComplete(err);
+          }
+        );
 
+        const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
         const unsubscribeDebts = onSnapshot(
-          query(collection(db, `users/${user.uid}/debts`)),
+          debtsQuery,
           (snapshot) => {
             const debtData = snapshot.docs.map((doc) => ({
               id: doc.id,
@@ -86,8 +88,9 @@ function App() {
           }
         );
 
+        const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
         const unsubscribeExpenses = onSnapshot(
-          query(collection(db, `users/${user.uid}/expenses`)),
+          expensesQuery,
           (snapshot) => {
             const expenseData = snapshot.docs.map((doc) => ({
               id: doc.id,
@@ -103,8 +106,9 @@ function App() {
           }
         );
 
+        const productsQuery = query(collection(db, `users/${user.uid}/products`));
         const unsubscribeProducts = onSnapshot(
-          query(collection(db, `users/${user.uid}/products`)),
+          productsQuery,
           (snapshot) => {
             const productData = snapshot.docs.map((doc) => ({
               id: doc.id,
@@ -118,8 +122,9 @@ function App() {
           }
         );
 
+        const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
         const unsubscribeClients = onSnapshot(
-          query(collection(db, `users/${user.uid}/clients`)),
+          clientsQuery,
           (snapshot) => {
             const clientData = snapshot.docs.map((doc) => ({
               id: doc.id,
@@ -127,7 +132,7 @@ function App() {
             }));
             setClients(prev => [
               ...new Set([...prev, ...clientData.map((c) => c.name).filter(Boolean)])
-            );
+            ]);
             handleQueryComplete();
           },
           (err) => {
@@ -143,7 +148,6 @@ function App() {
           unsubscribeClients();
         };
       } else {
-        // Clear all data when user logs out
         setSales([]);
         setDebts([]);
         setExpenses([]);
