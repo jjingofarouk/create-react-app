@@ -98,7 +98,7 @@ function ExpenseForm({ categories, payees, userId }) {
           className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <TrendingDown className="w-5 h-5" />
-          {loading ? "Saving..." : record Expense"}
+          {loading ? "Saving..." : "Record Expense"}
         </button>
       </form>
     </div>
