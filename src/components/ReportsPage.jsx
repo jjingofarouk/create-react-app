@@ -1,157 +1,208 @@
-import React, { useState } from "react";
+// src/components/ReportsPage.jsx
+import React, { useState, useMemo } from "react";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { FileText } from "lucide-react";
-import { format, parseISO } from "date-fns";
 
-function ReportsPage({ transactions, debts, userId }) {
-  const [reportType, setReportType] = useState("transactions");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [loading, setLoading] = useState(false);
+pdfMake.vfs = pdfFonts.pdfMake.vfs;
+
+function ReportsPage({ sales, debts, expenses, userId }) {
+  const [reportType, setReportType] = useState("sales");
+  const [dateRange, setDateRange] = useState("today");
+
+  const filteredData = useMemo(() => {
+    const today = new Date();
+    let filteredSales = sales;
+    let filteredDebts = debts;
+    let filteredExpenses = expenses;
+
+    if (dateRange === "today") {
+      filteredSales = sales.filter(
+        (s) => new Date(s.date) >= startOfDay(today) && new Date(s.date) <= endOfDay(today)
+      );
+      filteredDebts = debts.filter(
+        (d) => new Date(d.date) >= startOfDay(today) && new Date(d.date) <= endOfDay(today)
+      );
+      filteredExpenses = expenses.filter(
+        (e) => new Date(e.date) >= startOfDay(today) && new Date(e.date) <= endOfDay(today)
+      );
+    } else if (dateRange === "week") {
+      const weekStart = startOfWeek(today);
+      const weekEnd = endOfWeek(today);
+      filteredSales = sales.filter(
+        (s) => new Date(s.date) >= weekStart && new Date(s.date) <= weekEnd
+      );
+      filteredDebts = debts.filter(
+        (d) => new Date(d.date) >= weekStart && new Date(d.date) <= weekEnd
+      );
+      filteredExpenses = expenses.filter(
+        (e) => new Date(e.date) >= weekStart && new Date(e.date) <= weekEnd
+      );
+    } else if (dateRange === "month") {
+      const monthStart = startOfMonth(today);
+      const monthEnd = endOfMonth(today);
+      filteredSales = sales.filter(
+        (s) => new Date(s.date) >= monthStart && new Date(s.date) <= monthEnd
+      );
+      filteredDebts = debts.filter(
+        (d) => new Date(d.date) >= monthStart && new Date(d.date) <= monthEnd
+      );
+      filteredExpenses = expenses.filter(
+        (e) => new Date(e.date) >= monthStart && new Date(e.date) <= monthEnd
+      );
+    }
+
+    return { sales: filteredSales, debts: filteredDebts, expenses: filteredExpenses };
+  }, [sales, debts, expenses, dateRange]);
 
   const generateReport = () => {
-    if (!startDate || !endDate) {
-      alert("Please select start and end dates.");
-      return;
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (start > end) {
-      alert("Start date must be before end date.");
-      return;
-    }
-
-    let data = [];
-    let title = "";
-    let columns = [];
-
-    if (reportType === "transactions") {
-      data = transactions.filter((t) => {
-        try {
-          const date = parseISO(t.timestamp);
-          return date >= start && date <= end;
-        } catch {
-          return false;
-        }
-      });
-      title = "Transactions Report";
-      columns = ["Type", "Amount (UGX)", "Client", "Category", "Date & Time"];
-    } else if (reportType === "debts") {
-      data = debts.filter((d) => {
-        try {
-          const date = parseISO(d.timestamp);
-          return date >= start && date <= end;
-        } catch {
-          return false;
-        }
-      });
-      title = "Debts Report";
-      columns = ["Debtor", "Amount (UGX)", "Notes", "Date & Time"];
-    }
-
-    const total = data.reduce((sum, item) => sum + (item.amount || 0), 0);
-
-    return { title, data, columns, total };
-  };
-
-  const generatePDF = () => {
-    const { title, data, columns, total } = generateReport();
-    if (!data.length) {
-      alert("No data found for the selected period.");
-      return;
-    }
-
     const docDefinition = {
       content: [
-        { text: title, style: "header" },
-        { text: `Period: ${format(new Date(startDate), "MMM dd, yyyy")} - ${format(new Date(endDate), "MMM dd, yyyy")}`, style: "subheader" },
-        { text: `Total: UGX ${total.toLocaleString()}`, style: "subheader" },
-        {
+        { text: "Product Distribution Report", style: "header" },
+        { text: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`, style: "subheader" },
+        { text: `Date Range: ${dateRange.charAt(0).toUpperCase() + dateRange.slice(1)}`, style: "subheader" },
+        { text: "", margin: [0, 10] },
+        reportType === "sales" && {
           table: {
             headerRows: 1,
-            widths: reportType === "transactions" ? ["auto", "auto", "*", "*", "*"] : ["*", "auto", "*", "*"],
+            widths: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"],
             body: [
-              columns,
-              ...data.map((item) =>
-                reportType === "transactions"
-                  ? [
-                      item.type.toUpperCase(),
-                      `UGX ${item.amount.toLocaleString()}`,
-                      item.client || "—",
-                      item.category || "—",
-                      new Date(item.timestamp).toLocaleString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }),
-                    ]
-                  : [
-                      item.debtor || "—",
-                      `UGX ${item.amount.toLocaleString()}`,
-                      item.notes || "—",
-                      new Date(item.timestamp).toLocaleString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }),
-                    ]
-              ),
+              [
+                "Client",
+                "Product",
+                "Quantity",
+                "Unit Price",
+                "Discount",
+                "Total",
+                "Paid",
+                "Debt",
+                "Date",
+              ],
+              ...filteredData.sales.map((s) => [
+                s.client,
+                s.product,
+                s.quantity,
+                `UGX ${s.unitPrice.toLocaleString()}`,
+                `UGX ${s.discount.toLocaleString()}`,
+                `UGX ${s.totalAmount.toLocaleString()}`,
+                `UGX ${s.amountPaid.toLocaleString()}`,
+                `UGX ${s.remainingDebt.toLocaleString()}`,
+                format(new Date(s.date), "PP"),
+              ]),
             ],
           },
         },
+        reportType === "debts" && {
+          table: {
+            headerRows: 1,
+            widths: ["auto", "auto", "auto", "auto", "auto"],
+            body: [
+              ["Debtor", "Amount", "Status", "Notes", "Date"],
+              ...filteredData.debts.map((d) => [
+                d.debtor,
+                `UGX ${d.amount.toLocaleString()}`,
+                d.status,
+                d.notes,
+                format(new Date(d.date), "PP"),
+              ]),
+            ],
+          },
+        },
+        reportType === "expenses" && {
+          table: {
+            headerRows: 1,
+            widths: ["auto", "auto", "auto", "auto", "auto"],
+            body: [
+              ["Category", "Amount", "Description", "Payee", "Date"],
+              ...filteredData.expenses.map((e) => [
+                e.category,
+                `UGX ${e.amount.toLocaleString()}`,
+                e.description,
+                e.payee || "-",
+                format(new Date(e.date), "PP"),
+              ]),
+            ],
+          },
+        },
+        { text: "", margin: [0, 10] },
+        {
+          text: "Balance Sheet",
+          style: "subheader",
+        },
+        {
+          ul: [
+            `Total Sales: UGX ${filteredData.sales
+              .reduce((sum, s) => sum + s.totalAmount, 0)
+              .toLocaleString()}`,
+            `Total Paid: UGX ${filteredData.sales
+              .reduce((sum, s) => sum + s.amountPaid, 0)
+              .toLocaleString()}`,
+            `Total Outstanding Debts: UGX ${filteredData.debts
+              .reduce((sum, d) => (d.status === "outstanding" ? sum + d.amount : sum), 0)
+              .toLocaleString()}`,
+            `Total Expenses: UGX ${filteredData.expenses
+              .reduce((sum, e) => sum + e.amount, 0)
+              .toLocaleString()}`,
+            `Net Balance: UGX ${(
+              filteredData.sales.reduce((sum, s) => sum + s.amountPaid, 0) -
+              filteredData.expenses.reduce((sum, e) => sum + e.amount, 0)
+            ).toLocaleString()}`,
+          ],
+        },
       ],
       styles: {
-        header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
-        subheader: { fontSize: 14, margin: [0, 5, 0, 5] },
+        header: {
+          fontSize: 18,
+          bold: true,
+          margin: [0, 0, 0, 10],
+        },
+        subheader: {
+          fontSize: 14,
+          bold: true,
+          margin: [0, 10, 0, 5],
+        },
       },
     };
 
-    const pdfMake = require("pdfmake/build/pdfmake");
-    const pdfFonts = require("pdfmake/build/vfs_fonts");
-    pdfMake.vfs = pdfFonts.pdfMake.vfs;
-    pdfMake.createPdf(docDefinition).download(`${title.replace(/\s+/g, "_").toLowerCase()}_${startDate}_${endDate}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`${reportType}_report_${dateRange}.pdf`);
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-      <div className="flex items-center gap-2 mb-4">
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-neutral-800 flex items-center gap-2">
         <FileText className="w-6 h-6 text-primary" />
-        <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
-          Generate Report
-        </h2>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <select
-          value={reportType}
-          onChange={(e) => setReportType(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-neutral-800"
-        >
-          <option value="transactions">Transactions</option>
-          <option value="debts">Debts</option>
-        </select>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-neutral-800"
-        />
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-neutral-800"
-        />
+        Reports
+      </h2>
+      <div className="bg-white p-6 rounded-lg shadow-md border border-neutral-200">
+        <h3 className="text-lg font-semibold text-neutral-700 mb-4">Generate Report</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <select
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value)}
+            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+          >
+            <option value="sales">Sales</option>
+            <option value="debts">Debts</option>
+            <option value="expenses">Expenses</option>
+          </select>
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+          >
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
         <button
-          onClick={generatePDF}
-          disabled={loading}
-          className="w-full sm:col-span-2 py-3 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-neutral-500 disabled:hover:shadow-none disabled:hover:translate-y-0"
+          onClick={generateReport}
+          className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2"
         >
           <FileText className="w-5 h-5" />
-          {loading ? "Generating..." : "Generate PDF Report"}
+          Generate PDF Report
         </button>
       </div>
     </div>
