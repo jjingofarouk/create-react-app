@@ -1,32 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+// src/components/AutocompleteInput.jsx
+import React, { useState, useEffect, useRef } from "react";
 
-function AutocompleteInput({ value, onChange, suggestions, placeholder, disabled = false }) {
+function AutocompleteInput({ suggestions, value, onChange, placeholder, required }) {
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    if (disabled) {
-      setShowSuggestions(false);
-    }
-  }, [disabled]);
-
-  const handleInputChange = (e) => {
-    const input = e.target.value;
-    onChange(input);
-    
-    if (input && !disabled) {
-      const filtered = suggestions.filter((sug) =>
-        sug.toLowerCase().includes(input.toLowerCase())
+    if (value) {
+      const filtered = suggestions.filter((s) =>
+        s.toLowerCase().includes(value.toLowerCase())
       );
       setFilteredSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
+      setShowSuggestions(filtered.length > 0 && value.length > 0);
     } else {
+      setFilteredSuggestions([]);
       setShowSuggestions(false);
     }
-  };
+  }, [value, suggestions]);
 
-  const handleSuggestionClick = (suggestion) => {
+  const handleSelect = (suggestion) => {
     onChange(suggestion);
     setShowSuggestions(false);
   };
@@ -35,42 +28,28 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, disabled
     setTimeout(() => setShowSuggestions(false), 200);
   };
 
-  const handleFocus = () => {
-    if (value && !disabled) {
-      const filtered = suggestions.filter((sug) =>
-        sug.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
-    }
-  };
-
   return (
     <div className="relative">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
-        <input
-          type="text"
-          value={value}
-          onChange={handleInputChange}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          placeholder={placeholder}
-          disabled={disabled}
-          autoComplete="off"
-          className="w-full pl-10 pr-4 py-3 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-neutral-800 placeholder-neutral-400 disabled:opacity-60 disabled:cursor-not-allowed"
-        />
-      </div>
-      {showSuggestions && filteredSuggestions.length > 0 && (
-        <ul className="absolute top-full left-0 right-0 bg-white border-2 border-t-0 border-neutral-200 rounded-b-lg max-h-48 overflow-y-auto z-10 shadow-md">
-          {filteredSuggestions.slice(0, 5).map((sug, index) => (
-            <li 
-              key={index} 
-              onClick={() => handleSuggestionClick(sug)}
-              onMouseDown={(e) => e.preventDefault()}
-              className="px-4 py-3 cursor-pointer border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 transition-colors duration-200"
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        required={required}
+        className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+        onFocus={() => value && setShowSuggestions(true)}
+        onBlur={handleBlur}
+      />
+      {showSuggestions && (
+        <ul className="absolute z-10 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-40 overflow-auto mt-1">
+          {filteredSuggestions.map((suggestion, index) => (
+            <li
+              key={index}
+              onClick={() => handleSelect(suggestion)}
+              className="px-4 py-2 hover:bg-neutral-100 cursor-pointer text-neutral-800"
             >
-              {sug}
+              {suggestion}
             </li>
           ))}
         </ul>
