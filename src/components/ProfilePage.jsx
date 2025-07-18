@@ -1,43 +1,45 @@
 // src/components/ProfilePage.jsx
-import React, { useState } from "react";
-import { auth } from "../firebase";
-import { User } from "lucide-react";
+import React from "react";
+import { User, Mail, Lock, LogOut } from "lucide-react";
 
-function ProfilePage({ user }) {
-  const [error, setError] = useState("");
-
-  const handleSignOut = async () => {
-    try {
-      await auth.signOut();
-    } catch (err) {
-      setError("Failed to sign out. Please try again.");
-      console.error(err);
-    }
-  };
-
+const ProfilePage = ({ user }) => {
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md border border-neutral-200">
-      <h2 className="text-2xl font-bold text-neutral-800 mb-6 flex items-center gap-2">
-        <User className="w-6 h-6 text-primary" />
-        Profile
-      </h2>
-      <div className="space-y-4">
-        <div>
-          <p className="text-neutral-600">Email</p>
-          <p className="text-neutral-800 font-medium">{user.email}</p>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-neutral-800">Profile</h2>
+      
+      <div className="bg-white rounded-lg shadow border border-neutral-200 p-6 max-w-md mx-auto">
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <User className="w-10 h-10 text-primary" />
+          </div>
+          <h3 className="text-xl font-semibold text-neutral-800">{user.email}</h3>
         </div>
-        {error && (
-          <p className="text-error-600 text-sm text-center bg-error-50 p-2 rounded-lg">{error}</p>
-        )}
-        <button
-          onClick={handleSignOut}
-          className="w-full py-3 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2"
-        >
-          Sign Out
-        </button>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-3 border border-neutral-200 rounded-lg">
+            <Mail className="w-5 h-5 text-neutral-500" />
+            <div>
+              <p className="text-sm text-neutral-600">Email</p>
+              <p className="font-medium">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-3 border border-neutral-200 rounded-lg">
+            <Lock className="w-5 h-5 text-neutral-500" />
+            <div>
+              <p className="text-sm text-neutral-600">Password</p>
+              <p className="font-medium">••••••••</p>
+            </div>
+          </div>
+
+          <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 mt-6">
+            <LogOut className="w-5 h-5" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default ProfilePage;
