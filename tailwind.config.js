@@ -1,3 +1,4 @@
+// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -6,47 +7,59 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#3B82F6',
-        secondary: '#10B981',
-        danger: '#EF4444',
-        neutral: {
-          50: '#F8FAFC',
-          100: '#F3F4F6',
-          200: '#E2E8F0',
-          300: '#CBD5E1',
-          400: '#94A3B8',
-          500: '#64748B',
-          600: '#475569',
-          700: '#374151',
-          800: '#1E293B',
-          900: '#0F172A',
+        primary: {
+          DEFAULT: '#3B82F6',
+          50: '#EFF6FF',
+          100: '#DBEAFE',
+          200: '#BFDBFE',
+          300: '#93C5FD',
+          400: '#60A5FA',
+          500: '#3B82F6',
+          600: '#2563EB',
+          700: '#1D4ED8',
+          800: '#1E40AF',
+          900: '#1E3A8A',
         },
         success: {
-          50: '#F0FDF4',
-          200: '#BBF7D0',
+          DEFAULT: '#10B981',
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          200: '#A7F3D0',
+          300: '#6EE7B7',
+          400: '#34D399',
+          500: '#10B981',
           600: '#059669',
+          700: '#047857',
           800: '#065F46',
+          900: '#064E3B',
         },
         error: {
+          DEFAULT: '#EF4444',
           50: '#FEF2F2',
+          100: '#FEE2E2',
           200: '#FECACA',
+          300: '#FCA5A5',
+          400: '#F87171',
+          500: '#EF4444',
           600: '#DC2626',
+          700: '#B91C1C',
           800: '#991B1B',
+          900: '#7F1D1D',
         },
-      },
-      boxShadow: {
-        'sm': '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        'md': '0 4px 12px rgba(0, 0, 0, 0.1)',
-        'lg': '0 10px 25px rgba(0, 0, 0, 0.1)',
-      },
-      animation: {
-        spin: 'spin 1s linear infinite',
-      },
-      keyframes: {
-        spin: {
-          '0%': { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' },
+        neutral: {
+          DEFAULT: '#6B7280',
+          50: '#F9FAFB',
+          100: '#F3F4F6',
+          200: '#E5E7EB',
+          300: '#D1D5DB',
+          400: '#9CA3AF',
+          500: '#6B7280',
+          600: '#4B5563',
+          700: '#374151',
+          800: '#1F2A44',
+          900: '#111827',
         },
+        danger: '#DC2626',
       },
     },
   },
