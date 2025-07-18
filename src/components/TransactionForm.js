@@ -7,6 +7,7 @@ function TransactionForm({ clients, categories, userId }) {
   const [amount, setAmount] = useState("");
   const [client, setClient] = useState("");
   const [category, setCategory] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,6 +15,8 @@ function TransactionForm({ clients, categories, userId }) {
       alert("Please enter a valid amount");
       return;
     }
+    
+    setLoading(true);
     try {
       await addDoc(collection(db, `users/${userId}/transactions`), {
         type,
@@ -22,41 +25,68 @@ function TransactionForm({ clients, categories, userId }) {
         category: category || null,
         timestamp: new Date().toISOString(),
       });
+      
+      // Reset form
       setAmount("");
       setClient("");
       setCategory("");
     } catch (error) {
       console.error("Error adding transaction:", error);
+      alert("Error adding transaction. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="transaction-form">
-      <select value={type} onChange={(e) => setType(e.target.value)}>
-        <option value="income">Income</option>
-        <option value="expense">Expense</option>
-      </select>
-      <input
-        type="number"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        placeholder="Amount (UGX)"
-        required
-      />
-      <AutocompleteInput
-        value={client}
-        onChange={setClient}
-        suggestions={clients}
-        placeholder="Client Name"
-      />
-      <AutocompleteInput
-        value={category}
-        onChange={setCategory}
-        suggestions={categories}
-        placeholder="Category (e.g., Fuel)"
-      />
-      <button type="submit">Add Transaction</button>
-    </form>
+    <div className="transaction-form">
+      <h2 className="form-title">Add New Transaction</h2>
+      <form onSubmit={handleSubmit} className="form-grid">
+        <select 
+          value={type} 
+          onChange={(e) => setType(e.target.value)}
+          disabled={loading}
+        >
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
+        </select>
+        
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Amount (UGX)"
+          required
+          disabled={loading}
+          step="0.01"
+          min="0"
+        />
+        
+        <AutocompleteInput
+          value={client}
+          onChange={setClient}
+          suggestions={clients}
+          placeholder="Client Name"
+          disabled={loading}
+        />
+        
+        <AutocompleteInput
+          value={category}
+          onChange={setCategory}
+          suggestions={categories}
+          placeholder="Category (e.g., Fuel)"
+          disabled={loading}
+        />
+        
+        <button 
+          type="submit" 
+          disabled={loading}
+          className={loading ? "loading" : ""}
+        >
+          {loading ? "Adding..." : "Add Transaction"}
+        </button>
+      </form>
+    </div>
   );
 }
 
