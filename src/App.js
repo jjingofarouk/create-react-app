@@ -5,6 +5,7 @@ import TransactionTable from "./components/TransactionTable";
 import BalanceSummary from "./components/BalanceSummary";
 import IncomeExpenseChart from "./components/IncomeExpenseChart";
 import Auth from "./components/Auth";
+import { Home, DollarSign, TrendingUp, TrendingDown, User } from "lucide-react";
 import "./index.css";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
   const [clients, setClients] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("home");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -39,52 +41,126 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-5">
-        <div className="w-10 h-10 border-4 border-neutral-200 border-t-primary rounded-full animate-spin"></div>
-        <p className="text-neutral-600">Loading...</p>
-      </div>
-    );
-  }
+  const tabs = [
+    { id: "home", name: "Home", icon: Home },
+    { id: "income", name: "Income", icon: TrendingUp },
+    { id: "expenses", name: "Expenses", icon: TrendingDown },
+    { id: "debts", name: "Debts", icon: DollarSign },
+    { id: "profile", name: "Profile", icon: User },
+  ];
 
-  if (!user) {
-    return <Auth />;
-  }
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-5">
+          <div className="w-10 h-10 border-4 border-neutral-200 border-t-primary rounded-full animate-spin"></div>
+          <p className="text-neutral-600">Loading...</p>
+        </div>
+      );
+    }
+
+    if (!user) {
+      return <Auth />;
+    }
+
+    switch (activeTab) {
+      case "home":
+        return (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1">
+            <BalanceSummary transactions={transactions} />
+            <IncomeExpenseChart transactions={transactions} />
+            <TransactionForm clients={clients} categories={categories} userId={user.uid} />
+            <TransactionTable transactions={transactions} />
+          </div>
+        );
+      case "income":
+        return (
+          <TransactionTable
+            transactions={transactions.filter((t) => t.type === "income")}
+          />
+        );
+      case "expenses":
+        return (
+          <TransactionTable
+            transactions={transactions.filter((t) => t.type === "expense")}
+          />
+        );
+      case "debts":
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="w-6 h-6 text-primary" />
+              <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
+                Debts
+              </h2>
+            </div>
+            <div className="flex items-center justify-center py-8 text-neutral-500 italic">
+              <p>Debt tracking coming soon!</p>
+            </div>
+          </div>
+        );
+      case "profile":
+        return (
+          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="w-6 h-6 text-primary" />
+              <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
+                Profile
+              </h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-neutral-500">Email</h3>
+                <p className="text-neutral-800">{user.email}</p>
+              </div>
+              <button
+                className="w-full sm:w-auto px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
+                onClick={() => auth.signOut()}
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">MyMoney</h1>
-          <button 
-            className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
-            onClick={() => auth.signOut()}
-          >
-            Sign Out
-          </button>
         </div>
       </header>
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1">
-          <div>
-            <BalanceSummary transactions={transactions} />
-          </div>
-          
-          <div>
-            <IncomeExpenseChart transactions={transactions} />
-          </div>
-          
-          <div>
-            <TransactionForm clients={clients} categories={categories} userId={user.uid} />
-          </div>
-          
-          <div>
-            <TransactionTable transactions={transactions} />
-          </div>
-        </div>
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {renderContent()}
       </main>
+
+      {user && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-sm z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-5 gap-2 py-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex flex-col items-center justify-center py-2 px-1 sm:px-2 text-sm font-medium transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? "text-primary border-t-2 border-primary"
+                      : "text-neutral-500 hover:text-neutral-700"
+                  }`}
+                >
+                  <tab.icon className="w-6 h-6 mb-1" />
+                  <span className="hidden sm:block">{tab.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
