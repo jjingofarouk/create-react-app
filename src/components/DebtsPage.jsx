@@ -1,147 +1,179 @@
-import React, { useState, useMemo } from "react";
+// src/components/DebtsPage.jsx
+import React, { useState, useEffect } from "react";
+import { collection, addDoc, updateDoc, doc, query, where, getDocs } from "firebase/firestore";
+import { db } from "../firebase";
+import { Plus, Trash2, Edit, Search, X, CreditCard } from "lucide-react";
+import { useTable } from "@tanstack/react-table";
+import { format } from "date-fns";
+import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
-import TransactionTable from "./TransactionTable";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
-import { Bar } from "react-chartjs-2";
-import { DollarSign } from "lucide-react";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+const DebtsPage = ({ debts, sales, clients, userId }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [editingDebt, setEditingDebt] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [filteredDebts, setFilteredDebts] = useState(debts);
 
-function DebtsPage({ debts, clients, sales, userId }) {
-  const [filterDebtor, setFilterDebtor] = useState("");
-  const [filterDate, setFilterDate] = useState("all");
-  const [selectedDebtId, setSelectedDebtId] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  useEffect(() => {
+    const filtered = debts.filter(debt => {
+      const matchesDebtor = debt.debtor?.toLowerCase().includes(filter.toLowerCase());
+      return matchesDebtor;
+    });
+    setFilteredDebts(filtered);
+  }, [filter, debts]);
 
-  const handlePayment = (debtId) => {
-    setSelectedDebtId(debtId);
-    setShowPaymentModal(true);
-  };
+  const columns = [
+    {
+      header: "Debtor",
+      accessorKey: "debtor",
+      cell: info => info.getValue(),
+    },
+    {
+      header: "Amount (UGX)",
+      accessorKey: "amount",
+      cell: info => info.getValue().toLocaleString(),
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      cell: info => (
+        <span className={`px-2 py-1 rounded-full text-xs ${
+          info.getValue() === 'paid' ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'
+        }`}>
+          {info.getValue()}
+        </span>
+      ),
+    },
+    {
+      header: "Date",
+      accessorKey: "date",
+      cell: info => format(info.getValue().toDate(), 'MMM dd, yyyy'),
+    },
+    {
+      header: "Actions",
+      cell: info => (
+        <div className="flex gap-2">
+          {info.row.original.status !== 'paid' && (
+            <>
+              <button
+                onClick={() => {
+                  setEditingDebt(info.row.original);
+                  setShowForm(true);
+                }}
+                className="p-1 text-neutral-500 hover:text-primary hover:bg-neutral-100 rounded"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ];
 
-  const filteredDebts = useMemo(() => {
-    let filtered = debts;
-    if (filterDebtor) {
-      filtered = filtered.filter((d) => d.debtor.toLowerCase().includes(filterDebtor.toLowerCase()));
+  const table = useTable({
+    columns,
+    data: filteredDebts,
+  });
+
+  const handleDeleteDebt = async (id) => {
+    if (window.confirm("Are you sure you want to delete this debt?")) {
+      try {
+        await deleteDoc(doc(db, `users/${userId}/debts`, id));
+      } catch (err) {
+        console.error("Error deleting debt:", err);
+      }
     }
-    if (filterDate === "today") {
-      const today = new Date();
-      filtered = filtered.filter(
-        (d) => new Date(d.date) >= startOfDay(today) && new Date(d.date) <= endOfDay(today)
-      );
-    } else if (filterDate === "week") {
-      const weekStart = startOfWeek(new Date());
-      const weekEnd = endOfWeek(new Date());
-      filtered = filtered.filter(
-        (d) => new Date(d.date) >= weekStart && new Date(d.date) <= weekEnd
-      );
-    } else if (filterDate === "month") {
-      const monthStart = startOfMonth(new Date());
-      const monthEnd = endOfMonth(new Date());
-      filtered = filtered.filter(
-        (d) => new Date(d.date) >= monthStart && new Date(d.date) <= monthEnd
-      );
-    }
-    return filtered;
-  }, [debts, filterDebtor, filterDate]);
-
-  const totalOutstanding = useMemo(
-    () => filteredDebts.reduce((sum, d) => (d.status === "outstanding" ? sum + d.amount : sum), 0),
-    [filteredDebts]
-  );
-  const totalPaid = useMemo(
-    () => filteredDebts.reduce((sum, d) => (d.status === "paid" ? sum + d.amount : sum), 0),
-    [filteredDebts]
-  );
-
-  const chartData = {
-    labels: ["Today", "This Week", "This Month"],
-    datasets: [
-      {
-        label: "Outstanding Debts (UGX)",
-        data: [
-          debts.filter(
-            (d) =>
-              d.status === "outstanding" &&
-              new Date(d.date) >= startOfDay(new Date()) &&
-              new Date(d.date) <= endOfDay(new Date())
-          ).reduce((sum, d) => sum + d.amount, 0),
-          debts.filter(
-            (d) =>
-              d.status === "outstanding" &&
-              new Date(d.date) >= startOfWeek(new Date()) &&
-              new Date(d.date) <= endOfWeek(new Date())
-          ).reduce((sum, d) => sum + d.amount, 0),
-          debts.filter(
-            (d) =>
-              d.status === "outstanding" &&
-              new Date(d.date) >= startOfMonth(new Date()) &&
-              new Date(d.date) <= endOfMonth(new Date())
-          ).reduce((sum, d) => sum + d.amount, 0),
-        ],
-        backgroundColor: "rgba(239, 68, 68, 0.6)",
-        borderColor: "rgba(239, 68, 68, 1)",
-        borderWidth: 1,
-      },
-    ],
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-neutral-800 flex items-center gap-2">
-        <DollarSign className="w-6 h-6 text-primary" />
-        Debts
-      </h2>
-      <DebtForm clients={clients} userId={userId} sales={sales} debts={debts} onDebtPayment={handlePayment} />
-      <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-        <h3 className="text-lg font-semibold text-neutral-700 mb-4">Filters</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Filter by debtor"
-            value={filterDebtor}
-            onChange={(e) => setFilterDebtor(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <select
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl font-bold text-neutral-800">Debts Management</h2>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => {
+              setEditingDebt(null);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all"
           >
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-          </select>
+            <Plus className="w-5 h-5" />
+            <span>Add Debt</span>
+          </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-          <h3 className="text-lg font-semibold text-neutral-700">Total Outstanding</h3>
-          <p className="text-2xl font-bold text-neutral-800 mt-2">
-            UGX {totalOutstanding.toLocaleString()}
-          </p>
+
+      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="Search debts..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+            />
+            {filter && (
+              <X
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400 cursor-pointer"
+                onClick={() => setFilter("")}
+              />
+            )}
+          </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-          <h3 className="text-lg font-semibold text-neutral-700">Total Paid</h3>
-          <p className="text-2xl font-bold text-neutral-800 mt-2">
-            UGX {totalPaid.toLocaleString()}
-          </p>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-neutral-200">
+            <thead className="bg-neutral-50">
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th
+                      key={header.id}
+                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
+                    >
+                      {header.column.columnDef.header}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="bg-white divide-y divide-neutral-200">
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id} className="hover:bg-neutral-50">
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                      {cell.renderCell()}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        {filteredDebts.length === 0 && (
+          <div className="text-center py-8 text-neutral-500">
+            {filter ? "No matching debts found" : "No debts recorded yet"}
+          </div>
+        )}
       </div>
-      <div className="bg-white p-4 rounded-lg shadow-md border border-neutral-200">
-        <h3 className="text-lg font-semibold text-neutral-700 mb-4">Debt Trends</h3>
-        <Bar
-          data={chartData}
-          options={{
-            scales: { y: { beginAtZero: true } },
-            plugins: { legend: { display: true } },
+
+      {showForm && (
+        <DebtForm
+          debt={editingDebt}
+          clients={clients}
+          userId={userId}
+          onClose={() => {
+            setShowForm(false);
+            setEditingDebt(null);
           }}
         />
-      </div>
-      <TransactionTable debts={filteredDebts} userId={userId} sales={sales} onDebtPayment={handlePayment} />
+      )}
     </div>
   );
-}
+};
 
 export default DebtsPage;
