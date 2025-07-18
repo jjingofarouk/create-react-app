@@ -53,6 +53,7 @@ function App() {
           }
         };
 
+        // Sales query
         const salesQuery = query(collection(db, `users/${user.uid}/sales`));
         const unsubscribeSales = onSnapshot(
           salesQuery,
@@ -62,9 +63,10 @@ function App() {
               ...doc.data(),
             }));
             setSales(salesData);
-            setClients(prev => [
-              ...new Set([...prev, ...salesData.map((s) => s.client).filter(Boolean)])
-            ]);
+            setClients(prev => {
+              const newClients = salesData.map((s) => s.client).filter(Boolean);
+              return [...new Set([...prev, ...newClients])];
+            });
             handleQueryComplete();
           },
           (err) => {
@@ -72,6 +74,7 @@ function App() {
           }
         );
 
+        // Debts query
         const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
         const unsubscribeDebts = onSnapshot(
           debtsQuery,
@@ -88,6 +91,7 @@ function App() {
           }
         );
 
+        // Expenses query
         const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
         const unsubscribeExpenses = onSnapshot(
           expensesQuery,
@@ -97,8 +101,8 @@ function App() {
               ...doc.data(),
             }));
             setExpenses(expenseData);
-            setCategories([...new Set(expenseData.map((e) => e.category).filter(Boolean)]);
-            setPayees([...new Set(expenseData.map((e) => e.payee).filter(Boolean)]);
+            setCategories([...new Set(expenseData.map((e) => e.category).filter(Boolean))]);
+            setPayees([...new Set(expenseData.map((e) => e.payee).filter(Boolean))]);
             handleQueryComplete();
           },
           (err) => {
@@ -106,6 +110,7 @@ function App() {
           }
         );
 
+        // Products query
         const productsQuery = query(collection(db, `users/${user.uid}/products`));
         const unsubscribeProducts = onSnapshot(
           productsQuery,
@@ -122,6 +127,7 @@ function App() {
           }
         );
 
+        // Clients query
         const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
         const unsubscribeClients = onSnapshot(
           clientsQuery,
@@ -130,9 +136,10 @@ function App() {
               id: doc.id,
               ...doc.data(),
             }));
-            setClients(prev => [
-              ...new Set([...prev, ...clientData.map((c) => c.name).filter(Boolean)])
-            ]);
+            setClients(prev => {
+              const newClients = clientData.map((c) => c.name).filter(Boolean);
+              return [...new Set([...prev, ...newClients])];
+            });
             handleQueryComplete();
           },
           (err) => {
@@ -140,6 +147,7 @@ function App() {
           }
         );
 
+        // Return cleanup function
         return () => {
           unsubscribeSales();
           unsubscribeDebts();
@@ -148,6 +156,7 @@ function App() {
           unsubscribeClients();
         };
       } else {
+        // Reset all state when user logs out
         setSales([]);
         setDebts([]);
         setExpenses([]);
@@ -167,7 +176,7 @@ function App() {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-5">
-          <div className="w-10 h-10 border-4 border-neutral-200 border-t-primary rounded-full animate-spin"></div>
+          <div className="w-10 h-10 border-4 border-neutral-200 border-t-blue-600 rounded-full animate-spin"></div>
           <p className="text-neutral-600">Loading your data...</p>
         </div>
       );
@@ -176,10 +185,10 @@ function App() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-          <AlertCircle className="w-12 h-12 text-error-600" />
+          <AlertCircle className="w-12 h-12 text-red-600" />
           <p className="text-neutral-600 text-center max-w-md px-4">{error}</p>
           <button
-            className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
             onClick={() => window.location.reload()}
           >
             Refresh Page
@@ -242,13 +251,15 @@ function App() {
       case "profile":
         return <ProfilePage user={user} />;
       default:
-        return <HomePage
-          sales={sales}
-          debts={debts}
-          expenses={expenses}
-          clients={clients}
-          userId={user.uid}
-        />;
+        return (
+          <HomePage
+            sales={sales}
+            debts={debts}
+            expenses={expenses}
+            clients={clients}
+            userId={user.uid}
+          />
+        );
     }
   };
 
@@ -267,7 +278,7 @@ function App() {
                 <User className="w-6 h-6 text-neutral-600" />
               </button>
               <button
-                className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
                 onClick={() => auth.signOut()}
               >
                 Sign Out
@@ -291,7 +302,7 @@ function App() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex flex-col items-center justify-center py-2 px-1 sm:px-2 text-sm font-medium transition-all duration-200 ${
                     activeTab === tab.id
-                      ? "text-primary border-t-2 border-primary"
+                      ? "text-blue-600 border-t-2 border-blue-600"
                       : "text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100"
                   }`}
                   aria-label={tab.name}
