@@ -21,18 +21,24 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47"
   },
+  "devDependencies": {
+    "workbox-cli": "^7.1.0",
+    "eslint-plugin-pwa": "^0.2.0"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "update-browserslist": "npx update-browserslist-db@latest",
-    "build:css": "npx tailwindcss -i ./src/index.css -o ./src/output.css --watch"
+    "build:css": "npx tailwindcss -i ./src/index.css -o ./src/output.css --watch",
+    "generate-sw": "workbox generateSW workbox-config.js"
   },
-  " EslintConfig": {
+  "eslintConfig": {
     "extends": [
       "react-app",
-      "react-app/jest"
+      "react-app/jest",
+      "plugin:pwa/recommended"
     ]
   },
   "browserslist": {
