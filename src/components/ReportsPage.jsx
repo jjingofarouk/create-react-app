@@ -1,155 +1,112 @@
 // src/components/ReportsPage.jsx
-import React, { useState, useMemo } from "react";
-import pdfMake from "pdfmake/build/pdfmake";
-import pdfFonts from "pdfmake/build/vfs_fonts";
+import React, { useState, useEffect } from "react";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { FileText } from "lucide-react";
+import { Bar, Pie } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
+import { pdfMake } from "pdfmake/build/pdfmake";
+import { Download, Calendar, X } from "lucide-react";
 
-pdfMake.vfs = pdfFonts.pdfMake.vfs;
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
-function ReportsPage({ sales, debts, expenses, userId }) {
+const ReportsPage = ({ sales, debts, expenses }) => {
   const [reportType, setReportType] = useState("sales");
   const [dateRange, setDateRange] = useState("today");
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const filteredData = useMemo(() => {
+  useEffect(() => {
     const today = new Date();
-    let filteredSales = sales;
-    let filteredDebts = debts;
-    let filteredExpenses = expenses;
-
-    if (dateRange === "today") {
-      filteredSales = sales.filter(
-        (s) => new Date(s.date) >= startOfDay(today) && new Date(s.date) <= endOfDay(today)
-      );
-      filteredDebts = debts.filter(
-        (d) => new Date(d.date) >= startOfDay(today) && new Date(d.date) <= endOfDay(today)
-      );
-      filteredExpenses = expenses.filter(
-        (e) => new Date(e.date) >= startOfDay(today) && new Date(e.date) <= endOfDay(today)
-      );
-    } else if (dateRange === "week") {
-      const weekStart = startOfWeek(today);
-      const weekEnd = endOfWeek(today);
-      filteredSales = sales.filter(
-        (s) => new Date(s.date) >= weekStart && new Date(s.date) <= weekEnd
-      );
-      filteredDebts = debts.filter(
-        (d) => new Date(d.date) >= weekStart && new Date(d.date) <= weekEnd
-      );
-      filteredExpenses = expenses.filter(
-        (e) => new Date(e.date) >= weekStart && new Date(e.date) <= weekEnd
-      );
-    } else if (dateRange === "month") {
-      const monthStart = startOfMonth(today);
-      const monthEnd = endOfMonth(today);
-      filteredSales = sales.filter(
-        (s) => new Date(s.date) >= monthStart && new Date(s.date) <= monthEnd
-      );
-      filteredDebts = debts.filter(
-        (d) => new Date(d.date) >= monthStart && new Date(d.date) <= monthEnd
-      );
-      filteredExpenses = expenses.filter(
-        (e) => new Date(e.date) >= monthStart && new Date(e.date) <= monthEnd
-      );
+    switch (dateRange) {
+      case "today":
+        setStartDate(startOfDay(today));
+        setEndDate(endOfDay(today));
+        break;
+      case "week":
+        setStartDate(startOfWeek(today));
+        setEndDate(endOfWeek(today));
+        break;
+      case "month":
+        setStartDate(startOfMonth(today));
+        setEndDate(endOfMonth(today));
+        break;
+      case "custom":
+        // Custom dates are handled separately
+        break;
+      default:
+        break;
     }
+  }, [dateRange]);
 
-    return { sales: filteredSales, debts: filteredDebts, expenses: filteredExpenses };
-  }, [sales, debts, expenses, dateRange]);
+  const filteredData = {
+    sales: sales.filter(s => {
+      const saleDate = s.date.toDate();
+      return saleDate >= startDate && saleDate <= endDate;
+    }),
+    debts: debts.filter(d => {
+      const debtDate = d.date.toDate();
+      return debtDate >= startDate && debtDate <= endDate;
+    }),
+    expenses: expenses.filter(e => {
+      const expenseDate = e.date.toDate();
+      return expenseDate >= startDate && expenseDate <= endDate;
+    }),
+  };
 
-  const generateReport = () => {
+  const totalSales = filteredData.sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalPaid = filteredData.sales.reduce((sum, sale) => sum + sale.amountPaid, 0);
+  const totalDebts = filteredData.debts.reduce((sum, debt) => sum + debt.amount, 0);
+  const totalExpenses = filteredData.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const balance = totalPaid - totalExpenses;
+
+  const salesChartData = {
+    labels: ["Sales", "Paid", "Debts"],
+    datasets: [
+      {
+        label: "Amount (UGX)",
+        data: [totalSales, totalPaid, totalDebts],
+        backgroundColor: [
+          "rgba(59, 130, 246, 0.7)",
+          "rgba(16, 185, 129, 0.7)",
+          "rgba(239, 68, 68, 0.7)",
+        ],
+        borderColor: [
+          "rgba(59, 130, 246, 1)",
+          "rgba(16, 185, 129, 1)",
+          "rgba(239, 68, 68, 1)",
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const expensesChartData = {
+    labels: filteredData.expenses.map(e => e.category),
+    datasets: [
+      {
+        data: filteredData.expenses.map(e => e.amount),
+        backgroundColor: [
+          "rgba(255, 99, 132, 0.7)",
+          "rgba(54, 162, 235, 0.7)",
+          "rgba(255, 206, 86, 0.7)",
+          "rgba(75, 192, 192, 0.7)",
+          "rgba(153, 102, 255, 0.7)",
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const generatePDF = () => {
     const docDefinition = {
       content: [
-        { text: "Product Distribution Report", style: "header" },
-        { text: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`, style: "subheader" },
-        { text: `Date Range: ${dateRange.charAt(0).toUpperCase() + dateRange.slice(1)}`, style: "subheader" },
-        { text: "", margin: [0, 10] },
-        reportType === "sales" && {
-          table: {
-            headerRows: 1,
-            widths: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"],
-            body: [
-              [
-                "Client",
-                "Product",
-                "Quantity",
-                "Unit Price",
-                "Discount",
-                "Total",
-                "Paid",
-                "Debt",
-                "Date",
-              ],
-              ...filteredData.sales.map((s) => [
-                s.client,
-                s.product,
-                s.quantity,
-                `UGX ${s.unitPrice.toLocaleString()}`,
-                `UGX ${s.discount.toLocaleString()}`,
-                `UGX ${s.totalAmount.toLocaleString()}`,
-                `UGX ${s.amountPaid.toLocaleString()}`,
-                `UGX ${s.remainingDebt.toLocaleString()}`,
-                format(new Date(s.date), "PP"),
-              ]),
-            ],
-          },
-        },
-        reportType === "debts" && {
-          table: {
-            headerRows: 1,
-            widths: ["auto", "auto", "auto", "auto", "auto"],
-            body: [
-              ["Debtor", "Amount", "Status", "Notes", "Date"],
-              ...filteredData.debts.map((d) => [
-                d.debtor,
-                `UGX ${d.amount.toLocaleString()}`,
-                d.status,
-                d.notes,
-                format(new Date(d.date), "PP"),
-              ]),
-            ],
-          },
-        },
-        reportType === "expenses" && {
-          table: {
-            headerRows: 1,
-            widths: ["auto", "auto", "auto", "auto", "auto"],
-            body: [
-              ["Category", "Amount", "Description", "Payee", "Date"],
-              ...filteredData.expenses.map((e) => [
-                e.category,
-                `UGX ${e.amount.toLocaleString()}`,
-                e.description,
-                e.payee || "-",
-                format(new Date(e.date), "PP"),
-              ]),
-            ],
-          },
-        },
-        { text: "", margin: [0, 10] },
-        {
-          text: "Balance Sheet",
-          style: "subheader",
-        },
-        {
-          ul: [
-            `Total Sales: UGX ${filteredData.sales
-              .reduce((sum, s) => sum + s.totalAmount, 0)
-              .toLocaleString()}`,
-            `Total Paid: UGX ${filteredData.sales
-              .reduce((sum, s) => sum + s.amountPaid, 0)
-              .toLocaleString()}`,
-            `Total Outstanding Debts: UGX ${filteredData.debts
-              .reduce((sum, d) => (d.status === "outstanding" ? sum + d.amount : sum), 0)
-              .toLocaleString()}`,
-            `Total Expenses: UGX ${filteredData.expenses
-              .reduce((sum, e) => sum + e.amount, 0)
-              .toLocaleString()}`,
-            `Net Balance: UGX ${(
-              filteredData.sales.reduce((sum, s) => sum + s.amountPaid, 0) -
-              filteredData.expenses.reduce((sum, e) => sum + e.amount, 0)
-            ).toLocaleString()}`,
-          ],
-        },
+        { text: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`, style: "header" },
+        { text: `Date Range: ${format(startDate, "MMM dd, yyyy")} - ${format(endDate, "MMM dd, yyyy")}`, style: "subheader" },
+        "\n",
+        ...getReportContent(),
+        "\n",
+        { text: `Total ${reportType}: UGX ${getTotal().toLocaleString()}`, style: "total" },
+        reportType !== "expenses" && { text: `Balance: UGX ${balance.toLocaleString()}`, style: "balance" },
       ],
       styles: {
         header: {
@@ -160,53 +117,282 @@ function ReportsPage({ sales, debts, expenses, userId }) {
         subheader: {
           fontSize: 14,
           bold: true,
-          margin: [0, 10, 0, 5],
+          margin: [0, 10, 0, 10],
+        },
+        tableHeader: {
+          bold: true,
+          fontSize: 12,
+          color: "black",
+        },
+        total: {
+          bold: true,
+          fontSize: 14,
+          margin: [0, 10, 0, 0],
+        },
+        balance: {
+          bold: true,
+          fontSize: 14,
+          margin: [0, 10, 0, 0],
+          color: balance >= 0 ? "green" : "red",
         },
       },
     };
 
-    pdfMake.createPdf(docDefinition).download(`${reportType}_report_${dateRange}.pdf`);
+    pdfMake.createPdf(docDefinition).download(`${reportType}_report_${format(new Date(), "yyyyMMdd")}.pdf`);
+  };
+
+  const getReportContent = () => {
+    switch (reportType) {
+      case "sales":
+        return [
+          {
+            table: {
+              headerRows: 1,
+              widths: ["*", "*", "*", "*", "*", "*"],
+              body: [
+                [
+                  { text: "Client", style: "tableHeader" },
+                  { text: "Product", style: "tableHeader" },
+                  { text: "Quantity", style: "tableHeader" },
+                  { text: "Total", style: "tableHeader" },
+                  { text: "Status", style: "tableHeader" },
+                  { text: "Date", style: "tableHeader" },
+                ],
+                ...filteredData.sales.map(sale => [
+                  sale.client,
+                  sale.product,
+                  sale.quantity,
+                  `UGX ${sale.totalAmount.toLocaleString()}`,
+                  sale.paymentStatus,
+                  format(sale.date.toDate(), "MMM dd, yyyy"),
+                ]),
+              ],
+            },
+          },
+        ];
+      case "debts":
+        return [
+          {
+            table: {
+              headerRows: 1,
+              widths: ["*", "*", "*", "*"],
+              body: [
+                [
+                  { text: "Debtor", style: "tableHeader" },
+                  { text: "Amount", style: "tableHeader" },
+                  { text: "Status", style: "tableHeader" },
+                  { text: "Date", style: "tableHeader" },
+                ],
+                ...filteredData.debts.map(debt => [
+                  debt.debtor,
+                  `UGX ${debt.amount.toLocaleString()}`,
+                  debt.status,
+                  format(debt.date.toDate(), "MMM dd, yyyy"),
+                ]),
+              ],
+            },
+          },
+        ];
+      case "expenses":
+        return [
+          {
+            table: {
+              headerRows: 1,
+              widths: ["*", "*", "*", "*"],
+              body: [
+                [
+                  { text: "Category", style: "tableHeader" },
+                  { text: "Amount", style: "tableHeader" },
+                  { text: "Description", style: "tableHeader" },
+                  { text: "Date", style: "tableHeader" },
+                ],
+                ...filteredData.expenses.map(expense => [
+                  expense.category,
+                  `UGX ${expense.amount.toLocaleString()}`,
+                  expense.description,
+                  format(expense.date.toDate(), "MMM dd, yyyy"),
+                ]),
+              ],
+            },
+          },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const getTotal = () => {
+    switch (reportType) {
+      case "sales":
+        return totalSales;
+      case "debts":
+        return totalDebts;
+      case "expenses":
+        return totalExpenses;
+      default:
+        return 0;
+    }
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-neutral-800 flex items-center gap-2">
-        <FileText className="w-6 h-6 text-primary" />
-        Reports
-      </h2>
-      <div className="bg-white p-6 rounded-lg shadow-md border border-neutral-200">
-        <h3 className="text-lg font-semibold text-neutral-700 mb-4">Generate Report</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <select
-            value={reportType}
-            onChange={(e) => setReportType(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl font-bold text-neutral-800">Reports</h2>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button
+            onClick={generatePDF}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all"
           >
-            <option value="sales">Sales</option>
-            <option value="debts">Debts</option>
-            <option value="expenses">Expenses</option>
-          </select>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          >
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="all">All Time</option>
-          </select>
+            <Download className="w-5 h-5" />
+            <span>Download PDF</span>
+          </button>
         </div>
-        <button
-          onClick={generateReport}
-          className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2"
-        >
-          <FileText className="w-5 h-5" />
-          Generate PDF Report
-        </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-800 mb-4">Report Options</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Report Type</label>
+                <select
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="sales">Sales</option>
+                  <option value="debts">Debts</option>
+                  <option value="expenses">Expenses</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Date Range</label>
+                <select
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+
+              {dateRange === "custom" && (
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={format(startDate, "yyyy-MM-dd")}
+                      onChange={(e) => setStartDate(new Date(e.target.value))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={format(endDate, "yyyy-MM-dd")}
+                      onChange={(e) => setEndDate(new Date(e.target.value))}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-800 mb-4">Summary</h3>
+            <div className="bg-neutral-50 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">Date Range</p>
+                  <p className="font-medium">
+                    {format(startDate, "MMM dd, yyyy")} - {format(endDate, "MMM dd, yyyy")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">Total Sales</p>
+                  <p className="font-medium">UGX {totalSales.toLocaleString()}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">Total Paid</p>
+                  <p className="font-medium">UGX {totalPaid.toLocaleString()}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">Total Debts</p>
+                  <p className="font-medium">UGX {totalDebts.toLocaleString()}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">Total Expenses</p>
+                  <p className="font-medium">UGX {totalExpenses.toLocaleString()}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-600">Balance</p>
+                  <p className={`font-medium ${balance >= 0 ? "text-success-600" : "text-error-600"}`}>
+                    UGX {balance.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Visualizations</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-md font-medium text-neutral-700 mb-2">Sales Overview</h4>
+            <div className="h-64">
+              <Bar
+                data={salesChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "top",
+                    },
+                    title: {
+                      display: true,
+                      text: "Sales, Paid Amount, and Debts",
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <h4 className="text-md font-medium text-neutral-700 mb-2">Expenses Breakdown</h4>
+            <div className="h-64">
+              <Pie
+                data={expensesChartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "right",
+                    },
+                    title: {
+                      display: true,
+                      text: "Expenses by Category",
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default ReportsPage;
