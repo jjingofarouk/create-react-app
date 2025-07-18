@@ -54,22 +54,22 @@ function App() {
         };
 
         const unsubscribeSales = onSnapshot(
-          query(collection(db, `users/${user.uid}/sales`)),
-          (snapshot) => {
-            const salesData = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-            setSales(salesData);
-            setClients(prev => [
-              ...new Set([...prev, ...salesData.map((s) => s.client).filter(Boolean)])
-            );
-            handleQueryComplete();
-          },
-          (err) => {
-            handleQueryComplete(err);
-          }
-        );
+  query(collection(db, `users/${user.uid}/sales`)),
+  (snapshot) => {
+    const salesData = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setSales(salesData);
+    setClients(prev => [
+      ...new Set([...prev, ...salesData.map((s) => s.client).filter(Boolean)])
+    ]);
+    handleQueryComplete();
+  },
+  (err) => {
+    handleQueryComplete(err);
+  }
+);
 
         const unsubscribeDebts = onSnapshot(
           query(collection(db, `users/${user.uid}/debts`)),
