@@ -1,7 +1,8 @@
+// DebtsPage.jsx
 import React, { useState } from "react";
 import { db, addDoc, collection, deleteDoc, doc } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
-import { DollarSign, BarChart } from "lucide-react";
+import { DollarSign, BarChart, Search } from "lucide-react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -13,6 +14,7 @@ import {
   Legend,
 } from "chart.js";
 import { format, parseISO, startOfDay } from "date-fns";
+import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table";
 
 ChartJS.register(
   CategoryScale,
@@ -77,14 +79,14 @@ function DebtTable({ debts, onMarkAsPaid }) {
     },
   ];
 
-  const table = require("@tanstack/react-table").useReactTable({
+  const table = useReactTable({
     data: debts || [],
     columns,
     state: { globalFilter },
     onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: require("@tanstack/react-table").getCoreRowModel(),
-    getSortedRowModel: require("@tanstack/react-table").getSortedRowModel(),
-    getFilteredRowModel: require("@tanstack/react-table").getFilteredRowModel(),
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   });
 
   const totalDebt = debts.reduce((sum, d) => sum + d.amount, 0);
@@ -119,7 +121,7 @@ function DebtTable({ debts, onMarkAsPaid }) {
         </div>
       </div>
       <div className="relative max-w-xs w-full mb-4">
-        <require("lucide-react").Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
         <input
           value={globalFilter ?? ""}
           onChange={(e) => setGlobalFilter(e.target.value)}
@@ -159,7 +161,7 @@ function DebtTable({ debts, onMarkAsPaid }) {
               <tr key={row.id} className="hover:bg-neutral-50 transition-colors duration-200">
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-3 py-3 border-b border-neutral-100 text-sm">
-                    {require("@tanstack/react-table").flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
