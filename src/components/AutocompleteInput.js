@@ -1,61 +1,97 @@
 // src/components/AutocompleteInput.jsx
 import React, { useState, useEffect, useRef } from "react";
+import { ChevronDown, X } from "lucide-react";
 
-function AutocompleteInput({ suggestions, value, onChange, placeholder, required }) {
-  const [filteredSuggestions, setFilteredSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const inputRef = useRef(null);
+const AutocompleteInput = ({ options, value, onChange, placeholder }) => {
+  const [inputValue, setInputValue] = useState(value || "");
+  const [filteredOptions, setFilteredOptions] = useState(options || []);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const wrapperRef = useRef(null);
 
   useEffect(() => {
-    if (value) {
-      const filtered = suggestions.filter((s) =>
-        s.toLowerCase().includes(value.toLowerCase())
+    setInputValue(value || "");
+  }, [value]);
+
+  useEffect(() => {
+    if (options) {
+      setFilteredOptions(
+        options.filter(option =>
+          option.toLowerCase().includes(inputValue.toLowerCase())
+        )
       );
-      setFilteredSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0 && value.length > 0);
-    } else {
-      setFilteredSuggestions([]);
-      setShowSuggestions(false);
     }
-  }, [value, suggestions]);
+  }, [inputValue, options]);
 
-  const handleSelect = (suggestion) => {
-    onChange(suggestion);
-    setShowSuggestions(false);
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+    if (!showDropdown) setShowDropdown(true);
   };
 
-  const handleBlur = () => {
-    setTimeout(() => setShowSuggestions(false), 200);
+  const handleOptionSelect = (option) => {
+    setInputValue(option);
+    onChange(option);
+    setShowDropdown(false);
   };
+
+  const handleClear = () => {
+    setInputValue("");
+    onChange("");
+  };
+
+  const handleClickOutside = (event) => {
+    if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+      setShowDropdown(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        required={required}
-        className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-        onFocus={() => value && setShowSuggestions(true)}
-        onBlur={handleBlur}
-      />
-      {showSuggestions && (
-        <ul className="absolute z-10 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-40 overflow-auto mt-1">
-          {filteredSuggestions.map((suggestion, index) => (
+    <div className="relative w-full" ref={wrapperRef}>
+      <div className="relative">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={() => setShowDropdown(true)}
+          placeholder={placeholder}
+          className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+        />
+        <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+          {inputValue ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-neutral-400 hover:text-neutral-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : (
+            <ChevronDown className="w-5 h-5 text-neutral-400" />
+          )}
+        </div>
+      </div>
+
+      {showDropdown && filteredOptions.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-full bg-white border border-neutral-200 rounded-md shadow-lg max-h-60 overflow-auto">
+          {filteredOptions.map((option, index) => (
             <li
               key={index}
-              onClick={() => handleSelect(suggestion)}
-              className="px-4 py-2 hover:bg-neutral-100 cursor-pointer text-neutral-800"
+              onClick={() => handleOptionSelect(option)}
+              className="px-4 py-2 hover:bg-neutral-100 cursor-pointer"
             >
-              {suggestion}
+              {option}
             </li>
           ))}
         </ul>
       )}
     </div>
   );
-}
+};
 
 export default AutocompleteInput;
