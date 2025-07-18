@@ -1,8 +1,8 @@
-// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
+    "./public/index.html"
   ],
   theme: {
     extend: {
@@ -20,7 +20,7 @@ module.exports = {
           800: '#1E40AF',
           900: '#1E3A8A',
         },
-        success: {
+        secondary: {
           DEFAULT: '#10B981',
           50: '#ECFDF5',
           100: '#D1FAE5',
@@ -33,7 +33,7 @@ module.exports = {
           800: '#065F46',
           900: '#064E3B',
         },
-        error: {
+        danger: {
           DEFAULT: '#EF4444',
           50: '#FEF2F2',
           100: '#FEE2E2',
@@ -59,9 +59,26 @@ module.exports = {
           800: '#1F2A44',
           900: '#111827',
         },
-        danger: '#DC2626',
+      },
+      boxShadow: {
+        sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        DEFAULT: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+        md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+        '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+        inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
+      },
+      animation: {
+        'spin-slow': 'spin 2s linear infinite',
+        'ping-slow': 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms')({
+      strategy: 'class', // only generate classes
+    }),
+    require('@tailwindcss/typography'),
+  ],
 }
