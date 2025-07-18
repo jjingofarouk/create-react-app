@@ -5,7 +5,7 @@ import TransactionTable from "./components/TransactionTable";
 import BalanceSummary from "./components/BalanceSummary";
 import IncomeExpenseChart from "./components/IncomeExpenseChart";
 import Auth from "./components/Auth";
-import "./App.css";
+import "./index.css";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -41,9 +41,9 @@ function App() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-5">
+        <div className="w-10 h-10 border-4 border-neutral-200 border-t-primary rounded-full animate-spin"></div>
+        <p className="text-neutral-600">Loading...</p>
       </div>
     );
   }
@@ -53,31 +53,34 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="header-content">
-          <h1 className="app-title">MyMoney</h1>
-          <button className="sign-out-btn" onClick={() => auth.signOut()}>
+    <div className="min-h-screen bg-neutral-50">
+      <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">MyMoney</h1>
+          <button 
+            className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
+            onClick={() => auth.signOut()}
+          >
             Sign Out
           </button>
         </div>
       </header>
       
-      <main className="main-content">
-        <div className="dashboard-grid">
-          <div className="summary-section">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1">
+          <div>
             <BalanceSummary transactions={transactions} />
           </div>
           
-          <div className="chart-section">
+          <div>
             <IncomeExpenseChart transactions={transactions} />
           </div>
           
-          <div className="form-section">
+          <div>
             <TransactionForm clients={clients} categories={categories} userId={user.uid} />
           </div>
           
-          <div className="table-section">
+          <div>
             <TransactionTable transactions={transactions} />
           </div>
         </div>
