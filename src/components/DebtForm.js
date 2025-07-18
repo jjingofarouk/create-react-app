@@ -4,7 +4,7 @@ import AutocompleteInput from "./AutocompleteInput";
 import { db, addDoc, collection, setDoc, doc } from "../firebase";
 import { DollarSign } from "lucide-react";
 
-function DebtForm({ clients, userId, sales }) {
+function DebtForm({ clients, userId, sales, debts }) {
   const [debtor, setDebtor] = useState("");
   const [amount, setAmount] = useState(0);
   const [notes, setNotes] = useState("");
