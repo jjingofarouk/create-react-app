@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { BarChart } from "lucide-react";
 
 ChartJS.register(
   CategoryScale,
@@ -23,9 +24,14 @@ ChartJS.register(
 function IncomeExpenseChart({ transactions }) {
   if (!transactions || transactions.length === 0) {
     return (
-      <div className="chart-container">
-        <h2 className="chart-title">Income vs Expenses</h2>
-        <div className="no-data">
+      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart className="w-6 h-6 text-primary" />
+          <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
+            Income vs Expenses
+          </h2>
+        </div>
+        <div className="flex items-center justify-center h-48 sm:h-64 text-neutral-500 italic">
           <p>No transaction data available to display chart.</p>
         </div>
       </div>
@@ -83,6 +89,7 @@ function IncomeExpenseChart({ transactions }) {
           color: "#374151",
           usePointStyle: true,
           pointStyle: "circle",
+          padding: 10,
         },
       },
       tooltip: {
@@ -91,6 +98,7 @@ function IncomeExpenseChart({ transactions }) {
         bodyColor: "#F9FAFB",
         cornerRadius: 8,
         displayColors: false,
+        padding: 10,
         callbacks: {
           label: function(context) {
             return `${context.dataset.label}: UGX ${context.parsed.y.toLocaleString()}`;
@@ -109,6 +117,7 @@ function IncomeExpenseChart({ transactions }) {
             size: 12,
             weight: "500",
           },
+          padding: { top: 10 },
         },
         ticks: {
           color: "#6B7280",
@@ -132,12 +141,17 @@ function IncomeExpenseChart({ transactions }) {
             size: 12,
             weight: "500",
           },
+          padding: { top: 10 },
         },
         ticks: {
           color: "#6B7280",
           font: {
             size: 11,
           },
+          maxRotation: 45,
+          minRotation: 45,
+          autoSkip: true,
+          maxTicksLimit: 10,
         },
         grid: {
           display: false,
@@ -147,9 +161,14 @@ function IncomeExpenseChart({ transactions }) {
   };
 
   return (
-    <div className="chart-container">
-      <h2 className="chart-title">Income vs Expenses</h2>
-      <div className="chart-wrapper">
+    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <BarChart className="w-6 h-6 text-primary" />
+        <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
+          Income vs Expenses
+        </h2>
+      </div>
+      <div className="relative h-64 sm:h-80">
         <Bar data={chartData} options={options} />
       </div>
     </div>
