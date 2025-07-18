@@ -1,6 +1,6 @@
 // src/components/TransactionTable.jsx
 import React, { useMemo, useState } from "react";
-import { useTable, useSortBy, useFilters } from "@tanstack/react-table";
+import { useReactTable, useSortBy, useFilters, getCoreRowModel } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Edit, Trash2, DollarSign } from "lucide-react";
 import { db, setDoc, doc, deleteDoc } from "../firebase";
@@ -55,45 +55,45 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
   const columns = useMemo(() => {
     if (sales.length) {
       return [
-        { Header: "Client", accessor: "client" },
-        { Header: "Product", accessor: "product" },
-        { Header: "Quantity", accessor: "quantity" },
+        { header: "Client", accessorKey: "client" },
+        { header: "Product", accessorKey: "product" },
+        { header: "Quantity", accessorKey: "quantity" },
         {
-          Header: "Unit Price",
-          accessor: "unitPrice",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
+          header: "Unit Price",
+          accessorKey: "unitPrice",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
         {
-          Header: "Discount",
-          accessor: "discount",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
+          header: "Discount",
+          accessorKey: "discount",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
         {
-          Header: "Total",
-          accessor: "totalAmount",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
+          header: "Total",
+          accessorKey: "totalAmount",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
-        { Header: "Payment Status", accessor: "paymentStatus" },
+        { header: "Payment Status", accessorKey: "paymentStatus" },
         {
-          Header: "Paid",
-          accessor: "amountPaid",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
-        },
-        {
-          Header: "Debt",
-          accessor: "remainingDebt",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
+          header: "Paid",
+          accessorKey: "amountPaid",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
         {
-          Header: "Date",
-          accessor: "date",
-          Cell: ({ value }) => format(new Date(value), "PP"),
+          header: "Debt",
+          accessorKey: "remainingDebt",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
-        { Header: "Notes", accessor: "notes" },
         {
-          Header: "Actions",
-          accessor: "actions",
-          Cell: ({ row }) => (
+          header: "Date",
+          accessorKey: "date",
+          cell: ({ getValue }) => format(new Date(getValue()), "PP"),
+        },
+        { header: "Notes", accessorKey: "notes" },
+        {
+          header: "Actions",
+          accessorKey: "actions",
+          cell: ({ row }) => (
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -116,23 +116,23 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
       ];
     } else if (debts.length) {
       return [
-        { Header: "Debtor", accessor: "debtor" },
+        { header: "Debtor", accessorKey: "debtor" },
         {
-          Header: "Amount",
-          accessor: "amount",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
+          header: "Amount",
+          accessorKey: "amount",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
-        { Header: "Status", accessor: "status" },
-        { Header: "Notes", accessor: "notes" },
+        { header: "Status", accessorKey: "status" },
+        { header: "Notes", accessorKey: "notes" },
         {
-          Header: "Date",
-          accessor: "date",
-          Cell: ({ value }) => format(new Date(value), "PP"),
+          header: "Date",
+          accessorKey: "date",
+          cell: ({ getValue }) => format(new Date(getValue()), "PP"),
         },
         {
-          Header: "Actions",
-          accessor: "actions",
-          Cell: ({ row }) => (
+          header: "Actions",
+          accessorKey: "actions",
+          cell: ({ row }) => (
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -163,23 +163,23 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
       ];
     } else if (expenses.length) {
       return [
-        { Header: "Category", accessor: "category" },
+        { header: "Category", accessorKey: "category" },
         {
-          Header: "Amount",
-          accessor: "amount",
-          Cell: ({ value }) => `UGX ${value.toLocaleString()}`,
+          header: "Amount",
+          accessorKey: "amount",
+          cell: ({ getValue }) => `UGX ${getValue().toLocaleString()}`,
         },
-        { Header: "Description", accessor: "description" },
-        { Header: "Payee", accessor: "payee" },
+        { header: "Description", accessorKey: "description" },
+        { header: "Payee", accessorKey: "payee" },
         {
-          Header: "Date",
-          accessor: "date",
-          Cell: ({ value }) => format(new Date(value), "PP"),
+          header: "Date",
+          accessorKey: "date",
+          cell: ({ getValue }) => format(new Date(getValue()), "PP"),
         },
         {
-          Header: "Actions",
-          accessor: "actions",
-          Cell: ({ row }) => (
+          header: "Actions",
+          accessorKey: "actions",
+          cell: ({ row }) => (
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -204,11 +204,13 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
     return [];
   }, [sales, debts, expenses, onDebtPayment]);
 
-  const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow } = useTable(
-    { columns, data },
-    useFilters,
-    useSortBy
-  );
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    enableSorting: true,
+    enableFilters: true,
+  });
 
   const handleEdit = async () => {
     setError("");
@@ -297,37 +299,38 @@ function TransactionTable({ sales = [], debts = [], expenses = [], userId, onDeb
       {error && (
         <p className="text-error-600 text-sm text-center bg-error-50 p-2 rounded-lg mb-4">{error}</p>
       )}
-      <table {...getTableProps()} className="w-full text-left text-neutral-800">
+      <table className="w-full text-left text-neutral-800">
         <thead>
-          {headerGroups.map((headerGroup) => (
-            <tr {...headerGroup.getHeaderGroupProps()}>
-              {headerGroup.headers.map((column) => (
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
                 <th
-                  {...column.getHeaderProps(column.getSortByToggleProps())}
+                  key={header.id}
                   className="px-4 py-2 border-b border-neutral-200 font-semibold text-neutral-600"
+                  {...{
+                    onClick: header.column.getToggleSortingHandler(),
+                  }}
                 >
-                  {column.render("Header")}
-                  {column.isSorted && (
-                    <span>{column.isSortedDesc ? " 🔽" : " 🔼"}</span>
-                  )}
+                  {header.isPlaceholder ? null : header.column.columnDef.header}
+                  {{
+                    asc: " 🔼",
+                    desc: " 🔽",
+                  }[header.column.getIsSorted()] ?? null}
                 </th>
               ))}
             </tr>
           ))}
         </thead>
-        <tbody {...getTableBodyProps()}>
-          {rows.map((row) => {
-            prepareRow(row);
-            return (
-              <tr {...row.getRowProps()} className="hover:bg-neutral-50">
-                {row.cells.map((cell) => (
-                  <td {...cell.getCellProps()} className="px-4 py-2 border-b border-neutral-200">
-                    {cell.render("Cell")}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
+        <tbody>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className="hover:bg-neutral-50">
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className="px-4 py-2 border-b border-neutral-200">
+                  {cell.column.columnDef.cell(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
       {editingId && (
