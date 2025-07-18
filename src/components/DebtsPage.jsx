@@ -206,7 +206,9 @@ function DebtsPage({ debts, debtors, userId }) {
   };
 
   const handleMarkAsPaid = async (debtId) => {
-    if (!confirm("Are you sure you want to mark this debt as paid?")) return;
+    // Fixed: Use window.confirm instead of confirm to avoid ESLint error
+    if (!window.confirm("Are you sure you want to mark this debt as paid?")) return;
+    
     setLoading(true);
     try {
       await deleteDoc(doc(db, `users/${userId}/debts`, debtId));
@@ -218,31 +220,51 @@ function DebtsPage({ debts, debtors, userId }) {
     }
   };
 
+  // Safely handle date filtering with proper error handling
   const todaysDebts = debts.filter((d) => {
     try {
-      return startOfDay(parseISO(d.timestamp)).getTime() === startOfDay(new Date()).getTime();
-    } catch {
+      if (!d.timestamp) return false;
+      const debtDate = new Date(d.timestamp);
+      const today = new Date();
+      return (
+        debtDate.getFullYear() === today.getFullYear() &&
+        debtDate.getMonth() === today.getMonth() &&
+        debtDate.getDate() === today.getDate()
+      );
+    } catch (error) {
+      console.error("Error parsing date:", error);
       return false;
     }
   });
-  const totalTodaysDebt = todaysDebts.reduce((sum, d) => sum + d.amount, 0);
+
+  const totalTodaysDebt = todaysDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
 
   const highestDebts = [...debts]
-    .sort((a, b) => b.amount - a.amount)
+    .sort((a, b) => (b.amount || 0) - (a.amount || 0))
     .slice(0, 3)
-    .map((d) => ({ debtor: d.debtor || "Unknown", amount: d.amount }));
+    .map((d) => ({ debtor: d.debtor || "Unknown", amount: d.amount || 0 }));
 
   const longestDebts = [...debts]
-    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    .sort((a, b) => {
+      try {
+        const dateA = new Date(a.timestamp || 0);
+        const dateB = new Date(b.timestamp || 0);
+        return dateA - dateB;
+      } catch (error) {
+        return 0;
+      }
+    })
     .slice(0, 3)
     .map((d) => ({ debtor: d.debtor || "Unknown", timestamp: d.timestamp }));
+
+  const totalDebt = debts.reduce((sum, d) => sum + (d.amount || 0), 0);
 
   const chartData = {
     labels: ["Today's Debts", "Total Debts"],
     datasets: [
       {
         label: "Debt Amount (UGX)",
-        data: [totalTodaysDebt, debts.reduce((sum, d) => sum + d.amount, 0)],
+        data: [totalTodaysDebt, totalDebt],
         backgroundColor: ["#3B82F6", "#EF4444"],
         borderColor: ["#2563EB", "#DC2626"],
         borderWidth: 1,
@@ -388,7 +410,7 @@ function DebtsPage({ debts, debtors, userId }) {
             <ul className="text-sm text-neutral-800">
               {longestDebts.map((d, i) => (
                 <li key={i}>
-                  {d.debtor}: {new Date(d.timestamp).toLocaleDateString()}
+                  {d.debtor}: {d.timestamp ? new Date(d.timestamp).toLocaleDateString() : 'Unknown date'}
                 </li>
               ))}
             </ul>
