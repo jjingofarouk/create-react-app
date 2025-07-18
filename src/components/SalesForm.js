@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AutocompleteInput from "./AutocompleteInput";
 import { db, addDoc, collection, setDoc, doc } from "../firebase";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, TrendingUp } from "lucide-react";
 
 function SalesForm({ clients, products, userId }) {
   const [client, setClient] = useState("");
