@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { auth, db, onSnapshot, collection, query } from "./firebase";
-import TransactionForm from "./components/TransactionForm";
-import TransactionTable from "./components/TransactionTable";
-import BalanceSummary from "./components/BalanceSummary";
-import IncomeExpenseChart from "./components/IncomeExpenseChart";
-import DebtForm from "./components/DebtForm";
-import DebtTable from "./components/DebtTable";
+import HomePage from "./components/HomePage";
+import IncomePage from "./components/IncomePage";
+import ExpensesPage from "./components/ExpensesPage";
+import DebtsPage from "./components/DebtsPage";
+import ReportsPage from "./components/ReportsPage";
 import Auth from "./components/Auth";
-import { Home, DollarSign, TrendingUp, TrendingDown, User, AlertCircle } from "lucide-react";
+import { Home, DollarSign, TrendingUp, TrendingDown, FileText, User, AlertCircle } from "lucide-react";
 import "./index.css";
 
 function App() {
@@ -87,7 +86,7 @@ function App() {
     { id: "income", name: "Income", icon: TrendingUp },
     { id: "expenses", name: "Expenses", icon: TrendingDown },
     { id: "debts", name: "Debts", icon: DollarSign },
-    { id: "profile", name: "Profile", icon: User },
+    { id: "reports", name: "Reports", icon: FileText },
   ];
 
   const renderContent = () => {
@@ -122,55 +121,49 @@ function App() {
     switch (activeTab) {
       case "home":
         return (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1">
-            <BalanceSummary transactions={transactions} />
-            <IncomeExpenseChart transactions={transactions} />
-            <TransactionForm clients={clients} categories={categories} userId={user.uid} />
-            <TransactionTable transactions={transactions} />
-          </div>
+          <HomePage
+            transactions={transactions}
+            clients={clients}
+            categories={categories}
+            userId={user.uid}
+          />
         );
       case "income":
         return (
-          <TransactionTable
+          <IncomePage
             transactions={transactions.filter((t) => t.type === "income")}
+            clients={clients}
+            categories={categories}
+            userId={user.uid}
           />
         );
       case "expenses":
         return (
-          <TransactionTable
+          <ExpensesPage
             transactions={transactions.filter((t) => t.type === "expense")}
+            clients={clients}
+            categories={categories}
+            userId={user.uid}
           />
         );
       case "debts":
         return (
-          <div className="grid grid-cols-1 gap-6">
-            <DebtForm debtors={debtors} userId={user.uid} />
-            <DebtTable debts={debts} />
-          </div>
+          <DebtsPage
+            debts={debts}
+            debtors={debtors}
+            userId={user.uid}
+          />
+        );
+      case "reports":
+        return (
+          <ReportsPage
+            transactions={transactions}
+            debts={debts}
+            userId={user.uid}
+          />
         );
       case "profile":
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <User className="w-6 h-6 text-primary" />
-              <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
-                Profile
-              </h2>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-neutral-500">Email</h3>
-                <p className="text-neutral-800">{user.email}</p>
-              </div>
-              <button
-                className="w-full sm:w-auto px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
-                onClick={() => auth.signOut()}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        );
+        return <ProfilePage user={user} />;
       default:
         return null;
     }
@@ -182,12 +175,20 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">MyMoney</h1>
           {user && (
-            <button
-              className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
-              onClick={() => auth.signOut()}
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setActiveTab("profile")}
+                className="p-2 rounded-full hover:bg-neutral-100 transition-all duration-200"
+              >
+                <User className="w-6 h-6 text-neutral-600" />
+              </button>
+              <button
+                className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
+                onClick={() => auth.signOut()}
+              >
+                Sign Out
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -211,8 +212,7 @@ function App() {
                   }`}
                 >
                   <tab.icon className="w-6 h-6 mb-1" />
-                  <span className="hidden sm:block">{tab.name}</span>
-                  <span className="sm:hidden text-xs">{tab.name}</span>
+                  <span className="text-xs sm:text-sm">{tab.name}</span>
                 </button>
               ))}
             </div>
