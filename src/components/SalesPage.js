@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X } from "lucide-react";
-import { useTable, useFilters, useSortBy } from "@tanstack/react-table";
+import { useReactTable, useFilters, useSortBy } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import SalesForm from "./SalesForm";
@@ -121,7 +121,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     []
   );
 
-  const table = useTable(
+  const table = useReactTable(
     {
       columns,
       data: filteredSales,
