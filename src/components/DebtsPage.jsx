@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { collection, addDoc, updateDoc, doc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, CreditCard } from "lucide-react";
-import { useTable } from "@tanstack/react-table";
+import { useReactTable } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
@@ -71,7 +71,7 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
     },
   ];
 
-  const table = useTable({
+  const table = useReactTable({
     columns,
     data: filteredDebts,
   });
