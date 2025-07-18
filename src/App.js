@@ -143,7 +143,7 @@ function App() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-          <AlertCircle className="w-12 h-12 text-error-600" />
+          <AlertCircle className="w-12 h-12 text-red-600" />
           <p className="text-neutral-600 text-center">{error}</p>
           <button
             className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
@@ -228,7 +228,7 @@ function App() {
                 <User className="w-6 h-6 text-neutral-600" />
               </button>
               <button
-                className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 hover:shadow-md transition-all duration-200"
                 onClick={() => auth.signOut()}
               >
                 Sign Out
@@ -238,26 +238,31 @@ function App() {
         </div>
       </header>
       
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
         {renderContent()}
       </main>
 
       {user && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-sm z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-5 gap-2 py-2">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-neutral-200 shadow-lg z-50">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex flex-col items-center justify-center py-2 px-1 sm:px-2 text-sm font-medium transition-all duration-200 ${
+                  className={`flex-1 flex flex-col items-center justify-center py-2 px-1 text-xs font-medium transition-all duration-200 relative ${
                     activeTab === tab.id
-                      ? "text-primary border-t-2 border-primary"
-                      : "text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100"
+                      ? "text-primary"
+                      : "text-neutral-500 hover:text-neutral-700"
                   }`}
                 >
-                  <tab.icon className="w-6 h-6 mb-1" />
-                  <span className="text-xs sm:text-sm">{tab.name}</span>
+                  {activeTab === tab.id && (
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full"></div>
+                  )}
+                  <tab.icon className={`w-5 h-5 mb-1 ${activeTab === tab.id ? 'scale-110' : ''} transition-transform duration-200`} />
+                  <span className={`${activeTab === tab.id ? 'font-semibold' : ''}`}>
+                    {tab.name}
+                  </span>
                 </button>
               ))}
             </div>
