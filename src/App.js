@@ -1,14 +1,15 @@
+// src/App.js
 import React, { useState, useEffect } from "react";
 import { auth, db, onSnapshot, collection, query } from "./firebase";
 import HomePage from "./components/HomePage";
 import SalesPage from "./components/SalesPage";
 import ExpensesPage from "./components/ExpensesPage";
 import DebtsPage from "./components/DebtsPage";
-import ReportsPage from "./components/ReportsPage";
 import ProfilePage from "./components/ProfilePage";
+import ReportsPage from "./components/ReportsPage";
 import Auth from "./components/Auth";
-import { Home, DollarSign, TrendingUp, TrendingDown, FileText, User, AlertCircle } from "lucide-react";
-import "./index.css";
+import { Home, ShoppingCart, TrendingDown, FileText, User, AlertCircle, CreditCard } from "lucide-react";
+import './index.css';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -18,42 +19,20 @@ function App() {
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [payees, setPayees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("home");
-
-  const tabs = [
-    { id: "home", name: "Home", icon: Home },
-    { id: "sales", name: "Sales", icon: TrendingUp },
-    { id: "expenses", name: "Expenses", icon: TrendingDown },
-    { id: "debts", name: "Debts", icon: DollarSign },
-    { id: "reports", name: "Reports", icon: FileText },
-  ];
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
-        setLoading(true);
-        setError(null);
-        
-        let loadedQueries = 0;
-        const totalQueries = 5;
-        
-        const handleQueryComplete = (err) => {
-          if (err) {
-            console.error("Query error:", err);
-            setError("Failed to load data. Please refresh the page.");
-          }
-          
-          loadedQueries++;
-          if (loadedQueries === totalQueries) {
-            setLoading(false);
-          }
-        };
-
         const salesQuery = query(collection(db, `users/${user.uid}/sales`));
+        const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
+        const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
+        const productsQuery = query(collection(db, `users/${user.uid}/products`));
+        const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
+
         const unsubscribeSales = onSnapshot(
           salesQuery,
           (snapshot) => {
@@ -62,81 +41,81 @@ function App() {
               ...doc.data(),
             }));
             setSales(salesData);
-            setClients(prev => [
-              ...new Set([...prev, ...salesData.map((s) => s.client).filter(Boolean)])
-            ]);
-            handleQueryComplete();
+            setLoading(false);
           },
           (err) => {
-            handleQueryComplete(err);
+            console.error("Error fetching sales:", err);
+            setError("Failed to load sales. Please try again.");
+            setLoading(false);
           }
         );
 
-        const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
         const unsubscribeDebts = onSnapshot(
           debtsQuery,
           (snapshot) => {
-            const debtData = snapshot.docs.map((doc) => ({
+            const debtsData = snapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            setDebts(debtData);
-            handleQueryComplete();
+            setDebts(debtsData);
+            setLoading(false);
           },
           (err) => {
-            handleQueryComplete(err);
+            console.error("Error fetching debts:", err);
+            setError("Failed to load debts. Please try again.");
+            setLoading(false);
           }
         );
 
-        const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
         const unsubscribeExpenses = onSnapshot(
           expensesQuery,
           (snapshot) => {
-            const expenseData = snapshot.docs.map((doc) => ({
+            const expensesData = snapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            setExpenses(expenseData);
-            setCategories([...new Set(expenseData.map((e) => e.category).filter(Boolean)]);
-            setPayees([...new Set(expenseData.map((e) => e.payee).filter(Boolean)]);
-            handleQueryComplete();
+            setExpenses(expensesData);
+            setCategories([...new Set(expensesData.map((e) => e.category).filter(Boolean))]);
+            setLoading(false);
           },
           (err) => {
-            handleQueryComplete(err);
+            console.error("Error fetching expenses:", err);
+            setError("Failed to load expenses. Please try again.");
+            setLoading(false);
           }
         );
 
-        const productsQuery = query(collection(db, `users/${user.uid}/products`));
         const unsubscribeProducts = onSnapshot(
           productsQuery,
           (snapshot) => {
-            const productData = snapshot.docs.map((doc) => ({
+            const productsData = snapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            setProducts(productData);
-            handleQueryComplete();
+            setProducts(productsData);
+            setLoading(false);
           },
           (err) => {
-            handleQueryComplete(err);
+            console.error("Error fetching products:", err);
+            setError("Failed to load products. Please try again.");
+            setLoading(false);
           }
         );
 
-        const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
         const unsubscribeClients = onSnapshot(
           clientsQuery,
           (snapshot) => {
-            const clientData = snapshot.docs.map((doc) => ({
+            const clientsData = snapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            setClients(prev => [
-              ...new Set([...prev, ...clientData.map((c) => c.name).filter(Boolean)])
-            ]);
-            handleQueryComplete();
+            setClients(clientsData);
+            setLoading(false);
           },
           (err) => {
-            handleQueryComplete(err);
+            console.error("Error fetching clients:", err);
+            setError("Failed to load clients. Please try again.");
+            setLoading(false);
           }
         );
 
@@ -154,21 +133,27 @@ function App() {
         setClients([]);
         setProducts([]);
         setCategories([]);
-        setPayees([]);
         setLoading(false);
         setError(null);
       }
     });
-
     return () => unsubscribe();
   }, []);
+
+  const tabs = [
+    { id: "home", name: "Home", icon: Home },
+    { id: "sales", name: "Sales", icon: ShoppingCart },
+    { id: "expenses", name: "Expenses", icon: TrendingDown },
+    { id: "debts", name: "Debts", icon: CreditCard },
+    { id: "reports", name: "Reports", icon: FileText },
+  ];
 
   const renderContent = () => {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-5">
           <div className="w-10 h-10 border-4 border-neutral-200 border-t-primary rounded-full animate-spin"></div>
-          <p className="text-neutral-600">Loading your data...</p>
+          <p className="text-neutral-600">Loading...</p>
         </div>
       );
     }
@@ -176,13 +161,13 @@ function App() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-          <AlertCircle className="w-12 h-12 text-error-600" />
-          <p className="text-neutral-600 text-center max-w-md px-4">{error}</p>
+          <AlertCircle className="w-12 h-12 text-red-600" />
+          <p className="text-neutral-600 text-center">{error}</p>
           <button
             className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
             onClick={() => window.location.reload()}
           >
-            Refresh Page
+            Retry
           </button>
         </div>
       );
@@ -200,6 +185,8 @@ function App() {
             debts={debts}
             expenses={expenses}
             clients={clients}
+            products={products}
+            categories={categories}
             userId={user.uid}
           />
         );
@@ -217,7 +204,6 @@ function App() {
           <ExpensesPage
             expenses={expenses}
             categories={categories}
-            payees={payees}
             userId={user.uid}
           />
         );
@@ -225,8 +211,8 @@ function App() {
         return (
           <DebtsPage
             debts={debts}
-            clients={clients}
             sales={sales}
+            clients={clients}
             userId={user.uid}
           />
         );
@@ -242,13 +228,7 @@ function App() {
       case "profile":
         return <ProfilePage user={user} />;
       default:
-        return <HomePage
-          sales={sales}
-          debts={debts}
-          expenses={expenses}
-          clients={clients}
-          userId={user.uid}
-        />;
+        return null;
     }
   };
 
@@ -256,18 +236,17 @@ function App() {
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">Product Distribution</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800">Sales Tracker</h1>
           {user && (
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setActiveTab("profile")}
                 className="p-2 rounded-full hover:bg-neutral-100 transition-all duration-200"
-                aria-label="Profile"
               >
                 <User className="w-6 h-6 text-neutral-600" />
               </button>
               <button
-                className="px-4 py-2 bg-danger text-white rounded-lg font-medium hover:bg-red-700 hover:shadow-md transition-all duration-200"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 hover:shadow-md transition-all duration-200"
                 onClick={() => auth.signOut()}
               >
                 Sign Out
@@ -276,28 +255,32 @@ function App() {
           )}
         </div>
       </header>
-
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-16">
         {renderContent()}
       </main>
 
       {user && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-sm z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-5 gap-2 py-2">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-neutral-200 shadow-lg z-50">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex flex-col items-center justify-center py-2 px-1 sm:px-2 text-sm font-medium transition-all duration-200 ${
+                  className={`flex-1 flex flex-col items-center justify-center py-2 px-1 text-xs font-medium transition-all duration-200 relative ${
                     activeTab === tab.id
-                      ? "text-primary border-t-2 border-primary"
-                      : "text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100"
+                      ? "text-primary"
+                      : "text-neutral-500 hover:text-neutral-700"
                   }`}
-                  aria-label={tab.name}
                 >
-                  <tab.icon className="w-6 h-6 mb-1" />
-                  <span className="text-xs sm:text-sm">{tab.name}</span>
+                  {activeTab === tab.id && (
+                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full"></div>
+                  )}
+                  <tab.icon className={`w-5 h-5 mb-1 ${activeTab === tab.id ? 'scale-110' : ''} transition-transform duration-200`} />
+                  <span className={`${activeTab === tab.id ? 'font-semibold' : ''}`}>
+                    {tab.name}
+                  </span>
                 </button>
               ))}
             </div>

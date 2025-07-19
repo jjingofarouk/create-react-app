@@ -1,201 +1,153 @@
 import React, { useState } from "react";
+import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
+import { db } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
-import { db, addDoc, collection, setDoc, doc } from "../firebase";
-import { DollarSign } from "lucide-react";
+import { X, User } from "lucide-react";
+import { format } from "date-fns";
 
-function DebtForm({ clients, userId, sales, debts, onDebtPayment }) {
-  const [debtor, setDebtor] = useState("");
-  const [amount, setAmount] = useState(0);
-  const [notes, setNotes] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedDebtId, setSelectedDebtId] = useState(null);
-  const [paymentAmount, setPaymentAmount] = useState(0);
+const DebtForm = ({ debt, clients, userId, onClose }) => {
+  const [formData, setFormData] = useState({
+    client: debt?.client || "",
+    amount: debt?.amount || 0,
+    notes: debt?.notes || "",
+    createdAt: debt?.createdAt ? debt.createdAt.toDate() : new Date(),
+  });
+
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: field === "amount" ? parseFloat(value) || 0 : value,
+    }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.client) newErrors.client = "Client is required";
+    if (formData.amount <= 0) newErrors.amount = "Amount must be greater than 0";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    if (!validateForm()) return;
 
-    if (!debtor || amount <= 0) {
-      setError("Please fill in all required fields correctly.");
-      setLoading(false);
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
-      const debtRef = await addDoc(collection(db, `users/${userId}/debts`), {
-        debtor,
-        amount: Number(amount),
-        notes,
-        date: new Date(date).toISOString(),
-        status: "outstanding",
-      });
+      const debtData = {
+        client: formData.client,
+        amount: formData.amount,
+        notes: formData.notes || null,
+        createdAt: new Date(formData.createdAt),
+        updatedAt: new Date(),
+        saleId: debt?.saleId || null, // Retain saleId if editing, null for new manual debts
+      };
 
-      if (!clients.includes(debtor)) {
-        await addDoc(collection(db, `users/${userId}/clients`), { name: debtor });
-      }
-
-      setDebtor("");
-      setAmount(0);
-      setNotes("");
-      setDate(new Date().toISOString().split("T")[0]);
-    } catch (err) {
-      setError("Failed to save debt. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePayment = (debtId) => {
-    setSelectedDebtId(debtId);
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    if (paymentAmount <= 0) {
-      setError("Please enter a valid payment amount.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const debtRef = doc(db, `users/${userId}/debts`, selectedDebtId);
-      const debt = debts.find((d) => d.id === selectedDebtId);
-      const newAmount = debt.amount - paymentAmount;
-
-      if (newAmount <= 0) {
-        await setDoc(debtRef, { status: "paid", amount: 0 }, { merge: true });
+      if (debt) {
+        await updateDoc(doc(db, `users/${userId}/debts`, debt.id), debtData);
       } else {
-        await setDoc(debtRef, { amount: newAmount }, { merge: true });
+        await addDoc(collection(db, `users/${userId}/debts`), debtData);
       }
-
-      if (debt.saleId) {
-        const saleRef = doc(db, `users/${userId}/sales`, debt.saleId);
-        const sale = sales.find((s) => s.id === debt.saleId);
-        const newAmountPaid = sale.amountPaid + Number(paymentAmount);
-        const newStatus = newAmountPaid >= sale.totalAmount ? "paid" : "partial";
-        await setDoc(
-          saleRef,
-          { amountPaid: newAmountPaid, paymentStatus: newStatus, remainingDebt: sale.totalAmount - newAmountPaid },
-          { merge: true }
-        );
-      }
-
-      setPaymentAmount(0);
-      setShowPaymentModal(false);
+      onClose();
     } catch (err) {
-      setError("Failed to process payment. Please try again.");
-      console.error(err);
+      console.error("Error saving debt:", err);
+      setErrors({ submit: "Failed to save debt. Please try again." });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md border border-neutral-200">
-      <h3 className="text-lg font-semibold text-neutral-700 mb-4 flex items-center gap-2">
-        <DollarSign className="w-5 h-5 text-primary" />
-        Record Debt
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <AutocompleteInput
-            suggestions={clients}
-            value={debtor}
-            onChange={setDebtor}
-            placeholder="Debtor Name"
-            required
-          />
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount (UGX)"
-            min="0"
-            required
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes"
-            className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-          />
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-neutral-800">
+            {debt ? "Edit Debt" : "Add New Debt"}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-neutral-400 hover:text-neutral-600"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
-        {error && (
-          <p className="text-error-600 text-sm text-center bg-error-50 p-2 rounded-lg">{error}</p>
-        )}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <DollarSign className="w-5 h-5" />
-          {loading ? "Saving..." : "Record Debt"}
-        </button>
-      </form>
 
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-            <h3 className="text-lg font-semibold text-neutral-700 mb-4">Record Payment</h3>
-            <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <input
-                type="number"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="Payment Amount (UGX)"
-                min="0"
-                required
-                className="w-full px-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-2 bg-primary text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200"
-                >
-                  Record Payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  className="flex-1 py-2 bg-neutral-200 text-neutral-800 rounded-lg font-medium hover:bg-neutral-300 transition-all duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
+            {errors.submit}
           </div>
-        </div>
-      )}
-
-      <div className="mt-4 p-4 bg-neutral-50 rounded-lg">
-        <h4 className="font-semibold text-neutral-700 mb-2">Debug Info:</h4>
-        <p className="text-sm text-neutral-600">
-          Total debts: {debts.length} | Total sales: {sales.length} | Total clients: {clients.length}
-        </p>
-        {selectedDebtId && (
-          <p className="text-sm text-neutral-600">
-            Selected debt ID: {selectedDebtId}
-          </p>
         )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
+            <AutocompleteInput
+              options={clients.map(c => ({ id: c.id, name: c.name }))}
+              value={formData.client}
+              onChange={(value) => handleChange("client", value)}
+              placeholder="Select or type client name"
+              allowNew
+              icon={<User className="w-5 h-5 text-neutral-400" />}
+            />
+            {errors.client && <p className="mt-1 text-sm text-red-600">{errors.client}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Amount (UGX)</label>
+            <input
+              type="number"
+              value={formData.amount}
+              onChange={(e) => handleChange("amount", e.target.value)}
+              min="0"
+              step="0.01"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+            />
+            {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={format(formData.createdAt, "yyyy-MM-dd")}
+              onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => handleChange("notes", e.target.value)}
+              rows="3"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Saving..." : debt ? "Update Debt" : "Save Debt"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
-}
+};
 
 export default DebtForm;
