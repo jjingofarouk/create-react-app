@@ -134,17 +134,19 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg min-h-0 my-2 sm:my-4 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200">
           <h3 className="text-lg font-semibold text-neutral-800">{sale ? "Edit Sale" : "Add New Sale"}</h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="space-y-4">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="p-4 sm:p-6 space-y-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-2">Client</label>
               <AutocompleteInput
@@ -311,7 +313,8 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200">
+        {/* Fixed Footer */}
+        <div className="flex-shrink-0 flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 bg-white">
           <button
             type="button"
             onClick={onClose}
