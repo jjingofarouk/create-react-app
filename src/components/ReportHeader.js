@@ -2,7 +2,9 @@ import React from "react";
 
 const ReportHeader = ({ title }) => {
   return (
-    <h2 className="text-2xl font-bold text-neutral-800">{title}</h2>
+    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+      {title}
+    </h2>
   );
 };
 
