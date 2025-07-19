@@ -1,4 +1,3 @@
-// src/components/ReportsPage.jsx
 import React, { useState, useEffect } from "react";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Bar, Pie } from "react-chartjs-2";
@@ -8,7 +7,7 @@ import { Download, Calendar, X } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
-const ReportsPage = ({ sales, debts, expenses }) => {
+const ReportsPage = ({ sales, debts, expenses, products }) => {
   const [reportType, setReportType] = useState("sales");
   const [dateRange, setDateRange] = useState("today");
   const [startDate, setStartDate] = useState(new Date());
@@ -31,7 +30,6 @@ const ReportsPage = ({ sales, debts, expenses }) => {
         setEndDate(endOfMonth(today));
         break;
       case "custom":
-        // Custom dates are handled separately
         break;
       default:
         break;
@@ -44,7 +42,7 @@ const ReportsPage = ({ sales, debts, expenses }) => {
       return saleDate >= startDate && saleDate <= endDate;
     }),
     debts: debts.filter(d => {
-      const debtDate = d.date.toDate();
+      const debtDate = d.createdAt.toDate();
       return debtDate >= startDate && debtDate <= endDate;
     }),
     expenses: expenses.filter(e => {
@@ -53,11 +51,18 @@ const ReportsPage = ({ sales, debts, expenses }) => {
     }),
   };
 
-  const totalSales = filteredData.sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const totalPaid = filteredData.sales.reduce((sum, sale) => sum + sale.amountPaid, 0);
-  const totalDebts = filteredData.debts.reduce((sum, debt) => sum + debt.amount, 0);
-  const totalExpenses = filteredData.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalSales = filteredData.sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+  const totalPaid = filteredData.sales.reduce((sum, sale) => sum + (sale.amountPaid || 0), 0);
+  const totalDebts = filteredData.debts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
+  const totalExpenses = filteredData.expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const balance = totalPaid - totalExpenses;
+
+  const createGradient = (ctx, chartArea, colorStart, colorEnd) => {
+    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+    gradient.addColorStop(0, colorStart);
+    gradient.addColorStop(1, colorEnd);
+    return gradient;
+  };
 
   const salesChartData = {
     labels: ["Sales", "Paid", "Debts"],
@@ -65,17 +70,17 @@ const ReportsPage = ({ sales, debts, expenses }) => {
       {
         label: "Amount (UGX)",
         data: [totalSales, totalPaid, totalDebts],
-        backgroundColor: [
-          "rgba(59, 130, 246, 0.7)",
-          "rgba(16, 185, 129, 0.7)",
-          "rgba(239, 68, 68, 0.7)",
-        ],
-        borderColor: [
-          "rgba(59, 130, 246, 1)",
-          "rgba(16, 185, 129, 1)",
-          "rgba(239, 68, 68, 1)",
-        ],
+        backgroundColor: (context) => {
+          const chart = context.chart;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+          return createGradient(ctx, chartArea, "rgba(59, 130, 246, 0.8)", "rgba(59, 130, 246, 0.3)");
+        },
+        borderColor: "rgba(59, 130, 246, 1)",
         borderWidth: 1,
+        borderRadius: 8,
+        barThickness: 40,
+        hoverBackgroundColor: "rgba(59, 130, 246, 1)",
       },
     ],
   };
@@ -86,13 +91,46 @@ const ReportsPage = ({ sales, debts, expenses }) => {
       {
         data: filteredData.expenses.map(e => e.amount),
         backgroundColor: [
-          "rgba(255, 99, 132, 0.7)",
-          "rgba(54, 162, 235, 0.7)",
-          "rgba(255, 206, 86, 0.7)",
-          "rgba(75, 192, 192, 0.7)",
-          "rgba(153, 102, 255, 0.7)",
+          (context) => {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            return createGradient(ctx, chartArea, "rgba(255, 99, 132, 0.8)", "rgba(255, 99, 132, 0.3)");
+          },
+          (context) => {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            return createGradient(ctx, chartArea, "rgba(54, 162, 235, 0.8)", "rgba(54, 162, 235, 0.3)");
+          },
+          (context) => {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            return createGradient(ctx, chartArea, "rgba(255, 206, 86, 0.8)", "rgba(255, 206, 86, 0.3)");
+          },
+          (context) => {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            return createGradient(ctx, chartArea, "rgba(75, 192, 192, 0.8)", "rgba(75, 192, 192, 0.3)");
+          },
+          (context) => {
+            const chart = context.chart;
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            return createGradient(ctx, chartArea, "rgba(153, 102, 255, 0.8)", "rgba(153, 102, 255, 0.3)");
+          },
+        ],
+        borderColor: [
+          "rgba(255, 99, 132, 1)",
+          "rgba(54, 162, 235, 1)",
+          "rgba(255, 206, 86, 1)",
+          "rgba(75, 192, 192, 1)",
+          "rgba(153, 102, 255, 1)",
         ],
         borderWidth: 1,
+        hoverOffset: 20,
       },
     ],
   };
@@ -152,19 +190,19 @@ const ReportsPage = ({ sales, debts, expenses }) => {
               body: [
                 [
                   { text: "Client", style: "tableHeader" },
-                  { text: "Product", style: "tableHeader" },
-                  { text: "Quantity", style: "tableHeader" },
+                  { text: "Products", style: "tableHeader" },
+                  { text: "Total Quantity", style: "tableHeader" },
                   { text: "Total", style: "tableHeader" },
                   { text: "Status", style: "tableHeader" },
                   { text: "Date", style: "tableHeader" },
                 ],
                 ...filteredData.sales.map(sale => [
-                  sale.client,
-                  sale.product,
-                  sale.quantity,
-                  `UGX ${sale.totalAmount.toLocaleString()}`,
-                  sale.paymentStatus,
-                  format(sale.date.toDate(), "MMM dd, yyyy"),
+                  sale.client || "-",
+                  sale.products?.map(p => products.find(prod => prod.id === p.productId)?.name || "Unknown").join(", ") || "-",
+                  sale.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0,
+                  `UGX ${(sale.totalAmount || 0).toLocaleString()}`,
+                  sale.paymentStatus || "unpaid",
+                  sale.date ? format(sale.date.toDate(), "MMM dd, yyyy") : "-",
                 ]),
               ],
             },
@@ -184,10 +222,10 @@ const ReportsPage = ({ sales, debts, expenses }) => {
                   { text: "Date", style: "tableHeader" },
                 ],
                 ...filteredData.debts.map(debt => [
-                  debt.debtor,
-                  `UGX ${debt.amount.toLocaleString()}`,
-                  debt.status,
-                  format(debt.date.toDate(), "MMM dd, yyyy"),
+                  debt.client || "-",
+                  `UGX ${(debt.amount || 0).toLocaleString()}`,
+                  debt.amount === 0 ? "Paid" : "Pending",
+                  debt.createdAt ? format(debt.createdAt.toDate(), "MMM dd, yyyy") : "-",
                 ]),
               ],
             },
@@ -207,10 +245,10 @@ const ReportsPage = ({ sales, debts, expenses }) => {
                   { text: "Date", style: "tableHeader" },
                 ],
                 ...filteredData.expenses.map(expense => [
-                  expense.category,
-                  `UGX ${expense.amount.toLocaleString()}`,
-                  expense.description,
-                  format(expense.date.toDate(), "MMM dd, yyyy"),
+                  expense.category || "-",
+                  `UGX ${(expense.amount || 0).toLocaleString()}`,
+                  expense.description || "-",
+                  expense.date ? format(expense.date.toDate(), "MMM dd, yyyy") : "-",
                 ]),
               ],
             },
