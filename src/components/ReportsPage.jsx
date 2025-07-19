@@ -1,274 +1,134 @@
 import React, { useState, useEffect } from "react";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { Bar, Pie } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
-import { pdfMake } from "pdfmake/build/pdfmake";
-import { Download } from "lucide-react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebase";
+import { Download, Calendar, BarChart2 } from "lucide-react";
+import { format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
-
-const ReportsPage = ({ sales, debts, expenses, products }) => {
-  const [reportType, setReportType] = useState("sales");
-  const [dateRange, setDateRange] = useState("today");
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
+const ReportsPage = ({ userId }) => {
+  const [reportType, setReportType] = useState("debts");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [data, setData] = useState([]);
+  const [totals, setTotals] = useState({ total: 0, count: 0 });
 
   useEffect(() => {
-    const today = new Date();
-    switch (dateRange) {
-      case "today":
-        setStartDate(startOfDay(today));
-        setEndDate(endOfDay(today));
-        break;
-      case "week":
-        setStartDate(startOfWeek(today));
-        setEndDate(endOfWeek(today));
-        break;
-      case "month":
-        setStartDate(startOfMonth(today));
-        setEndDate(endOfMonth(today));
-        break;
-      case "custom":
-        break;
-      default:
-        break;
-    }
-  }, [dateRange]);
+    const fetchData = async () => {
+      try {
+        let collectionPath;
+        switch (reportType) {
+          case "debts":
+            collectionPath = `users/${userId}/debts`;
+            break;
+          case "sales":
+            collectionPath = `users/${userId}/sales`;
+            break;
+          case "expenses":
+            collectionPath = `users/${userId}/expenses`;
+            break;
+          default:
+            return;
+        }
 
-  const filteredData = {
-    sales: sales.filter(s => {
-      const saleDate = s.date.toDate();
-      return saleDate >= startDate && saleDate <= endDate;
-    }),
-    debts: debts.filter(d => {
-      const debtDate = d.createdAt.toDate();
-      return debtDate >= startDate && debtDate <= endDate;
-    }),
-    expenses: expenses.filter(e => {
-      const expenseDate = e.date.toDate();
-      return expenseDate >= startDate && expenseDate <= endDate;
-    }),
-  };
+        const q = collection(db, collectionPath);
+        const snapshot = await getDocs(q);
+        let items = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+        }));
 
-  const totalSales = filteredData.sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-  const totalPaid = filteredData.sales.reduce((sum, sale) => sum + (sale.amountPaid || 0), 0);
-  const totalDebts = filteredData.debts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
-  const totalExpenses = filteredData.expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-  const balance = totalPaid - totalExpenses;
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          items = items.filter(item => {
+            const itemDate = item.createdAt;
+            return itemDate >= start && itemDate <= end;
+          });
+        }
 
-  const createGradient = (ctx, chartArea, colorStart, colorEnd) => {
-    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-    gradient.addColorStop(0, colorStart);
-    gradient.addColorStop(1, colorEnd);
-    return gradient;
-  };
-
-  const salesChartData = {
-    labels: ["Sales", "Paid", "Debts"],
-    datasets: [
-      {
-        label: "Amount (UGX)",
-        data: [totalSales, totalPaid, totalDebts],
-        backgroundColor: (context) => {
-          const chart = context.chart;
-          const { ctx, chartArea } = chart;
-          if (!chartArea) return;
-          return createGradient(ctx, chartArea, "rgba(59, 130, 246, 0.8)", "rgba(59, 130, 246, 0.3)");
-        },
-        borderColor: "rgba(59, 130, 246, 1)",
-        borderWidth: 1,
-        borderRadius: 8,
-        barThickness: 40,
-        hoverBackgroundColor: "rgba(59, 130, 246, 1)",
-      },
-    ],
-  };
-
-  const expensesChartData = {
-    labels: filteredData.expenses.map(e => e.category),
-    datasets: [
-      {
-        data: filteredData.expenses.map(e => e.amount),
-        backgroundColor: [
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return;
-            return createGradient(ctx, chartArea, "rgba(255, 99, 132, 0.8)", "rgba(255, 99, 132, 0.3)");
+        const calculatedTotals = items.reduce(
+          (acc, item) => {
+            acc.total += item.amount || 0;
+            acc.count += 1;
+            return acc;
           },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return;
-            return createGradient(ctx, chartArea, "rgba(54, 162, 235, 0.8)", "rgba(54, 162, 235, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return;
-            return createGradient(ctx, chartArea, "rgba(255, 206, 86, 0.8)", "rgba(255, 206, 86, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return;
-            return createGradient(ctx, chartArea, "rgba(75, 192, 192, 0.8)", "rgba(75, 192, 192, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return;
-            return createGradient(ctx, chartArea, "rgba(153, 102, 255, 0.8)", "rgba(153, 102, 255, 0.3)");
-          },
-        ],
-        borderColor: [
-          "rgba(255, 99, 132, 1)",
-          "rgba(54, 162, 235, 1)",
-          "rgba(255, 206, 86, 1)",
-          "rgba(75, 192, 192, 1)",
-          "rgba(153, 102, 255, 1)",
-        ],
-        borderWidth: 1,
-        hoverOffset: 20,
-      },
-    ],
-  };
+          { total: 0, count: 0 }
+        );
 
-  const generatePDF = () => {
-    const docDefinition = {
-      content: [
-        { text: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`, style: "header" },
-        { text: `Date Range: ${format(startDate, "MMM dd, yyyy")} - ${format(endDate, "MMM dd, yyyy")}`, style: "subheader" },
-        "\n",
-        ...getReportContent(),
-        "\n",
-        { text: `Total ${reportType}: UGX ${getTotal().toLocaleString()}`, style: "total" },
-        reportType !== "expenses" && { text: `Balance: UGX ${balance.toLocaleString()}`, style: "balance" },
-      ],
-      styles: {
-        header: {
-          fontSize: 18,
-          bold: true,
-          margin: [0, 0, 0, 10],
-        },
-        subheader: {
-          fontSize: 14,
-          bold: true,
-          margin: [0, 10, 0, 10],
-        },
-        tableHeader: {
-          bold: true,
-          fontSize: 12,
-          color: "black",
-        },
-        total: {
-          bold: true,
-          fontSize: 14,
-          margin: [0, 10, 0, 0],
-        },
-        balance: {
-          bold: true,
-          fontSize: 14,
-          margin: [0, 10, 0, 0],
-          color: balance >= 0 ? "green" : "red",
-        },
-      },
+        setData(items);
+        setTotals(calculatedTotals);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      }
     };
 
-    pdfMake.createPdf(docDefinition).download(`${reportType}_report_${format(new Date(), "yyyyMMdd")}.pdf`);
-  };
+    fetchData();
+  }, [reportType, startDate, endDate, userId]);
 
-  const getReportContent = () => {
-    switch (reportType) {
-      case "sales":
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const title = `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`;
+    doc.setFontSize(18);
+    doc.text(title, 14, 20);
+    
+    const dateRangeText = startDate && endDate 
+      ? `From: ${format(new Date(startDate), "MMM dd, yyyy")} To: ${format(new Date(endDate), "MMM dd, yyyy")}`
+      : `All Time`;
+    doc.setFontSize(12);
+    doc.text(dateRangeText, 14, 30);
+    
+    const tableData = data.map(item => {
+      if (reportType === "debts") {
         return [
-          {
-            table: {
-              headerRows: 1,
-              widths: ["*", "*", "*", "*", "*", "*"],
-              body: [
-                [
-                  { text: "Client", style: "tableHeader" },
-                  { text: "Product", style: "tableHeader" },
-                  { text: "Quantity", style: "tableHeader" },
-                  { text: "Total", style: "tableHeader" },
-                  { text: "Status", style: "tableHeader" },
-                  { text: "Date", style: "tableHeader" },
-                ],
-                ...filteredData.sales.map(sale => [
-                  sale.client || "-",
-                  products.find(prod => prod.id === sale.product?.productId)?.name || "-",
-                  sale.product?.quantity || 0,
-                  `UGX ${(sale.totalAmount || 0).toLocaleString()}`,
-                  sale.paymentStatus || "unpaid",
-                  sale.date ? format(sale.date.toDate(), "MMM dd, yyyy") : "-",
-                ]),
-              ],
-            },
-          },
+          item.client || "-",
+          (item.amount || 0).toLocaleString(),
+          item.amount === 0 ? "Paid" : "Pending",
+          format(item.createdAt, "MMM dd, yyyy HH:mm"),
+          item.notes || "-",
         ];
-      case "debts":
+      } else if (reportType === "sales") {
         return [
-          {
-            table: {
-              headerRows: 1,
-              widths: ["*", "*", "*", "*"],
-              body: [
-                [
-                  { text: "Debtor", style: "tableHeader" },
-                  { text: "Amount", style: "tableHeader" },
-                  { text: "Status", style: "tableHeader" },
-                  { text: "Date", style: "tableHeader" },
-                ],
-                ...filteredData.debts.map(debt => [
-                  debt roli/client || "-",
-                  `UGX ${(debt.amount || 0).toLocaleString()}`,
-                  debt.amount === 0 ? "Paid" : "Pending",
-                  debt.createdAt ? format(debt.createdAt.toDate(), "MMM dd, yyyy") : "-",
-                ]),
-              ],
-            },
-          },
+          item.client || "-",
+          item.product || "-",
+          item.quantity || 0,
+          (item.amount || 0).toLocaleString(),
+          format(item.createdAt, "MMM dd, yyyy HH:mm"),
         ];
-      case "expenses":
+      } else {
         return [
-          {
-            table: {
-              headerRows: 1,
-              widths: ["*", "*", "*", "*"],
-              body: [
-                [
-                  { text: "Category", style: "tableHeader" },
-                  { text: "Amount", style: "tableHeader" },
-                  { text: "Description", style: "tableHeader" },
-                  { text: "Date", style: "tableHeader" },
-                ],
-                ...filteredData.expenses.map(expense => [
-                  expense.category || "-",
-                  `UGX ${(expense.amount || 0).toLocaleString()}`,
-                  expense.description || "-",
-                  expense.date ? format(expense.date.toDate(), "MMM dd, yyyy") : "-",
-                ]),
-              ],
-            },
-          },
+          item.category || "-",
+          (item.amount || 0).toLocaleString(),
+          format(item.createdAt, "MMM dd, yyyy HH:mm"),
+          item.notes || "-",
         ];
-      default:
-        return [];
-    }
-  };
+      }
+    });
 
-  const getTotal = () => {
-    switch (reportType) {
-      case "sales":
-        return totalSales;
-      case "debts":
-        return totalDebts;
-      case "expenses":
-        return totalExpenses;
-      default:
-        return 0;
-    }
+    autoTable(doc, {
+      startY: 40,
+      head: [
+        reportType === "debts"
+          ? ["Client", "Amount (UGX)", "Status", "Date", "Notes"]
+          : reportType === "sales"
+          ? ["Client", "Product", "Quantity", "Amount (UGX)", "Date"]
+          : ["Category", "Amount (UGX)", "Date", "Notes"],
+      ],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [59, 130, 246] },
+      margin: { top: 40 },
+    });
+
+    doc.setFontSize(12);
+    doc.text(
+      `Total: ${totals.total.toLocaleString()} UGX | Count: ${totals.count}`,
+      14,
+      doc.lastAutoTable.finalY + 10
+    );
+
+    doc.save(`${reportType}-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
   return (
@@ -276,157 +136,184 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-neutral-800">Reports</h2>
         <div className="flex gap-3 w-full sm:w-auto">
+          <select
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value)}
+            className="px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+          >
+            <option value="debts">Debts</option>
+            <option value="sales">Sales</option>
+            <option value="expenses">Expenses</option>
+          </select>
           <button
             onClick={generatePDF}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
           >
             <Download className="w-5 h-5" />
-            <span>Download PDF</span>
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-lg font-semibold text-neutral-800 mb-4">Report Options</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Report Type</label>
-                <select
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                >
-                  <option value="sales">Sales</option>
-                  <option value="debts">Debts</option>
-                  <option value="expenses">Expenses</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Date Range</label>
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                >
-                  <option value="today">Today</option>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                  <option value="custom">Custom Range</option>
-                </select>
-              </div>
-
-              {dateRange === "custom" && (
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      value={format(startDate, "yyyy-MM-dd")}
-                      onChange={(e) => setStartDate(new Date(e.target.value))}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">End Date</label>
-                    <input
-                      type="date"
-                      value={format(endDate, "yyyy-MM-dd")}
-                      onChange={(e) => setEndDate(new Date(e.target.value))}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-                    />
-                  </div>
-                </div>
-              )}
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Start Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+              />
             </div>
           </div>
-
-          <div>
-            <h3 className="text-lg font-semibold text-neutral-800 mb-4">Summary</h3>
-            <div className="bg-neutral-50 rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-neutral-600">Date Range</p>
-                  <p className="font-medium">
-                    {format(startDate, "MMM dd, yyyy")} - {format(endDate, "MMM dd, yyyy")}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-neutral-600">Total Sales</p>
-                  <p className="font-medium">UGX {totalSales.toLocaleString()}</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-neutral-600">Total Paid</p>
-                  <p className="font-medium">UGX {totalPaid.toLocaleString()}</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-neutral-600">Total Debts</p>
-                  <p className="font-medium">UGX {totalDebts.toLocaleString()}</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-neutral-600">Total Expenses</p>
-                  <p className="font-medium">UGX {totalExpenses.toLocaleString()}</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-neutral-600">Balance</p>
-                  <p className={`font-medium ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    UGX {balance.toLocaleString()}
-                  </p>
-                </div>
-              </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">End Date</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+              />
             </div>
           </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-neutral-200">
+            <thead className="bg-neutral-50">
+              <tr>
+                {reportType === "debts" ? (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Amount (UGX)</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Notes</th>
+                  </>
+                ) : reportType === "sales" ? (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Client</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Amount (UGX)</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Amount (UGX)</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Notes</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-neutral-200">
+              {data.map(item => (
+                <tr key={item.id} className="hover:bg-neutral-50">
+                  {reportType === "debts" ? (
+                    <>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.client || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          item.amount === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {item.amount === 0 ? 'Paid' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                        {format(item.createdAt, "MMM dd, yyyy HH:mm")}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-neutral-800">{item.notes || "-"}</td>
+                    </>
+                  ) : reportType === "sales" ? (
+                    <>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.client || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.product || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.quantity || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                        {format(item.createdAt, "MMM dd, yyyy HH:mm")}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.category || "-"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                        {format(item.createdAt, "MMM dd, yyyy HH:mm")}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-neutral-800">{item.notes || "-"}</td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {data.length === 0 && (
+          <div className="text-center py-8 text-neutral-500">
+            No {reportType} found for the selected period
+          </div>
+        )}
+
+        <div className="mt-4 p-4 bg-neutral-50 rounded-md">
+          <p className="text-sm font-medium text-neutral-700">
+            Total: {totals.total.toLocaleString()} UGX | Count: {totals.count}
+          </p>
         </div>
       </div>
 
       <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Visualizations</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="text-md font-medium text-neutral-700 mb-2">Sales Overview</h4>
-            <div className="h-64">
-              <Bar
-                data={salesChartData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: "top",
-                    },
-                    title: {
-                      display: true,
-                      text: "Sales, Paid Amount, and Debts",
-                    },
-                  },
-                }}
-              />
-            </div>
-          </div>
-          <div>
-            <h4 className="text-md font-medium text-neutral-700 mb-2">Expenses Breakdown</h4>
-            <div className="h-64">
-              <Pie
-                data={expensesChartData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: "right",
-                    },
-                    title: {
-                      display: true,
-                      text: "Expenses by Category",
-                    },
-                  },
-                }}
-              />
-            </div>
-          </div>
+        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Insights</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart2 className="w-5 h-5 text-blue-600" />
+          <span className="text-sm font-medium text-neutral-700">
+            {reportType === "debts" ? "Debt Summary" : reportType === "sales" ? "Sales Summary" : "Expense Summary"}
+          </span>
         </div>
+        <chartjs type="bar">
+          {
+            type: "bar",
+            data: {
+              labels: data.map(item => format(item.createdAt, "MMM dd")),
+              datasets: [
+                {
+                  label: reportType.charAt(0).toUpperCase() + reportType.slice(1),
+                  data: data.map(item => item.amount || 0),
+                  backgroundColor: "rgba(59, 130, 246, 0.5)",
+                  borderColor: "rgba(59, 130, 246, 1)",
+                  borderWidth: 1,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: "Amount (UGX)",
+                  },
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: "Date",
+                  },
+                },
+              },
+            },
+          }
+        </chartjs>
       </div>
     </div>
   );
