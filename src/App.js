@@ -21,7 +21,7 @@ function App() {
   const [bankDeposits, setBankDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("bank");
+  const [activeTab, setActiveTab] = useState("sales");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -174,8 +174,8 @@ function App() {
   }, []);
 
   const tabs = [
-    { id: "bank", name: "Bank", icon: Banknote },
     { id: "sales", name: "Sales", icon: ShoppingCart },
+    { id: "bank", name: "Bank", icon: Banknote },
     { id: "expenses", name: "Expenses", icon: TrendingDown },
     { id: "debts", name: "Debts", icon: CreditCard },
     { id: "reports", name: "Reports", icon: FileText },
@@ -215,13 +215,6 @@ function App() {
     }
 
     switch (activeTab) {
-      case "bank":
-        return (
-          <BankPage
-            bankDeposits={bankDeposits}
-            userId={user.uid}
-          />
-        );
       case "sales":
         return (
           <SalesPage
@@ -229,6 +222,14 @@ function App() {
             clients={clients}
             products={products}
             userId={user.uid}
+          />
+        );
+      case "bank":
+        return (
+          <BankPage
+            bankDeposits={bankDeposits}
+            userId={user.uid}
+            clients={clients}
           />
         );
       case "expenses":
@@ -290,7 +291,7 @@ function App() {
               <button
                 className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 hover:shadow-md transition-all duration-200"
                 onClick={() => {
-                  setActiveTab("bank"); // Reset to default tab
+                  setActiveTab("sales"); // Reset to default tab
                   auth.signOut();
                 }}
               >
