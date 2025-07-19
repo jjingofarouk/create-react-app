@@ -15,6 +15,7 @@ const HomePage = ({ sales, debts, userId }) => {
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [expenses, setExpenses] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,6 +43,15 @@ const HomePage = ({ sales, debts, userId }) => {
           name: doc.data().name,
         }));
         setCategories(categoriesList);
+
+        // Fetch expenses
+        const expensesSnapshot = await getDocs(collection(db, `users/${userId}/expenses`));
+        const expensesList = expensesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+        }));
+        setExpenses(expensesList);
       } catch (err) {
         console.error("Error fetching data:", err);
       }
