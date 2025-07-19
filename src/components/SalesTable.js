@@ -6,11 +6,10 @@ import {
   getSortedRowModel,
   flexRender 
 } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Edit, Trash2, Search, X } from "lucide-react";
 import { collection, deleteDoc, doc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { format, startOfDay, endOfDay, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
 const SalesTable = ({ sales, products, globalFilter, setGlobalFilter, dateFilter, userId, setEditingSale, setShowForm }) => {
   const filteredSales = useMemo(() => {
@@ -200,6 +199,23 @@ const SalesTable = ({ sales, products, globalFilter, setGlobalFilter, dateFilter
         console.error("Error deleting sale:", err);
         alert("Failed to delete sale. Please try again.");
       }
+    }
+  };
+
+  const getDateFilterLabel = () => {
+    switch (dateFilter.type) {
+      case 'today':
+        return 'Today';
+      case 'week':
+        return 'This Week';
+      case 'month':
+        return 'This Month';
+      case 'custom':
+        return dateFilter.startDate && dateFilter.endDate 
+          ? `${format(parseISO(dateFilter.startDate), 'MMM dd')} - ${format(parseISO(dateFilter.endDate), 'MMM dd')}`
+          : 'Custom Range';
+      default:
+        return 'All Time';
     }
   };
 
