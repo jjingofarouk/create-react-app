@@ -7,30 +7,53 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { db, addDoc, collection, deleteDoc, doc } from '../firebase';
-import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown, Users } from 'lucide-react';
+import AutocompleteInput from './AutocompleteInput';
 
-const BankPage = ({ bankDeposits, userId }) => {
+const BankPage = ({ bankDeposits, userId, clients }) => {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
+  const [depositor, setDepositor] = useState('');
+  const [showAddPersonModal, setShowAddPersonModal] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
   const [sorting, setSorting] = useState([]);
 
   const handleAddDeposit = async (e) => {
     e.preventDefault();
-    if (!amount || !date) return;
+    if (!amount || !date || !depositor) return;
 
     try {
       await addDoc(collection(db, `users/${userId}/bankDeposits`), {
         amount: parseFloat(amount),
         date,
         description,
+        depositor,
         createdAt: new Date().toISOString(),
       });
       setAmount('');
       setDate('');
       setDescription('');
+      setDepositor('');
     } catch (error) {
       console.error('Error adding deposit:', error);
+    }
+  };
+
+  const handleAddPerson = async (e) => {
+    e.preventDefault();
+    if (!newPersonName.trim()) return;
+
+    try {
+      const docRef = await addDoc(collection(db, `users/${userId}/clients`), {
+        name: newPersonName.trim(),
+        createdAt: new Date().toISOString(),
+      });
+      setDepositor(docRef.id);
+      setNewPersonName('');
+      setShowAddPersonModal(false);
+    } catch (error) {
+      console.error('Error adding person:', error);
     }
   };
 
@@ -56,6 +79,15 @@ const BankPage = ({ bankDeposits, userId }) => {
         cell: (info) => `$${info.getValue().toFixed(2)}`,
         minSize: 100,
       }),
+      columnHelper.accessor('depositor', {
+        header: 'Depositor',
+        cell: (info) => {
+          const depositorId = info.getValue();
+          const depositor = clients.find(client => client.id === depositorId);
+          return depositor ? depositor.name : depositorId;
+        },
+        minSize: 150,
+      }),
       columnHelper.accessor('description', {
         header: 'Description',
         cell: (info) => info.getValue() || '-',
@@ -76,7 +108,7 @@ const BankPage = ({ bankDeposits, userId }) => {
         minSize: 80,
       }),
     ],
-    [handleDeleteDeposit]
+    [handleDeleteDeposit, clients]
   );
 
   const table = useReactTable({
@@ -98,7 +130,7 @@ const BankPage = ({ bankDeposits, userId }) => {
       <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
         <h3 className="text-lg font-semibold mb-4">Add New Deposit</h3>
         <form onSubmit={handleAddDeposit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <input
               type="date"
               value={date}
@@ -115,6 +147,17 @@ const BankPage = ({ bankDeposits, userId }) => {
               className="p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
+            <AutocompleteInput
+              options={clients}
+              value={clients.find(c => c.id === depositor)?.name || ''}
+              onChange={(value) => {
+                const selectedClient = clients.find(c => c.name === value);
+                setDepositor(selectedClient ? selectedClient.id : value);
+              }}
+              placeholder="Select depositor..."
+              allowNew={true}
+              icon={<Users className="w-5 h-5 text-neutral-400" />}
+            />
             <input
               type="text"
               value={description}
@@ -123,15 +166,68 @@ const BankPage = ({ bankDeposits, userId }) => {
               className="p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Add Deposit
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Add Deposit
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAddPersonModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all duration-200 flex items-center gap-2"
+            >
+              <Users className="w-5 h-5" />
+              Add New Person
+            </button>
+          </div>
         </form>
       </div>
+
+      {/* Add Person Modal */}
+      {showAddPersonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Add New Person</h3>
+              <button
+                onClick={() => setShowAddPersonModal(false)}
+                className="text-neutral-500 hover:text-neutral-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddPerson} className="space-y-4">
+              <input
+                type="text"
+                value={newPersonName}
+                onChange={(e) => setNewPersonName(e.target.value)}
+                placeholder="Enter person name"
+                className="w-full p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Person
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPersonModal(false)}
+                  className="px-4 py-2 bg-neutral-200 text-neutral-800 rounded-lg font-medium hover:bg-neutral-300 transition-all duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Table Container with Fixed Height and Horizontal Scroll */}
       <div className="bg-white rounded-lg shadow-sm border border-neutral-200">
