@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
@@ -206,7 +208,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       try {
         await deleteDoc(doc(db, `users/${userId}/sales`, id));
         
-        // Check if this sale has an associated debt and delete it
         const debtsQuery = query(
           collection(db, `users/${userId}/debts`),
           where("saleId", "==", id)
@@ -222,7 +223,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     }
   };
 
-  // Calculate summary statistics
   const salesSummary = useMemo(() => {
     const totalSales = sales.length;
     const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
@@ -238,8 +238,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
   }, [sales]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 max-w-[100vw] overflow-x-hidden">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
@@ -275,7 +274,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         </div>
       </div>
 
-      {/* Summary Cards */}
       {sales.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-lg border border-neutral-200">
@@ -303,7 +301,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         </div>
       )}
 
-      {/* Sales Table */}
       <div className="bg-white rounded-lg shadow-sm border border-neutral-200 w-full">
         <div className="p-4 border-b border-neutral-200">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -331,14 +328,14 @@ const SalesPage = ({ sales, clients, products, userId }) => {
 
         <div className="w-full overflow-x-auto">
           <div className="inline-block min-w-full align-middle">
-            <table className="min-w-[1200px] divide-y divide-neutral-200">
+            <table className="min-w-full divide-y divide-neutral-200">
               <thead className="bg-neutral-50">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map(header => (
                       <th
                         key={header.id}
-                        className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
+                        className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors whitespace-nowrap"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         <div className="flex items-center gap-2">
@@ -346,6 +343,12 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                             header.column.columnDef.header,
                             header.getContext()
                           )}
+                          <span className="text-neutral-400">
+                            {{
+                              asc: '↑',
+                              desc: '↓',
+                            }[header.column.getIsSorted()] ?? '↕'}
+                          </span>
                         </div>
                       </th>
                     ))}
@@ -356,7 +359,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
                 {table.getRowModel().rows.map(row => (
                   <tr key={row.id} className="hover:bg-neutral-50 transition-colors">
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td key={cell.id} className="px-6 py-4 text-sm whitespace-nowrap">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -390,7 +393,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         )}
       </div>
 
-      {/* Sales Form Modal */}
       {showForm && (
         <SalesForm
           sale={editingSale}
@@ -404,7 +406,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         />
       )}
 
-      {/* Add Client Modal */}
       {showClientForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
@@ -501,7 +502,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         </div>
       )}
 
-      {/* Add Product Modal */}
       {showProductForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
