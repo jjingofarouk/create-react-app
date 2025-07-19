@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X } from "lucide-react";
-import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
+import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
@@ -140,7 +140,7 @@ const DebtsPage = ({ debts, clients, userId }) => {
                       key={header.id}
                       className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
                     >
-                      {header.column.columnDef.header}
+                      {flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
