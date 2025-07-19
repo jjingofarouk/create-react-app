@@ -2,7 +2,7 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image, Font, PDFDownloadLink } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import logo from "./logo.jpg";
-import signature from "./signature.png"; // Add your signature file here
+import signature from "./signature.jpg"; // Add your signature file here
 import { Download } from "lucide-react";
 
 // Register fonts
