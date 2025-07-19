@@ -3,7 +3,7 @@ import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, end
 import { Bar, Pie } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 import { pdfMake } from "pdfmake/build/pdfmake";
-import { Download, Calendar, X } from "lucide-react";
+import { Download } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -12,7 +12,6 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
   const [dateRange, setDateRange] = useState("today");
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     const today = new Date();
@@ -190,16 +189,16 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
               body: [
                 [
                   { text: "Client", style: "tableHeader" },
-                  { text: "Products", style: "tableHeader" },
-                  { text: "Total Quantity", style: "tableHeader" },
+                  { text: "Product", style: "tableHeader" },
+                  { text: "Quantity", style: "tableHeader" },
                   { text: "Total", style: "tableHeader" },
                   { text: "Status", style: "tableHeader" },
                   { text: "Date", style: "tableHeader" },
                 ],
                 ...filteredData.sales.map(sale => [
                   sale.client || "-",
-                  sale.products?.map(p => products.find(prod => prod.id === p.productId)?.name || "Unknown").join(", ") || "-",
-                  sale.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0,
+                  products.find(prod => prod.id === sale.product?.productId)?.name || "-",
+                  sale.product?.quantity || 0,
                   `UGX ${(sale.totalAmount || 0).toLocaleString()}`,
                   sale.paymentStatus || "unpaid",
                   sale.date ? format(sale.date.toDate(), "MMM dd, yyyy") : "-",
@@ -222,7 +221,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
                   { text: "Date", style: "tableHeader" },
                 ],
                 ...filteredData.debts.map(debt => [
-                  debt.client || "-",
+                  debt roli/client || "-",
                   `UGX ${(debt.amount || 0).toLocaleString()}`,
                   debt.amount === 0 ? "Paid" : "Pending",
                   debt.createdAt ? format(debt.createdAt.toDate(), "MMM dd, yyyy") : "-",
@@ -279,7 +278,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
         <div className="flex gap-3 w-full sm:w-auto">
           <button
             onClick={generatePDF}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
           >
             <Download className="w-5 h-5" />
             <span>Download PDF</span>
@@ -297,7 +296,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
                 <select
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                 >
                   <option value="sales">Sales</option>
                   <option value="debts">Debts</option>
@@ -310,7 +309,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
                 <select
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                 >
                   <option value="today">Today</option>
                   <option value="week">This Week</option>
@@ -327,7 +326,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
                       type="date"
                       value={format(startDate, "yyyy-MM-dd")}
                       onChange={(e) => setStartDate(new Date(e.target.value))}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
                   <div>
@@ -336,7 +335,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
                       type="date"
                       value={format(endDate, "yyyy-MM-dd")}
                       onChange={(e) => setEndDate(new Date(e.target.value))}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     />
                   </div>
                 </div>
@@ -372,7 +371,7 @@ const ReportsPage = ({ sales, debts, expenses, products }) => {
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-neutral-600">Balance</p>
-                  <p className={`font-medium ${balance >= 0 ? "text-success-600" : "text-error-600"}`}>
+                  <p className={`font-medium ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
                     UGX {balance.toLocaleString()}
                   </p>
                 </div>
