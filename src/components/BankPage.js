@@ -10,18 +10,27 @@ import { db, addDoc, collection, deleteDoc, doc } from '../firebase';
 import { Plus, Trash2, ChevronUp, ChevronDown, Users } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 
-const BankPage = ({ bankDeposits, userId, clients }) => {
+const BankPage = ({ bankDeposits, depositors, userId }) => {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
   const [depositor, setDepositor] = useState('');
-  const [showAddPersonModal, setShowAddPersonModal] = useState(false);
-  const [newPersonName, setNewPersonName] = useState('');
+  const [showAddDepositorModal, setShowAddDepositorModal] = useState(false);
+  const [newDepositorName, setNewDepositorName] = useState('');
   const [sorting, setSorting] = useState([]);
+
+  // Create depositor options for autocomplete
+  const depositorOptions = useMemo(() => {
+    if (!depositors || !Array.isArray(depositors)) return [];
+    return depositors.map((depositorName, index) => ({
+      id: depositorName,
+      name: depositorName
+    }));
+  }, [depositors]);
 
   const handleAddDeposit = async (e) => {
     e.preventDefault();
-    if (!amount || !date || !depositor) return;
+    if (!amount || !date) return;
 
     try {
       await addDoc(collection(db, `users/${userId}/bankDeposits`), {
@@ -40,28 +49,34 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
     }
   };
 
-  const handleAddPerson = async (e) => {
-    e.preventDefault();
-    if (!newPersonName.trim()) return;
-
-    try {
-      const docRef = await addDoc(collection(db, `users/${userId}/clients`), {
-        name: newPersonName.trim(),
-        createdAt: new Date().toISOString(),
-      });
-      setDepositor(docRef.id);
-      setNewPersonName('');
-      setShowAddPersonModal(false);
-    } catch (error) {
-      console.error('Error adding person:', error);
-    }
-  };
-
   const handleDeleteDeposit = async (id) => {
     try {
       await deleteDoc(doc(db, `users/${userId}/bankDeposits`, id));
     } catch (error) {
       console.error('Error deleting deposit:', error);
+    }
+  };
+
+  const handleAddNewDepositor = async () => {
+    if (!newDepositorName.trim()) return;
+
+    try {
+      // Add a dummy deposit with the new depositor to create the depositor entry
+      // This will be picked up by the listener and added to the depositors array
+      await addDoc(collection(db, `users/${userId}/bankDeposits`), {
+        amount: 0,
+        date: new Date().toISOString().split('T')[0],
+        description: 'Depositor registration',
+        depositor: newDepositorName.trim(),
+        createdAt: new Date().toISOString(),
+        isDepositorOnly: true, // Flag to identify this as just a depositor registration
+      });
+      
+      setDepositor(newDepositorName.trim());
+      setNewDepositorName('');
+      setShowAddDepositorModal(false);
+    } catch (error) {
+      console.error('Error adding depositor:', error);
     }
   };
 
@@ -81,11 +96,7 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
       }),
       columnHelper.accessor('depositor', {
         header: 'Depositor',
-        cell: (info) => {
-          const depositorId = info.getValue();
-          const depositor = clients.find(client => client.id === depositorId);
-          return depositor ? depositor.name : depositorId;
-        },
+        cell: (info) => info.getValue() || '-',
         minSize: 150,
       }),
       columnHelper.accessor('description', {
@@ -108,11 +119,16 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
         minSize: 80,
       }),
     ],
-    [handleDeleteDeposit, clients]
+    [handleDeleteDeposit]
   );
 
+  // Filter out depositor-only entries from the table display
+  const displayDeposits = useMemo(() => {
+    return (bankDeposits || []).filter(deposit => !deposit.isDepositorOnly);
+  }, [bankDeposits]);
+
   const table = useReactTable({
-    data: bankDeposits || [],
+    data: displayDeposits,
     columns,
     state: {
       sorting,
@@ -130,7 +146,7 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
       <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
         <h3 className="text-lg font-semibold mb-4">Add New Deposit</h3>
         <form onSubmit={handleAddDeposit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <input
               type="date"
               value={date}
@@ -147,17 +163,24 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
               className="p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
-            <AutocompleteInput
-              options={clients}
-              value={clients.find(c => c.id === depositor)?.name || ''}
-              onChange={(value) => {
-                const selectedClient = clients.find(c => c.name === value);
-                setDepositor(selectedClient ? selectedClient.id : value);
-              }}
-              placeholder="Select depositor..."
-              allowNew={true}
-              icon={<Users className="w-5 h-5 text-neutral-400" />}
-            />
+            <div className="relative">
+              <AutocompleteInput
+                options={depositorOptions}
+                value={depositor}
+                onChange={setDepositor}
+                placeholder="Select or type depositor"
+                allowNew={true}
+                icon={<Users className="w-5 h-5 text-neutral-400" />}
+              />
+              <button
+                type="button"
+                onClick={() => setShowAddDepositorModal(true)}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                title="Add new depositor"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
             <input
               type="text"
               value={description}
@@ -166,65 +189,49 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
               className="p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Add Deposit
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAddPersonModal(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all duration-200 flex items-center gap-2"
-            >
-              <Users className="w-5 h-5" />
-              Add New Person
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Add Deposit
+          </button>
         </form>
       </div>
 
-      {/* Add Person Modal */}
-      {showAddPersonModal && (
+      {/* Add Depositor Modal */}
+      {showAddDepositorModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Add New Person</h3>
-              <button
-                onClick={() => setShowAddPersonModal(false)}
-                className="text-neutral-500 hover:text-neutral-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleAddPerson} className="space-y-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Add New Depositor</h3>
+            <div className="space-y-4">
               <input
                 type="text"
-                value={newPersonName}
-                onChange={(e) => setNewPersonName(e.target.value)}
-                placeholder="Enter person name"
+                value={newDepositorName}
+                onChange={(e) => setNewDepositorName(e.target.value)}
+                placeholder="Depositor name"
                 className="w-full p-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
+                autoFocus
               />
-              <div className="flex gap-2">
+              <div className="flex gap-3 justify-end">
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  Add Person
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddPersonModal(false)}
-                  className="px-4 py-2 bg-neutral-200 text-neutral-800 rounded-lg font-medium hover:bg-neutral-300 transition-all duration-200"
+                  onClick={() => {
+                    setShowAddDepositorModal(false);
+                    setNewDepositorName('');
+                  }}
+                  className="px-4 py-2 text-neutral-600 hover:text-neutral-800 transition-colors"
                 >
                   Cancel
                 </button>
+                <button
+                  onClick={handleAddNewDepositor}
+                  disabled={!newDepositorName.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Depositor
+                </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -234,7 +241,7 @@ const BankPage = ({ bankDeposits, userId, clients }) => {
         <div className="p-6 border-b border-neutral-200">
           <h3 className="text-lg font-semibold">Deposits History</h3>
           <p className="text-sm text-neutral-600 mt-1">
-            Total deposits: {bankDeposits?.length || 0}
+            Total deposits: {displayDeposits?.length || 0}
           </p>
         </div>
         
