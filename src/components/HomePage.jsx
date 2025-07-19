@@ -3,36 +3,75 @@ import { format, startOfDay, endOfDay } from "date-fns";
 import { Bar, Pie } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from "chart.js";
 import { CreditCard, ShoppingCart, TrendingDown, AlertCircle } from "lucide-react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebase";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
-const HomePage = ({ sales, debts, expenses, clients, products, categories }) => {
+const HomePage = ({ sales, debts, userId }) => {
   const [todaySales, setTodaySales] = useState([]);
   const [todayDebts, setTodayDebts] = useState([]);
   const [todayExpenses, setTodayExpenses] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch clients
+        const clientsSnapshot = await getDocs(collection(db, `users/${userId}/clients`));
+        const clientsList = clientsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+        }));
+        setClients(clientsList);
+
+        // Fetch products
+        const productsSnapshot = await getDocs(collection(db, `users/${userId}/products`));
+        const productsList = productsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+        }));
+        setProducts(productsList);
+
+        // Fetch categories
+        const categoriesSnapshot = await getDocs(collection(db, `users/${userId}/categories`));
+        const categoriesList = categoriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+        }));
+        setCategories(categoriesList);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      }
+    };
+
+    fetchData();
+  }, [userId]);
 
   useEffect(() => {
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
     setTodaySales(
-      sales.filter(s => {
-        const saleDate = s.date.toDate();
-        return saleDate >= todayStart && saleDate <= todayEnd;
+      (sales || []).filter(s => {
+        const saleDate = s.createdAt?.toDate();
+        return saleDate && saleDate >= todayStart && saleDate <= todayEnd;
       })
     );
 
     setTodayDebts(
-      debts.filter(d => {
-        const debtDate = d.createdAt.toDate();
-        return debtDate >= todayStart && debtDate <= todayEnd;
+      (debts || []).filter(d => {
+        const debtDate = d.createdAt?.toDate();
+        return debtDate && debtDate >= todayStart && debtDate <= todayEnd;
       })
     );
 
     setTodayExpenses(
-      expenses.filter(e => {
-        const expenseDate = e.date.toDate();
-        return expenseDate >= todayStart && expenseDate <= todayEnd;
+      (expenses || []).filter(e => {
+        const expenseDate = e.createdAt?.toDate();
+        return expenseDate && expenseDate >= todayStart && expenseDate <= todayEnd;
       })
     );
   }, [sales, debts, expenses]);
@@ -43,7 +82,6 @@ const HomePage = ({ sales, debts, expenses, clients, products, categories }) => 
   const totalTodayExpenses = todayExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const todayBalance = totalTodayPaid - totalTodayExpenses;
 
-  // Create gradient for charts
   const createGradient = (ctx, chartArea, colorStart, colorEnd) => {
     const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
     gradient.addColorStop(0, colorStart);
@@ -73,10 +111,13 @@ const HomePage = ({ sales, debts, expenses, clients, products, categories }) => 
   };
 
   const expensesChartData = {
-    labels: todayExpenses.map(e => e.category),
+    labels: todayExpenses.map(e => {
+      const category = categories.find(c => c.id === e.category || c.name === e.category);
+      return category ? category.name : e.category || "Unknown";
+    }),
     datasets: [
       {
-        data: todayExpenses.map(e => e.amount),
+        data: todayExpenses.map(e => e.amount || 0),
         backgroundColor: [
           (context) => {
             const chart = context.chart;
