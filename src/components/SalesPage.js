@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
@@ -74,43 +72,45 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         accessorKey: "client",
         cell: info => (
           <div className="font-medium text-neutral-900">
-            {info.getValue()}
+            {info.getValue() || "-"}
           </div>
         ),
       },
       {
-        header: "Product",
-        accessorKey: "product",
+        header: "Products",
+        accessorKey: "products",
         cell: info => (
           <div className="text-neutral-800">
-            {info.getValue()}
+            {info.getValue()?.map(p => products.find(prod => prod.id === p.productId)?.name || "Unknown").join(", ") || "-"}
           </div>
         ),
       },
       {
         header: "Quantity",
-        accessorKey: "quantity",
+        accessorKey: "products",
         cell: info => (
           <div className="text-center font-medium">
-            {info.getValue()}
+            {info.getValue()?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0}
           </div>
         ),
       },
       {
         header: "Unit Price",
-        accessorKey: "unitPrice",
+        accessorKey: "products",
         cell: info => (
           <div className="font-mono text-sm">
-            UGX {info.getValue().toLocaleString()}
+            UGX {info.getValue()?.reduce((sum, p) => sum + (p.unitPrice || 0) * (p.quantity || 0), 0).toLocaleString()}
           </div>
         ),
       },
       {
         header: "Discount",
-        accessorKey: "discount",
+        accessorKey: "products",
         cell: info => (
           <div className="font-mono text-sm text-orange-600">
-            {info.getValue() > 0 ? `-UGX ${info.getValue().toLocaleString()}` : '-'}
+            {info.getValue()?.reduce((sum, p) => sum + (p.discount || 0), 0) > 0 
+              ? `-UGX ${info.getValue()?.reduce((sum, p) => sum + (p.discount || 0), 0).toLocaleString()}` 
+              : '-'}
           </div>
         ),
       },
@@ -119,7 +119,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         accessorKey: "totalAmount",
         cell: info => (
           <div className="font-mono font-semibold text-primary">
-            UGX {info.getValue().toLocaleString()}
+            UGX {(info.getValue() || 0).toLocaleString()}
           </div>
         ),
       },
@@ -132,7 +132,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
             info.getValue() === 'partial' ? 'bg-yellow-100 text-yellow-800' :
             'bg-red-100 text-red-800'
           }`}>
-            {info.getValue().charAt(0).toUpperCase() + info.getValue().slice(1)}
+            {(info.getValue() || 'unpaid').charAt(0).toUpperCase() + (info.getValue() || 'unpaid').slice(1)}
           </span>
         ),
       },
@@ -141,7 +141,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         accessorKey: "amountPaid",
         cell: info => (
           <div className="font-mono text-sm">
-            UGX {info.getValue().toLocaleString()}
+            UGX {(info.getValue() || 0).toLocaleString()}
           </div>
         ),
       },
@@ -150,7 +150,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         accessorKey: "date",
         cell: info => (
           <div className="text-sm text-neutral-600">
-            {format(info.getValue().toDate(), 'MMM dd, yyyy')}
+            {info.getValue() ? format(info.getValue().toDate(), 'MMM dd, yyyy') : '-'}
           </div>
         ),
       },
@@ -179,23 +179,21 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         ),
       },
     ],
-    []
+    [products]
   );
 
   const table = useReactTable({
-    data: sales,
+    data: sales || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     globalFilterFn: (row, columnId, filterValue) => {
       const client = row.getValue('client')?.toLowerCase() || '';
-      const product = row.getValue('product')?.toLowerCase() || '';
+      const products = row.getValue('products')?.map(p => products.find(prod => prod.id === p.productId)?.name || '').join(' ').toLowerCase() || '';
       const paymentStatus = row.getValue('paymentStatus')?.toLowerCase() || '';
       const searchTerm = filterValue.toLowerCase();
-      return client.includes(searchTerm) || 
-             product.includes(searchTerm) || 
-             paymentStatus.includes(searchTerm);
+      return client.includes(searchTerm) || products.includes(searchTerm) || paymentStatus.includes(searchTerm);
     },
     state: {
       globalFilter,
@@ -207,7 +205,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     if (window.confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
       try {
         await deleteDoc(doc(db, `users/${userId}/sales`, id));
-        
         const debtsQuery = query(
           collection(db, `users/${userId}/debts`),
           where("saleId", "==", id)
@@ -225,8 +222,8 @@ const SalesPage = ({ sales, clients, products, userId }) => {
 
   const salesSummary = useMemo(() => {
     const totalSales = sales.length;
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + sale.amountPaid, 0);
+    const totalRevenue = sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const totalPaid = sales.reduce((sum, sale) => sum + (sale.amountPaid || 0), 0);
     const totalOutstanding = totalRevenue - totalPaid;
     
     return {
