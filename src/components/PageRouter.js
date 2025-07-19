@@ -1,10 +1,10 @@
 import React from 'react';
-import SalesPage from '../pages/SalesPage';
-import ExpensesPage from '../pages/ExpensesPage';
-import DebtsPage from '../pages/DebtsPage';
-import ProfilePage from '../pages/ProfilePage';
-import ReportsPage from '../pages/ReportsPage';
-import BankPage from '../pages/BankPage';
+import SalesPage from './SalesPage';
+import ExpensesPage from './ExpensesPage';
+import DebtsPage from './DebtsPage';
+import ProfilePage from './ProfilePage';
+import ReportsPage from './ReportsPage';
+import BankPage from './BankPage';
 
 const PageRouter = ({ 
   activeTab, 
