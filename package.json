@@ -1,7 +1,8 @@
-
+package.json
 {
   "private": true,
   "dependencies": {
+    "@react-pdf/renderer": "^3.4.4",
     "@tanstack/react-table": "^8.21.3",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
@@ -23,10 +24,7 @@
     "postcss": "^8.4.47",
     "react-hot-toast": "^2.4.1",
     "react-hook-form": "^7.51.3",
-    "uuid": "^9.0.1",
-    "jspdf": "^2.5.2",
-    "jspdf-autotable": "^3.8.4",
-    "recharts": "^2.13.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "workbox-cli": "^7.1.0",
