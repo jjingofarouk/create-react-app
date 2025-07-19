@@ -1,8 +1,7 @@
-// src/components/SalesPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { Plus, Trash2, Edit, Search, X } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X, User, Package } from "lucide-react";
 import { 
   useReactTable, 
   getCoreRowModel, 
@@ -19,7 +18,14 @@ const SalesPage = ({ sales, clients, products, userId }) => {
   const [editingSale, setEditingSale] = useState(null);
   const [globalFilter, setGlobalFilter] = useState("");
   const [showProductForm, setShowProductForm] = useState(false);
+  const [showClientForm, setShowClientForm] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: "", price: "" });
+  const [newClient, setNewClient] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    address: "" 
+  });
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
@@ -36,6 +42,26 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       setShowProductForm(false);
     } catch (err) {
       console.error("Error adding product:", err);
+    }
+  };
+
+  const handleAddClient = async (e) => {
+    e.preventDefault();
+    if (!newClient.name.trim()) return;
+    
+    try {
+      await addDoc(collection(db, `users/${userId}/clients`), {
+        name: newClient.name.trim(),
+        email: newClient.email.trim() || null,
+        phone: newClient.phone.trim() || null,
+        address: newClient.address.trim() || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      setNewClient({ name: "", email: "", phone: "", address: "" });
+      setShowClientForm(false);
+    } catch (err) {
+      console.error("Error adding client:", err);
     }
   };
 
@@ -221,22 +247,29 @@ const SalesPage = ({ sales, clients, products, userId }) => {
             Manage your sales transactions and track payments
           </p>
         </div>
-        <div className="flex gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
               setEditingSale(null);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             <span>Add Sale</span>
           </button>
           <button
-            onClick={() => setShowProductForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={() => setShowClientForm(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
           >
-            <Plus className="w-5 h-5" />
+            <User className="w-4 h-4" />
+            <span>Add Client</span>
+          </button>
+          <button
+            onClick={() => setShowProductForm(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+          >
+            <Package className="w-4 h-4" />
             <span>Add Product</span>
           </button>
         </div>
@@ -375,74 +408,179 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         />
       )}
 
+      {/* Add Client Modal */}
+      {showClientForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
+            {/* Header - Fixed */}
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
+              <h3 className="text-lg font-semibold text-neutral-800">Add New Client</h3>
+              <button
+                onClick={() => {
+                  setShowClientForm(false);
+                  setNewClient({ name: "", email: "", phone: "", address: "" });
+                }}
+                className="text-neutral-400 hover:text-neutral-600 transition-colors p-1"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {/* Form Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <form onSubmit={handleAddClient} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Client Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newClient.name}
+                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                    required
+                    placeholder="Enter client name"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newClient.email}
+                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                    placeholder="client@example.com"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={newClient.phone}
+                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                    placeholder="+256 700 000 000"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    value={newClient.address}
+                    onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
+                    placeholder="Client address"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
+                  />
+                </div>
+              </form>
+            </div>
+            
+            {/* Footer - Fixed */}
+            <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClientForm(false);
+                  setNewClient({ name: "", email: "", phone: "", address: "" });
+                }}
+                className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddClient}
+                disabled={!newClient.name.trim()}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+              >
+                Add Client
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Product Modal */}
       {showProductForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
+            {/* Header - Fixed */}
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-neutral-800">Add New Product</h3>
               <button
                 onClick={() => {
                   setShowProductForm(false);
                   setNewProduct({ name: "", price: "" });
                 }}
-                className="text-neutral-400 hover:text-neutral-600 transition-colors"
+                className="text-neutral-400 hover:text-neutral-600 transition-colors p-1"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleAddProduct} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Product Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                  required
-                  placeholder="Enter product name"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Default Price (UGX) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={newProduct.price}
-                  onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                  required
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
-              </div>
-              
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowProductForm(false);
-                    setNewProduct({ name: "", price: "" });
-                  }}
-                  className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newProduct.name.trim() || !newProduct.price}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  Add Product
-                </button>
-              </div>
-            </form>
+            {/* Form Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <form onSubmit={handleAddProduct} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Product Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                    required
+                    placeholder="Enter product name"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                    Default Price (UGX) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={newProduct.price}
+                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                    required
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  />
+                </div>
+              </form>
+            </div>
+            
+            {/* Footer - Fixed */}
+            <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProductForm(false);
+                  setNewProduct({ name: "", price: "" });
+                }}
+                className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddProduct}
+                disabled={!newProduct.name.trim() || !newProduct.price}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+              >
+                Add Product
+              </button>
+            </div>
           </div>
         </div>
       )}
