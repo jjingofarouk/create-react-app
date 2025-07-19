@@ -5,6 +5,7 @@ import { Download, Calendar, BarChart2 } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const ReportsPage = ({ userId }) => {
   const [reportType, setReportType] = useState("debts");
@@ -130,6 +131,24 @@ const ReportsPage = ({ userId }) => {
 
     doc.save(`${reportType}-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
+
+  // Prepare chart data
+  const prepareChartData = () => {
+    // Group data by date
+    const groupedData = data.reduce((acc, item) => {
+      const dateKey = format(item.createdAt, "MMM dd");
+      if (!acc[dateKey]) {
+        acc[dateKey] = { date: dateKey, amount: 0, count: 0 };
+      }
+      acc[dateKey].amount += item.amount || 0;
+      acc[dateKey].count += 1;
+      return acc;
+    }, {});
+
+    return Object.values(groupedData).sort((a, b) => new Date(a.date) - new Date(b.date));
+  };
+
+  const chartData = prepareChartData();
 
   return (
     <div className="space-y-6">
@@ -271,50 +290,45 @@ const ReportsPage = ({ userId }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        <h3 className="text-lg font-semibold text-neutral-800 mb-4">Insights</h3>
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart2 className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-medium text-neutral-700">
-            {reportType === "debts" ? "Debt Summary" : reportType === "sales" ? "Sales Summary" : "Expense Summary"}
-          </span>
+      {/* Chart Section */}
+      {data.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
+          <h3 className="text-lg font-semibold text-neutral-800 mb-4">Insights</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="w-5 h-5 text-blue-600" />
+            <span className="text-sm font-medium text-neutral-700">
+              {reportType === "debts" ? "Debt Summary" : reportType === "sales" ? "Sales Summary" : "Expense Summary"}
+            </span>
+          </div>
+          
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => `${value.toLocaleString()}`}
+                />
+                <Tooltip 
+                  formatter={(value) => [`${value.toLocaleString()} UGX`, 'Amount']}
+                  labelFormatter={(label) => `Date: ${label}`}
+                />
+                <Bar 
+                  dataKey="amount" 
+                  fill="#3b82f6" 
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <chartjs type="bar">
-          {
-            type: "bar",
-            data: {
-              labels: data.map(item => format(item.createdAt, "MMM dd")),
-              datasets: [
-                {
-                  label: reportType.charAt(0).toUpperCase() + reportType.slice(1),
-                  data: data.map(item => item.amount || 0),
-                  backgroundColor: "rgba(59, 130, 246, 0.5)",
-                  borderColor: "rgba(59, 130, 246, 1)",
-                  borderWidth: 1,
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: "Amount (UGX)",
-                  },
-                },
-                x: {
-                  title: {
-                    display: true,
-                    text: "Date",
-                  },
-                },
-              },
-            },
-          }
-        </chartjs>
-      </div>
+      )}
     </div>
   );
 };
