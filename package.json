@@ -24,7 +24,8 @@
     "react-hook-form": "^7.51.3",
     "uuid": "^9.0.1",
     "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.3"
+    "jspdf-autotable": "^3.8.3",
+    "recharts": "^2.5.0"  // Added recharts
   },
   "devDependencies": {
     "workbox-cli": "^7.1.0",
