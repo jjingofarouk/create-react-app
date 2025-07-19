@@ -55,14 +55,17 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
     setErrors({ ...errors, client: "" });
   };
 
-  const handleProductSelect = (product, index) => {
-    const updatedProducts = [...formData.products];
-    updatedProducts[index] = {
-      ...updatedProducts[index],
-      productId: product.id,
-      unitPrice: product.price,
-    };
-    setFormData({ ...formData, products: updatedProducts });
+  const handleProductSelect = (productName, index) => {
+    const selectedProduct = products.find(p => p.name === productName);
+    if (selectedProduct) {
+      const updatedProducts = [...formData.products];
+      updatedProducts[index] = {
+        ...updatedProducts[index],
+        productId: selectedProduct.id,
+        unitPrice: selectedProduct.price,
+      };
+      setFormData({ ...formData, products: updatedProducts });
+    }
   };
 
   const calculateTotal = () => {
@@ -156,11 +159,10 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                 Client <span className="text-red-500">*</span>
               </label>
               <AutocompleteInput
-                suggestions={clients.map(c => c.name)}
+                options={clients ? clients.map(c => c.name) : []}
                 value={formData.client}
-                onChange={(value) => handleClientSelect(value)}
+                onChange={handleClientSelect}
                 placeholder="Select or type client name"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               />
               {errors.client && <p className="mt-1 text-sm text-red-500">{errors.client}</p>}
             </div>
@@ -177,14 +179,10 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                   <div className="mb-3">
                     <label className="block text-xs font-medium text-neutral-600 mb-1">Product</label>
                     <AutocompleteInput
-                      suggestions={products.map(p => ({ id: p.id, name: p.name, price: p.price }))}
-                      value={products.find(p => p.id === item.productId)?.name || ""}
-                      onChange={(value) => {
-                        const selected = products.find(p => p.name === value);
-                        if (selected) handleProductSelect(selected, index);
-                      }}
+                      options={products ? products.map(p => p.name) : []}
+                      value={products && products.find(p => p.id === item.productId)?.name || ""}
+                      onChange={(value) => handleProductSelect(value, index)}
                       placeholder="Select product"
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
                     />
                   </div>
 
