@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image, Font, PDFDownloadLink } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import logo from "./logo.jpg";
+import { Download } from "lucide-react";
 
 // Register fonts
 Font.register({
