@@ -14,14 +14,20 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   });
   const [errors, setErrors] = useState({});
 
+  // Debug logging to see what data we're receiving
+  useEffect(() => {
+    console.log('SalesForm received clients:', clients);
+    console.log('SalesForm received products:', products);
+  }, [clients, products]);
+
   useEffect(() => {
     if (sale) {
       setFormData({
-        client: sale.client,
-        products: sale.products,
-        paymentStatus: sale.paymentStatus,
-        amountPaid: sale.amountPaid,
-        date: sale.date.toDate().toISOString().split("T")[0],
+        client: sale.client || "",
+        products: sale.products || [{ productId: "", quantity: 1, unitPrice: 0, discount: 0 }],
+        paymentStatus: sale.paymentStatus || "unpaid",
+        amountPaid: sale.amountPaid || 0,
+        date: sale.date?.toDate ? sale.date.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       });
     }
   }, [sale]);
@@ -51,18 +57,28 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   };
 
   const handleClientSelect = (clientName) => {
+    console.log('Client selected:', clientName);
     setFormData({ ...formData, client: clientName });
     setErrors({ ...errors, client: "" });
   };
 
   const handleProductSelect = (productName, index) => {
-    const selectedProduct = products.find(p => p.name === productName);
+    console.log('Product selected:', productName, 'at index:', index);
+    
+    if (!products || !Array.isArray(products)) {
+      console.error('Products array is not available or not an array:', products);
+      return;
+    }
+    
+    const selectedProduct = products.find(p => p?.name === productName);
+    console.log('Found product:', selectedProduct);
+    
     if (selectedProduct) {
       const updatedProducts = [...formData.products];
       updatedProducts[index] = {
         ...updatedProducts[index],
         productId: selectedProduct.id,
-        unitPrice: selectedProduct.price,
+        unitPrice: selectedProduct.price || 0,
       };
       setFormData({ ...formData, products: updatedProducts });
     }
@@ -77,7 +93,7 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.client) newErrors.client = "Client is required";
+    if (!formData.client?.trim()) newErrors.client = "Client is required";
     if (formData.products.some(item => !item.productId)) newErrors.products = "All products must be selected";
     if (formData.products.some(item => item.quantity <= 0)) newErrors.quantity = "Quantity must be greater than 0";
     if (parseFloat(formData.amountPaid) > calculateTotal()) newErrors.amountPaid = "Amount paid cannot exceed total";
@@ -134,6 +150,31 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
     }
   };
 
+  // Safely prepare options for autocomplete
+  const clientOptions = React.useMemo(() => {
+    if (!clients || !Array.isArray(clients)) {
+      console.warn('Clients is not an array:', clients);
+      return [];
+    }
+    
+    return clients
+      .filter(client => client && typeof client.name === 'string' && client.name.trim() !== '')
+      .map(client => client.name.trim())
+      .filter((name, index, array) => array.indexOf(name) === index); // Remove duplicates
+  }, [clients]);
+
+  const productOptions = React.useMemo(() => {
+    if (!products || !Array.isArray(products)) {
+      console.warn('Products is not an array:', products);
+      return [];
+    }
+    
+    return products
+      .filter(product => product && typeof product.name === 'string' && product.name.trim() !== '')
+      .map(product => product.name.trim())
+      .filter((name, index, array) => array.indexOf(name) === index); // Remove duplicates
+  }, [products]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[95vh] flex flex-col">
@@ -159,12 +200,20 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                 Client <span className="text-red-500">*</span>
               </label>
               <AutocompleteInput
-                options={clients ? clients.map(c => c.name) : []}
+                options={clientOptions}
                 value={formData.client}
                 onChange={handleClientSelect}
                 placeholder="Select or type client name"
               />
               {errors.client && <p className="mt-1 text-sm text-red-500">{errors.client}</p>}
+              
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Debug: {clientOptions.length} client options available
+                  {clientOptions.length > 0 && `: ${clientOptions.slice(0, 3).join(', ')}${clientOptions.length > 3 ? '...' : ''}`}
+                </div>
+              )}
             </div>
 
             {/* Products Section */}
@@ -179,11 +228,19 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
                   <div className="mb-3">
                     <label className="block text-xs font-medium text-neutral-600 mb-1">Product</label>
                     <AutocompleteInput
-                      options={products ? products.map(p => p.name) : []}
-                      value={products && products.find(p => p.id === item.productId)?.name || ""}
+                      options={productOptions}
+                      value={products?.find(p => p?.id === item.productId)?.name || ""}
                       onChange={(value) => handleProductSelect(value, index)}
                       placeholder="Select product"
                     />
+                    
+                    {/* Debug info */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Debug: {productOptions.length} product options available
+                        {productOptions.length > 0 && `: ${productOptions.slice(0, 3).join(', ')}${productOptions.length > 3 ? '...' : ''}`}
+                      </div>
+                    )}
                   </div>
 
                   {/* Product Details Grid */}
