@@ -1,9 +1,8 @@
-// src/components/ExpenseForm.jsx
 import React, { useState } from "react";
 import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
-import { X } from "lucide-react";
+import { X, Tag } from "lucide-react";
 import { format } from "date-fns";
 
 const ExpenseForm = ({ expense, categories, userId, onClose }) => {
@@ -12,17 +11,16 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
     amount: expense?.amount || 0,
     description: expense?.description || "",
     payee: expense?.payee || "",
-    date: expense?.date?.toDate() || new Date(),
+    createdAt: expense?.createdAt ? expense.createdAt.toDate() : new Date(),
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
-      [name]: name === "amount" ? parseFloat(value) || 0 : value
+      [field]: field === "amount" ? parseFloat(value) || 0 : value,
     }));
   };
 
@@ -41,16 +39,17 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
     setIsSubmitting(true);
     try {
       const expenseData = {
-        ...formData,
-        createdAt: new Date(),
+        category: formData.category,
+        amount: formData.amount,
+        description: formData.description || null,
+        payee: formData.payee || null,
+        createdAt: new Date(formData.createdAt),
         updatedAt: new Date(),
       };
 
       if (expense) {
-        // Update existing expense
         await updateDoc(doc(db, `users/${userId}/expenses`, expense.id), expenseData);
       } else {
-        // Add new expense
         await addDoc(collection(db, `users/${userId}/expenses`), expenseData);
       }
       onClose();
@@ -78,7 +77,7 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
         </div>
 
         {errors.submit && (
-          <div className="mb-4 p-3 bg-error-100 text-error-800 rounded-md">
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
             {errors.submit}
           </div>
         )}
@@ -87,36 +86,36 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Category</label>
             <AutocompleteInput
-              options={categories}
+              options={categories.map(c => ({ id: c.id, name: c.name }))}
               value={formData.category}
-              onChange={(value) => setFormData({ ...formData, category: value })}
-              placeholder="Select category"
+              onChange={(value) => handleChange("category", value)}
+              placeholder="Select or type category"
+              allowNew
+              icon={<Tag className="w-5 h-5 text-neutral-400" />}
             />
-            {errors.category && <p className="mt-1 text-sm text-error-600">{errors.category}</p>}
+            {errors.category && <p className="mt-1 text-sm text-red-600">{errors.category}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Amount (UGX)</label>
             <input
               type="number"
-              name="amount"
               value={formData.amount}
-              onChange={handleChange}
+              onChange={(e) => handleChange("amount", e.target.value)}
               min="0"
               step="0.01"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
-            {errors.amount && <p className="mt-1 text-sm text-error-600">{errors.amount}</p>}
+            {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Description (Optional)</label>
             <textarea
-              name="description"
               value={formData.description}
-              onChange={handleChange}
+              onChange={(e) => handleChange("description", e.target.value)}
               rows="3"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
           </div>
 
@@ -124,21 +123,19 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">Payee (Optional)</label>
             <input
               type="text"
-              name="payee"
               value={formData.payee}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              onChange={(e) => handleChange("payee", e.target.value)}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
             <input
-              type="datetime-local"
-              name="date"
-              value={format(formData.date, "yyyy-MM-dd'T'HH:mm")}
-              onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              type="date"
+              value={format(formData.createdAt, "yyyy-MM-dd")}
+              onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
           </div>
 
@@ -153,7 +150,7 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Saving..." : expense ? "Update Expense" : "Save Expense"}
             </button>
