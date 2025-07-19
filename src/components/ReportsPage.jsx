@@ -1,19 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Download, Calendar, BarChart2 } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  createColumnHelper,
+} from "@tanstack/react-table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import ReportHeader from "./ReportHeader";
+import DateRangeSelector from "./DateRangeSelector";
+import ReportTable from "./ReportTable";
+import ReportChart from "./ReportChart";
+import ReportSummary from "./ReportSummary";
+import ReportTypeSelector from "./ReportTypeSelector";
 
-const ReportsPage = ({ userId, sales, debts, expenses }) => {
+const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors }) => {
   const [reportType, setReportType] = useState("debts");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState([]);
-  const [totals, setTotals] = useState({ total: 0, count: 0 });
+  const [totals, setTotals] = useState({ total: 0, count: 0, paid: 0, pending: 0 });
   const [products, setProducts] = useState([]);
+  const [sorting, setSorting] = useState([]);
 
   // Fetch products for sales reports
   useEffect(() => {
@@ -22,7 +35,7 @@ const ReportsPage = ({ userId, sales, debts, expenses }) => {
         try {
           const productsCollection = collection(db, `users/${userId}/products`);
           const snapshot = await getDocs(productsCollection);
-          const productsData = snapshot.docs.map(doc => ({
+          const productsData = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
@@ -32,16 +45,14 @@ const ReportsPage = ({ userId, sales, debts, expenses }) => {
         }
       }
     };
-
     fetchProducts();
   }, [reportType, userId]);
 
+  // Process data for reports
   useEffect(() => {
     const processData = () => {
       try {
         let items = [];
-
-        // Use the props data instead of fetching from Firestore again
         switch (reportType) {
           case "debts":
             items = debts || [];
@@ -52,48 +63,57 @@ const ReportsPage = ({ userId, sales, debts, expenses }) => {
           case "expenses":
             items = expenses || [];
             break;
+          case "bank":
+            items = bankDeposits?.filter((deposit) => !deposit.isDepositorOnly) || [];
+            break;
           default:
             return;
         }
 
-        // Ensure all items have proper date handling
-        items = items.map(item => ({
+        // Normalize dates
+        items = items.map((item) => ({
           ...item,
-          createdAt: item.date?.toDate ? item.date.toDate() : 
-                    item.createdAt?.toDate ? item.createdAt.toDate() : 
-                    item.date instanceof Date ? item.date :
-                    item.createdAt instanceof Date ? item.createdAt :
-                    new Date(),
+          createdAt: item.date?.toDate
+            ? item.date.toDate()
+            : item.createdAt?.toDate
+            ? item.createdAt.toDate()
+            : item.date instanceof Date
+            ? item.date
+            : item.createdAt instanceof Date
+            ? item.createdAt
+            : new Date(),
         }));
 
-        // Apply date filtering if dates are provided
+        // Apply date filtering
         if (startDate && endDate) {
           const start = new Date(startDate);
           const end = new Date(endDate);
-          items = items.filter(item => {
+          items = items.filter((item) => {
             const itemDate = item.createdAt;
             return itemDate >= start && itemDate <= end;
           });
         }
 
-        // Calculate totals based on report type
+        // Calculate totals
         const calculatedTotals = items.reduce(
           (acc, item) => {
             let amount = 0;
-            
             if (reportType === "sales") {
               amount = item.totalAmount || 0;
             } else if (reportType === "debts") {
               amount = item.amount || 0;
+              if (item.amount === 0) acc.paid += 1;
+              else acc.pending += 1;
             } else if (reportType === "expenses") {
               amount = item.amount || 0;
+            } else if (reportType === "bank") {
+              amount = item.amount || 0;
             }
-            
             acc.total += amount;
             acc.count += 1;
             return acc;
           },
-          { total: 0, count: 0 }
+          { total: 0, count: 0, paid: 0, pending: 0 }
         );
 
         setData(items);
@@ -101,295 +121,352 @@ const ReportsPage = ({ userId, sales, debts, expenses }) => {
       } catch (err) {
         console.error("Error processing data:", err);
         setData([]);
-        setTotals({ total: 0, count: 0 });
+        setTotals({ total: 0, count: 0, paid: 0, pending: 0 });
       }
     };
-
     processData();
-  }, [reportType, startDate, endDate, sales, debts, expenses]);
+  }, [reportType, startDate, endDate, sales, debts, expenses, bankDeposits]);
 
+  // Generate PDF report
   const generatePDF = () => {
     const doc = new jsPDF();
-    const title = `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`;
-    doc.setFontSize(18);
-    doc.text(title, 14, 20);
     
-    const dateRangeText = startDate && endDate 
-      ? `From: ${format(new Date(startDate), "MMM dd, yyyy")} To: ${format(new Date(endDate), "MMM dd, yyyy")}`
+    // Corporate branding
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(0, 51, 102);
+    doc.text("Richmond Manufacturer's Ltd", 14, 20);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    const contactInfo = [
+      "Plot 123, Industrial Area, Kampala, Uganda",
+      "Phone: +256 123 456 789 | Email: info@richmondltd.ug",
+      "Prepared by: Shadia Nakitto | shadia@richmondltd.ug"
+    ];
+    contactInfo.forEach((line, index) => {
+      doc.text(line, 14, 30 + index * 5);
+    });
+
+    // Report title
+    const title = `${
+      reportType.charAt(0).toUpperCase() + reportType.slice(1)
+    } Report`;
+    doc.setFontSize(16);
+    doc.setTextColor(0);
+    doc.text(title, 14, 50);
+
+    // Date range
+    const dateRangeText = startDate && endDate
+      ? `From: ${format(new Date(startDate), "MMM dd, yyyy")} To: ${format(
+          new Date(endDate),
+          "MMM dd, yyyy"
+        )}`
       : `All Time`;
     doc.setFontSize(12);
-    doc.text(dateRangeText, 14, 30);
-    
-    const tableData = data.map(item => {
+    doc.text(dateRangeText, 14, 60);
+
+    // Table configuration
+    const tableData = data.map((item) => {
       if (reportType === "debts") {
         return [
           item.client || "-",
-          (item.amount || 0).toLocaleString(),
+          (item.amount || 0).toLocaleString("en-UG", {
+            style: "currency",
+            currency: "UGX",
+          }),
           item.amount === 0 ? "Paid" : "Pending",
-          format(item.createdAt, "MMM dd, yyyy HH:mm"),
+          format hem.createdAt, "MMM dd, yyyy HH:mm"),
           item.notes || "-",
         ];
       } else if (reportType === "sales") {
-        const product = products.find(p => p.id === item.product?.productId);
+        const product = products.find((p) => p.id === item.product?.productId);
         return [
           item.client || "-",
           product?.name || item.product?.name || "-",
           item.product?.quantity || 0,
-          (item.totalAmount || 0).toLocaleString(),
+          (item.totalAmount || 0).toLocaleString("en-UG", {
+            style: "currency",
+            currency: "UGX",
+          }),
           format(item.createdAt, "MMM dd, yyyy HH:mm"),
         ];
-      } else {
+      } else if (reportType === "expenses") {
         return [
           item.category || "-",
-          (item.amount || 0).toLocaleString(),
+率先
+          (item.amount || 0).toLocaleString("en-UG", {
+            style: "currency",
+            currency: "UGX",
+          }),
           format(item.createdAt, "MMM dd, yyyy HH:mm"),
           item.notes || "-",
+        ];
+      } else if (reportType === "bank") {
+        return [
+          item.depositor || "-",
+          (item.amount || 0).toLocaleString("en-UG", {
+            style: "currency",
+            currency: "UGX",
+          }),
+          format(item.createdAt, "MMM dd, yyyy HH:mm"),
+          item.description || "-",
         ];
       }
     });
 
     autoTable(doc, {
-      startY: 40,
+      startY: 70,
       head: [
         reportType === "debts"
-          ? ["Client", "Amount (UGX)", "Status", "Date", "Notes"]
+          ? ["Client", "Amount", "Status", "Date", "Notes"]
           : reportType === "sales"
-          ? ["Client", "Product", "Quantity", "Amount (UGX)", "Date"]
-          : ["Category", "Amount (UGX)", "Date", "Notes"],
+          ? ["Client", "Product", "Quantity", "Amount", "Date"]
+          : reportType === "expenses"
+          ? ["Category", "Amount", "Date", "Notes"]
+          : ["Depositor", "Amount", "Date", "Description"],
       ],
       body: tableData,
       theme: "striped",
-      headStyles: { fillColor: [59, 130, 246] },
-      margin: { top: 40 },
+      headStyles: {
+        fillColor: [0, 51, 102],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        textColor: [50, 50, 50],
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      margin: { top: 70 },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
+      },
     });
 
+    // Summary statistics
     doc.setFontSize(12);
+    doc.setTextColor(0);
+    const summaryText = `Total: ${totals.total.toLocaleString("en-UG", {
+      style: "currency",
+      currency: "UGX",
+    })} | Count: ${totals.count}${
+      reportType === "debts"
+        ? ` | Paid: ${totals.paid} | Pending: ${totals.pending}`
+        : ""
+    }`;
+    doc.text(summaryText, 14, doc.lastAutoTable.finalY + 10);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100);
     doc.text(
-      `Total: ${totals.total.toLocaleString()} UGX | Count: ${totals.count}`,
+      "Richmond Manufacturer's Ltd | Confidential Report",
       14,
-      doc.lastAutoTable.finalY + 10
+      doc.internal.pageSize.height - 10
     );
 
-    doc.save(`${reportType}-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    doc.save(
+      `${reportType}-report-${format(new Date(), "yyyy-MM-dd")}.pdf`
+    );
   };
 
-  // Prepare chart data
-  const prepareChartData = () => {
-    // Group data by date
+  // Table columns configuration
+  const columnHelper = createColumnHelper();
+  const columns = useMemo(() => {
+    const baseColumns = [
+      columnHelper.accessor("createdAt", {
+        header: "Date",
+        cell: (info) =>
+          format(info.getValue(), "MMM dd, yyyy HH:mm"),
+        minSize: 150,
+      }),
+    ];
+
+    if (reportType === "debts") {
+      return [
+        columnHelper.accessor("client", {
+          header: "Client",
+          cell: (info) => info.getValue() || "-",
+          minSize: 150,
+        }),
+        columnHelper.accessor("amount", {
+          header: "Amount (UGX)",
+          cell: (info) =>
+            info.getValue().toLocaleString("en-UG", {
+              style: "currency",
+              currency: "UGX",
+            }),
+          minSize: 120,
+        }),
+        columnHelper.accessor("amount", {
+          header: "Status",
+          cell: (info) => (
+            <span
+              className={`px-2 py-1 rounded-full text-xs ${
+                info.getValue() === 0
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {info.getValue() === 0 ? "Paid" : "Pending"}
+            </span>
+          ),
+          minSize: 100,
+        }),
+        ...baseColumns,
+        columnHelper.accessor("notes", {
+          header: "Notes",
+          cell: (info) => info.getValue() || "-",
+          minSize: 200,
+        }),
+      ];
+    } else if (reportType === "sales") {
+      return [
+        columnHelper.accessor("client", {
+          header: "Client",
+          cell: (info) => info.getValue() || "-",
+          minSize: 150,
+        }),
+        columnHelper.accessor("product", {
+          header: "Product",
+          cell: (info) => {
+            const product = products.find(
+              (p) => p.id === info.getValue()?.productId
+            );
+            return product?.name || info.getValue()?.name || "-";
+          },
+          minSize: 150,
+        }),
+        columnHelper.accessor("product.quantity", {
+          header: "Quantity",
+          cell: (info) => info.getValue() || 0,
+          minSize: 100,
+        }),
+        columnHelper.accessor("totalAmount", {
+          header: "Amount (UGX)",
+          cell: (info) =>
+            info.getValue().toLocaleString("en-UG", {
+              style: "currency",
+              currency: "UGX",
+            }),
+          minSize: 120,
+        }),
+        ...baseColumns,
+      ];
+    } else if (reportType === "expenses") {
+      return [
+        columnHelper.accessor("category", {
+          header: "Category",
+          cell: (info) => info.getValue() || "-",
+          minSize: 150,
+        }),
+        columnHelper.accessor("amount", {
+          header: "Amount (UGX)",
+          cell: (info) =>
+            info.getValue().toLocaleString("en-UG", {
+              style: "currency",
+              currency: "UGX",
+            }),
+          minSize: 120,
+        }),
+        ...baseColumns,
+        columnHelper.accessor("notes", {
+          header: "Notes",
+          cell: (info) => info.getValue() || "-",
+          minSize: 200,
+        }),
+      ];
+    } else if (reportType === "bank") {
+      return [
+        columnHelper.accessor("depositor", {
+          header: "Depositor",
+          cell: (info) => info.getValue() || "-",
+          minSize: 150,
+        }),
+        columnHelper.accessor("amount", {
+          header: "Amount (UGX)",
+          cell: (info) =>
+            info.getValue().toLocaleString("en-UG", {
+              style: "currency",
+              currency: "UGX",
+            }),
+          minSize: 120,
+        }),
+        ...baseColumns,
+        columnHelper.accessor("description", {
+          header: "Description",
+          cell: (info) => info.getValue() || "-",
+          minSize: 200,
+        }),
+      ];
+    }
+  }, [reportType, products]);
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  // Chart data preparation
+  const chartData = useMemo(() => {
     const groupedData = data.reduce((acc, item) => {
       const dateKey = format(item.createdAt, "MMM dd");
       if (!acc[dateKey]) {
         acc[dateKey] = { date: dateKey, amount: 0, count: 0 };
       }
-      
-      let amount = 0;
-      if (reportType === "sales") {
-        amount = item.totalAmount || 0;
-      } else {
-        amount = item.amount || 0;
-      }
-      
+      const amount =
+        reportType === "sales"
+          ? item.totalAmount || 0
+          : item.amount || 0;
       acc[dateKey].amount += amount;
       acc[dateKey].count += 1;
       return acc;
     }, {});
-
-    return Object.values(groupedData).sort((a, b) => new Date(a.date) - new Date(b.date));
-  };
-
-  const chartData = prepareChartData();
-
-  const getProductName = (item) => {
-    if (reportType !== "sales") return "-";
-    const product = products.find(p => p.id === item.product?.productId);
-    return product?.name || item.product?.name || "-";
-  };
-
-  const getItemAmount = (item) => {
-    if (reportType === "sales") {
-      return item.totalAmount || 0;
-    }
-    return item.amount || 0;
-  };
+    return Object.values(groupedData).sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+  }, [data, reportType]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
+      <ReportHeader title="Reports" />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-neutral-800">Reports</h2>
-        <div className="flex gap-3 w-full sm:w-auto">
-          <select
-            value={reportType}
-            onChange={(e) => setReportType(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="debts">Debts</option>
-            <option value="sales">Sales</option>
-            <option value="expenses">Expenses</option>
-          </select>
-          <button
-            onClick={generatePDF}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
-          >
-            <Download className="w-5 h-5" />
-            <span>Export PDF</span>
-          </button>
-        </div>
+        <ReportTypeSelector
+          reportType={reportType}
+          setReportType={setReportType}
+          includeBank={true}
+        />
+        <button
+          onClick={generatePDF}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+        >
+          <Download className="w-5 h-5" />
+          <span>Export PDF</span>
+        </button>
       </div>
-
-      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Start Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-              />
-            </div>
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-neutral-700 mb-1">End Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-              />
-            </div>
-          </div>
+      <DateRangeSelector
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
+      />
+      <ReportTable table={table} reportType={reportType} />
+      {data.length === 0 && (
+        <div className="text-center py-8 text-neutral-500">
+          No {reportType} found for the selected period
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-neutral-200">
-            <thead className="bg-neutral-50">
-              <tr>
-                {reportType === "debts" ? (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Amount (UGX)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Notes</th>
-                  </>
-                ) : reportType === "sales" ? (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Client</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Product</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Amount (UGX)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Amount (UGX)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Notes</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-neutral-200">
-              {data.map(item => (
-                <tr key={item.id} className="hover:bg-neutral-50">
-                  {reportType === "debts" ? (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.client || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getItemAmount(item).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          item.amount === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {item.amount === 0 ? 'Paid' : 'Pending'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                        {format(item.createdAt, "MMM dd, yyyy HH:mm")}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-neutral-800">{item.notes || "-"}</td>
-                    </>
-                  ) : reportType === "sales" ? (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.client || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getProductName(item)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.product?.quantity || 0}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getItemAmount(item).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                        {format(item.createdAt, "MMM dd, yyyy HH:mm")}
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.category || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getItemAmount(item).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                        {format(item.createdAt, "MMM dd, yyyy HH:mm")}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-neutral-800">{item.notes || "-"}</td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {data.length === 0 && (
-          <div className="text-center py-8 text-neutral-500">
-            No {reportType} found for the selected period
-          </div>
-        )}
-
-        <div className="mt-4 p-4 bg-neutral-50 rounded-md">
-          <p className="text-sm font-medium text-neutral-700">
-            Total: {totals.total.toLocaleString()} UGX | Count: {totals.count}
-          </p>
-        </div>
-      </div>
-
-      {/* Chart Section */}
+      )}
+      <ReportSummary totals={totals} reportType={reportType} />
       {data.length > 0 && (
-        <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-          <h3 className="text-lg font-semibold text-neutral-800 mb-4">Insights</h3>
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart2 className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-neutral-700">
-              {reportType === "debts" ? "Debt Summary" : reportType === "sales" ? "Sales Summary" : "Expense Summary"}
-            </span>
-          </div>
-          
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                  angle={-45}
-                  textAnchor="end"
-                />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => `${value.toLocaleString()}`}
-                />
-                <Tooltip 
-                  formatter={(value) => [`${value.toLocaleString()} UGX`, 'Amount']}
-                  labelFormatter={(label) => `Date: ${label}`}
-                />
-                <Bar 
-                  dataKey="amount" 
-                  fill="#3b82f6" 
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <ReportChart chartData={chartData} reportType={reportType} />
       )}
     </div>
   );
