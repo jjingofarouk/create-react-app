@@ -5,18 +5,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 const LoadingScreen = () => {
   return (
     <div className="min-h-screen bg-neutral-50 pb-20">
-      {/* Header Skeleton */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Skeleton height={32} width={200} />
-          <div className="flex items-center gap-4">
-            <Skeleton circle height={40} width={40} />
-            <Skeleton height={36} width={80} />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Skeleton */}
+      {/* Main Content Skeleton - Only the content area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title */}
         <div className="mb-6">
@@ -64,20 +53,6 @@ const LoadingScreen = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Navigation Skeleton */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 shadow-lg z-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center justify-center py-3 px-1">
-                <Skeleton circle height={20} width={20} className="mb-1" />
-                <Skeleton height={12} width={40} />
-              </div>
-            ))}
           </div>
         </div>
       </div>
