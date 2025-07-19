@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, User, Package, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X, User, Package } from "lucide-react";
 import { 
   useReactTable, 
   getCoreRowModel, 
@@ -70,7 +70,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Client",
         accessorKey: "client",
-        size: 150,
         cell: info => (
           <div className="font-medium text-neutral-900">
             {info.getValue()}
@@ -80,7 +79,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Product",
         accessorKey: "product",
-        size: 150,
         cell: info => (
           <div className="text-neutral-800">
             {info.getValue()}
@@ -90,7 +88,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Quantity",
         accessorKey: "quantity",
-        size: 80,
         cell: info => (
           <div className="text-center font-medium">
             {info.getValue()}
@@ -100,7 +97,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Unit Price",
         accessorKey: "unitPrice",
-        size: 120,
         cell: info => (
           <div className="font-mono text-sm">
             UGX {info.getValue().toLocaleString()}
@@ -110,7 +106,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Discount",
         accessorKey: "discount",
-        size: 120,
         cell: info => (
           <div className="font-mono text-sm text-orange-600">
             {info.getValue() > 0 ? `-UGX ${info.getValue().toLocaleString()}` : '-'}
@@ -120,7 +115,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Total",
         accessorKey: "totalAmount",
-        size: 120,
         cell: info => (
           <div className="font-mono font-semibold text-primary">
             UGX {info.getValue().toLocaleString()}
@@ -130,7 +124,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Payment Status",
         accessorKey: "paymentStatus",
-        size: 120,
         cell: info => (
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
             info.getValue() === 'paid' ? 'bg-green-100 text-green-800' :
@@ -144,7 +137,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Amount Paid",
         accessorKey: "amountPaid",
-        size: 120,
         cell: info => (
           <div className="font-mono text-sm">
             UGX {info.getValue().toLocaleString()}
@@ -154,7 +146,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {
         header: "Date",
         accessorKey: "date",
-        size: 100,
         cell: info => (
           <div className="text-sm text-neutral-600">
             {format(info.getValue().toDate(), 'MMM dd, yyyy')}
@@ -163,7 +154,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       },
       {
         header: "Actions",
-        size: 100,
         cell: info => (
           <div className="flex gap-1">
             <button
@@ -248,172 +238,156 @@ const SalesPage = ({ sales, clients, products, userId }) => {
   }, [sales]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header - Fixed */}
-      <div className="flex-shrink-0 p-6 bg-white border-b border-neutral-200">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
-            <p className="text-sm text-neutral-600 mt-1">
-              Manage your sales transactions and track payments
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => {
-                setEditingSale(null);
-                setShowForm(true);
-              }}
-              className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Sale</span>
-            </button>
-            <button
-              onClick={() => setShowClientForm(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-            >
-              <User className="w-4 h-4" />
-              <span>Add Client</span>
-            </button>
-            <button
-              onClick={() => setShowProductForm(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-            >
-              <Package className="w-4 h-4" />
-              <span>Add Product</span>
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
+          <p className="text-sm text-neutral-600 mt-1">
+            Manage your sales transactions and track payments
+          </p>
         </div>
-
-        {/* Summary Cards */}
-        {sales.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white p-4 rounded-lg border border-neutral-200">
-              <div className="text-sm text-neutral-600">Total Sales</div>
-              <div className="text-2xl font-bold text-neutral-900">{salesSummary.totalSales}</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg border border-neutral-200">
-              <div className="text-sm text-neutral-600">Total Revenue</div>
-              <div className="text-2xl font-bold text-primary">
-                UGX {salesSummary.totalRevenue.toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-white p-4 rounded-lg border border-neutral-200">
-              <div className="text-sm text-neutral-600">Amount Paid</div>
-              <div className="text-2xl font-bold text-green-600">
-                UGX {salesSummary.totalPaid.toLocaleString()}
-              </div>
-            </div>
-            <div className="bg-white p-4 rounded-lg border border-neutral-200">
-              <div className="text-sm text-neutral-600">Outstanding</div>
-              <div className="text-2xl font-bold text-orange-600">
-                UGX {salesSummary.totalOutstanding.toLocaleString()}
-              </div>
-            </div>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => {
+              setEditingSale(null);
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Sale</span>
+          </button>
+          <button
+            onClick={() => setShowClientForm(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+          >
+            <User className="w-4 h-4" />
+            <span>Add Client</span>
+          </button>
+          <button
+            onClick={() => setShowProductForm(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+          >
+            <Package className="w-4 h-4" />
+            <span>Add Product</span>
+          </button>
+        </div>
       </div>
 
-      {/* Table Container - Scrollable */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full bg-white shadow-sm border-l border-r border-neutral-200">
-          {/* Table Header */}
-          <div className="p-4 border-b border-neutral-200 bg-white">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h3 className="text-lg font-semibold text-neutral-800">All Sales</h3>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
-                <input
-                  type="text"
-                  placeholder="Search by client, product, or status..."
-                  value={globalFilter ?? ""}
-                  onChange={(e) => setGlobalFilter(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-                {globalFilter && (
-                  <button
-                    onClick={() => setGlobalFilter("")}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+      {/* Summary Cards */}
+      {sales.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Total Sales</div>
+            <div className="text-2xl font-bold text-neutral-900">{salesSummary.totalSales}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Total Revenue</div>
+            <div className="text-2xl font-bold text-primary">
+              UGX {salesSummary.totalRevenue.toLocaleString()}
             </div>
           </div>
-
-          {/* Table - With horizontal scroll */}
-          <div className="flex-1 overflow-auto">
-            <div className="min-w-[1200px]">
-              <table className="w-full divide-y divide-neutral-200">
-                <thead className="bg-neutral-50 sticky top-0 z-10">
-                  {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map(header => (
-                        <th
-                          key={header.id}
-                          className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
-                          style={{ width: `${header.column.columnDef.size}px` }}
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          <div className="flex items-center gap-2">
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                            <span className="text-neutral-400">
-                              {header.column.getIsSorted() === 'asc' && <ChevronUp className="w-3 h-3" />}
-                              {header.column.getIsSorted() === 'desc' && <ChevronDown className="w-3 h-3" />}
-                              {!header.column.getIsSorted() && <span className="w-3 h-3 flex items-center justify-center text-xs">⇅</span>}
-                            </span>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="bg-white divide-y divide-neutral-200">
-                  {table.getRowModel().rows.map(row => (
-                    <tr key={row.id} className="hover:bg-neutral-50 transition-colors">
-                      {row.getVisibleCells().map(cell => (
-                        <td 
-                          key={cell.id} 
-                          className="px-6 py-4 text-sm"
-                          style={{ width: `${cell.column.columnDef.size}px` }}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Amount Paid</div>
+            <div className="text-2xl font-bold text-green-600">
+              UGX {salesSummary.totalPaid.toLocaleString()}
             </div>
-
-            {table.getRowModel().rows.length === 0 && (
-              <div className="text-center py-12 text-neutral-500">
-                <div className="mb-2">
-                  {globalFilter ? "No matching sales found" : "No sales recorded yet"}
-                </div>
-                {!globalFilter && (
-                  <button
-                    onClick={() => {
-                      setEditingSale(null);
-                      setShowForm(true);
-                    }}
-                    className="text-primary hover:text-blue-700 font-medium"
-                  >
-                    Create your first sale
-                  </button>
-                )}
-              </div>
-            )}
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-neutral-200">
+            <div className="text-sm text-neutral-600">Outstanding</div>
+            <div className="text-2xl font-bold text-orange-600">
+              UGX {salesSummary.totalOutstanding.toLocaleString()}
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Sales Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-neutral-200 w-full">
+        <div className="p-4 border-b border-neutral-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 className="text-lg font-semibold text-neutral-800">All Sales</h3>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search by client, product, or status..."
+                value={globalFilter ?? ""}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              />
+              {globalFilter && (
+                <button
+                  onClick={() => setGlobalFilter("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full overflow-x-auto">
+          <div className="inline-block min-w-full align-middle">
+            <table className="min-w-[1200px] divide-y divide-neutral-200">
+              <thead className="bg-neutral-50">
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <div className="flex items-center gap-2">
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="bg-white divide-y divide-neutral-200">
+                {table.getRowModel().rows.map(row => (
+                  <tr key={row.id} className="hover:bg-neutral-50 transition-colors">
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {table.getRowModel().rows.length === 0 && (
+          <div className="text-center py-12 text-neutral-500">
+            <div className="mb-2">
+              {globalFilter ? "No matching sales found" : "No sales recorded yet"}
+            </div>
+            {!globalFilter && (
+              <button
+                onClick={() => {
+                  setEditingSale(null);
+                  setShowForm(true);
+                }}
+                className="text-primary hover:text-blue-700 font-medium"
+              >
+                Create your first sale
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Sales Form Modal */}
@@ -434,7 +408,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {showClientForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
-            {/* Header - Fixed */}
             <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-neutral-800">Add New Client</h3>
               <button
@@ -448,7 +421,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
               </button>
             </div>
             
-            {/* Form Content - Scrollable */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <form onSubmit={handleAddClient} className="space-y-4">
                 <div>
@@ -506,7 +478,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
               </form>
             </div>
             
-            {/* Footer - Fixed */}
             <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 flex-shrink-0">
               <button
                 type="button"
@@ -534,7 +505,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
       {showProductForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
-            {/* Header - Fixed */}
             <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-neutral-800">Add New Product</h3>
               <button
@@ -548,7 +518,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
               </button>
             </div>
             
-            {/* Form Content - Scrollable */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <form onSubmit={handleAddProduct} className="space-y-4">
                 <div>
@@ -583,7 +552,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
               </form>
             </div>
             
-            {/* Footer - Fixed */}
             <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 flex-shrink-0">
               <button
                 type="button"
