@@ -31,6 +31,7 @@ function App() {
         const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
         const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
         const productsQuery = query(collection(db, `users/${user.uid}/products`));
+        const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
 
         const unsubscribeSales = onSnapshot(
           salesQuery,
@@ -40,7 +41,6 @@ function App() {
               ...doc.data(),
             }));
             setSales(salesData);
-            setClients([...new Set(salesData.map((s) => s.client).filter(Boolean))]);
             setLoading(false);
           },
           (err) => {
@@ -102,11 +102,29 @@ function App() {
           }
         );
 
+        const unsubscribeClients = onSnapshot(
+          clientsQuery,
+          (snapshot) => {
+            const clientsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setClients(clientsData);
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Error fetching clients:", err);
+            setError("Failed to load clients. Please try again.");
+            setLoading(false);
+          }
+        );
+
         return () => {
           unsubscribeSales();
           unsubscribeDebts();
           unsubscribeExpenses();
           unsubscribeProducts();
+          unsubscribeClients();
         };
       } else {
         setSales([]);
