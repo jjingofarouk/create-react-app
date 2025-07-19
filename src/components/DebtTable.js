@@ -9,6 +9,7 @@ import {
 import { Search, Table } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
+import { format } from "date-fns";
 
 function DebtTable({ debts }) {
   const [globalFilter, setGlobalFilter] = useState("");
@@ -16,16 +17,16 @@ function DebtTable({ debts }) {
   const columns = useMemo(
     () => [
       {
-        accessorKey: "debtor",
+        accessorKey: "client",
         header: "Debtor",
-        cell: ({ row }) => row.original.debtor || "—",
+        cell: ({ row }) => row.original.client || "—",
       },
       {
         accessorKey: "amount",
         header: "Amount (UGX)",
         cell: ({ row }) => (
           <span className="font-semibold text-neutral-800">
-            UGX {row.original.amount.toLocaleString()}
+            UGX {(row.original.amount || 0).toLocaleString()}
           </span>
         ),
       },
@@ -35,15 +36,11 @@ function DebtTable({ debts }) {
         cell: ({ row }) => row.original.notes || "—",
       },
       {
-        accessorKey: "timestamp",
+        accessorKey: "createdAt",
         header: "Date",
         cell: ({ row }) => {
           try {
-            return new Date(row.original.timestamp).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            });
+            return row.original.createdAt ? format(row.original.createdAt.toDate(), "MMM dd, yyyy") : "—";
           } catch (error) {
             return "Invalid Date";
           }
