@@ -1,11 +1,6 @@
-// src/components/HomePage.jsx
 import React, { useState, useEffect } from "react";
 import { format, startOfDay, endOfDay } from "date-fns";
-import { Bar, Pie } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from "chart.js";
 import { CreditCard, ShoppingCart, TrendingDown, AlertCircle } from "lucide-react";
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 const HomePage = ({ sales, debts, expenses, clients, products, categories }) => {
   const [todaySales, setTodaySales] = useState([]);
@@ -25,7 +20,7 @@ const HomePage = ({ sales, debts, expenses, clients, products, categories }) => 
 
     setTodayDebts(
       debts.filter(d => {
-        const debtDate = d.date.toDate();
+        const debtDate = d.createdAt.toDate();
         return debtDate >= todayStart && debtDate <= todayEnd;
       })
     );
@@ -38,48 +33,80 @@ const HomePage = ({ sales, debts, expenses, clients, products, categories }) => 
     );
   }, [sales, debts, expenses]);
 
-  const totalTodaySales = todaySales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  const totalTodayPaid = todaySales.reduce((sum, sale) => sum + sale.amountPaid, 0);
-  const totalTodayDebts = todayDebts.reduce((sum, debt) => sum + debt.amount, 0);
-  const totalTodayExpenses = todayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalTodaySales = todaySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+  const totalTodayPaid = todaySales.reduce((sum, sale) => sum + (sale.amountPaid || 0), 0);
+  const totalTodayDebts = todayDebts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
+  const totalTodayExpenses = todayExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const todayBalance = totalTodayPaid - totalTodayExpenses;
 
-  const salesChartData = {
-    labels: ["Sales", "Paid", "Debts"],
-    datasets: [
-      {
-        label: "Amount (UGX)",
-        data: [totalTodaySales, totalTodayPaid, totalTodayDebts],
-        backgroundColor: [
-          "rgba(59, 130, 246, 0.7)",
-          "rgba(16, 185, 129, 0.7)",
-          "rgba(239, 68, 68, 0.7)",
-        ],
-        borderColor: [
-          "rgba(59, 130, 246, 1)",
-          "rgba(16, 185, 129, 1)",
-          "rgba(239, 68, 68, 1)",
-        ],
-        borderWidth: 1,
+  const salesChart = {
+    type: 'bar',
+    data: {
+      labels: ["Sales", "Paid", "Debts"],
+      datasets: [
+        {
+          label: "Amount (UGX)",
+          data: [totalTodaySales, totalTodayPaid, totalTodayDebts],
+          backgroundColor: [
+            "rgba(59, 130, 246, 0.7)",
+            "rgba(16, 185, 129, 0.7)",
+            "rgba(239, 68, 68, 0.7)",
+          ],
+          borderColor: [
+            "rgba(59, 130, 246, 1)",
+            "rgba(16, 185, 129, 1)",
+            "rgba(239, 68, 68, 1)",
+          ],
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "top",
+        },
+        title: {
+          display: true,
+          text: "Today's Sales, Paid Amount, and Debts",
+        },
       },
-    ],
+    }
   };
 
-  const expensesChartData = {
-    labels: todayExpenses.map(e => e.category),
-    datasets: [
-      {
-        data: todayExpenses.map(e => e.amount),
-        backgroundColor: [
-          "rgba(255, 99, 132, 0.7)",
-          "rgba(54, 162, 235, 0.7)",
-          "rgba(255, 206, 86, 0.7)",
-          "rgba(75, 192, 192, 0.7)",
-          "rgba(153, 102, 255, 0.7)",
-        ],
-        borderWidth: 1,
+  const expensesChart = {
+    type: 'pie',
+    data: {
+      labels: todayExpenses.map(e => e.category),
+      datasets: [
+        {
+          data: todayExpenses.map(e => e.amount),
+          backgroundColor: [
+            "rgba(255, 99, 132, 0.7)",
+            "rgba(54, 162, 235, 0.7)",
+            "rgba(255, 206, 86, 0.7)",
+            "rgba(75, 192, 192, 0.7)",
+            "rgba(153, 102, 255, 0.7)",
+          ],
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "right",
+        },
+        title: {
+          display: true,
+          text: "Today's Expenses by Category",
+        },
       },
-    ],
+    }
   };
 
   return (
@@ -142,43 +169,13 @@ const HomePage = ({ sales, debts, expenses, clients, products, categories }) => 
           <div>
             <h4 className="text-md font-medium text-neutral-700 mb-2">Sales Overview</h4>
             <div className="h-64">
-              <Bar
-                data={salesChartData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: "top",
-                    },
-                    title: {
-                      display: true,
-                      text: "Today's Sales, Paid Amount, and Debts",
-                    },
-                  },
-                }}
-              />
+              {salesChart}
             </div>
           </div>
           <div>
             <h4 className="text-md font-medium text-neutral-700 mb-2">Expenses Breakdown</h4>
             <div className="h-64">
-              <Pie
-                data={expensesChartData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: "right",
-                    },
-                    title: {
-                      display: true,
-                      text: "Today's Expenses by Category",
-                    },
-                  },
-                }}
-              />
+              {expensesChart}
             </div>
           </div>
         </div>
