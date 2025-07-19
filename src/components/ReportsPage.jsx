@@ -7,39 +7,66 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const ReportsPage = ({ userId }) => {
+const ReportsPage = ({ userId, sales, debts, expenses }) => {
   const [reportType, setReportType] = useState("debts");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState([]);
   const [totals, setTotals] = useState({ total: 0, count: 0 });
+  const [products, setProducts] = useState([]);
+
+  // Fetch products for sales reports
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (reportType === "sales") {
+        try {
+          const productsCollection = collection(db, `users/${userId}/products`);
+          const snapshot = await getDocs(productsCollection);
+          const productsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setProducts(productsData);
+        } catch (err) {
+          console.error("Error fetching products:", err);
+        }
+      }
+    };
+
+    fetchProducts();
+  }, [reportType, userId]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const processData = () => {
       try {
-        let collectionPath;
+        let items = [];
+
+        // Use the props data instead of fetching from Firestore again
         switch (reportType) {
           case "debts":
-            collectionPath = `users/${userId}/debts`;
+            items = debts || [];
             break;
           case "sales":
-            collectionPath = `users/${userId}/sales`;
+            items = sales || [];
             break;
           case "expenses":
-            collectionPath = `users/${userId}/expenses`;
+            items = expenses || [];
             break;
           default:
             return;
         }
 
-        const q = collection(db, collectionPath);
-        const snapshot = await getDocs(q);
-        let items = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
+        // Ensure all items have proper date handling
+        items = items.map(item => ({
+          ...item,
+          createdAt: item.date?.toDate ? item.date.toDate() : 
+                    item.createdAt?.toDate ? item.createdAt.toDate() : 
+                    item.date instanceof Date ? item.date :
+                    item.createdAt instanceof Date ? item.createdAt :
+                    new Date(),
         }));
 
+        // Apply date filtering if dates are provided
         if (startDate && endDate) {
           const start = new Date(startDate);
           const end = new Date(endDate);
@@ -49,9 +76,20 @@ const ReportsPage = ({ userId }) => {
           });
         }
 
+        // Calculate totals based on report type
         const calculatedTotals = items.reduce(
           (acc, item) => {
-            acc.total += item.amount || 0;
+            let amount = 0;
+            
+            if (reportType === "sales") {
+              amount = item.totalAmount || 0;
+            } else if (reportType === "debts") {
+              amount = item.amount || 0;
+            } else if (reportType === "expenses") {
+              amount = item.amount || 0;
+            }
+            
+            acc.total += amount;
             acc.count += 1;
             return acc;
           },
@@ -61,12 +99,14 @@ const ReportsPage = ({ userId }) => {
         setData(items);
         setTotals(calculatedTotals);
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error("Error processing data:", err);
+        setData([]);
+        setTotals({ total: 0, count: 0 });
       }
     };
 
-    fetchData();
-  }, [reportType, startDate, endDate, userId]);
+    processData();
+  }, [reportType, startDate, endDate, sales, debts, expenses]);
 
   const generatePDF = () => {
     const doc = new jsPDF();
@@ -90,11 +130,12 @@ const ReportsPage = ({ userId }) => {
           item.notes || "-",
         ];
       } else if (reportType === "sales") {
+        const product = products.find(p => p.id === item.product?.productId);
         return [
           item.client || "-",
-          item.product || "-",
-          item.quantity || 0,
-          (item.amount || 0).toLocaleString(),
+          product?.name || item.product?.name || "-",
+          item.product?.quantity || 0,
+          (item.totalAmount || 0).toLocaleString(),
           format(item.createdAt, "MMM dd, yyyy HH:mm"),
         ];
       } else {
@@ -140,7 +181,15 @@ const ReportsPage = ({ userId }) => {
       if (!acc[dateKey]) {
         acc[dateKey] = { date: dateKey, amount: 0, count: 0 };
       }
-      acc[dateKey].amount += item.amount || 0;
+      
+      let amount = 0;
+      if (reportType === "sales") {
+        amount = item.totalAmount || 0;
+      } else {
+        amount = item.amount || 0;
+      }
+      
+      acc[dateKey].amount += amount;
       acc[dateKey].count += 1;
       return acc;
     }, {});
@@ -149,6 +198,19 @@ const ReportsPage = ({ userId }) => {
   };
 
   const chartData = prepareChartData();
+
+  const getProductName = (item) => {
+    if (reportType !== "sales") return "-";
+    const product = products.find(p => p.id === item.product?.productId);
+    return product?.name || item.product?.name || "-";
+  };
+
+  const getItemAmount = (item) => {
+    if (reportType === "sales") {
+      return item.totalAmount || 0;
+    }
+    return item.amount || 0;
+  };
 
   return (
     <div className="space-y-6">
@@ -238,7 +300,7 @@ const ReportsPage = ({ userId }) => {
                   {reportType === "debts" ? (
                     <>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.client || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getItemAmount(item).toLocaleString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
                         <span className={`px-2 py-1 rounded-full text-xs ${
                           item.amount === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -254,9 +316,9 @@ const ReportsPage = ({ userId }) => {
                   ) : reportType === "sales" ? (
                     <>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.client || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.product || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.quantity || 0}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getProductName(item)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.product?.quantity || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getItemAmount(item).toLocaleString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
                         {format(item.createdAt, "MMM dd, yyyy HH:mm")}
                       </td>
@@ -264,7 +326,7 @@ const ReportsPage = ({ userId }) => {
                   ) : (
                     <>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{item.category || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{(item.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">{getItemAmount(item).toLocaleString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
                         {format(item.createdAt, "MMM dd, yyyy HH:mm")}
                       </td>
