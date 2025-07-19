@@ -1,8 +1,7 @@
-// src/components/AutocompleteInput.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, X } from "lucide-react";
 
-const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "Type to search..." }) => {
+const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "Type to search...", allowNew = false, icon }) => {
   const [inputValue, setInputValue] = useState(value);
   const [filteredOptions, setFilteredOptions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -10,12 +9,10 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Update input value when prop changes
   useEffect(() => {
     setInputValue(value);
   }, [value]);
 
-  // Filter options based on input value
   useEffect(() => {
     if (!Array.isArray(options)) {
       console.warn('AutocompleteInput: options should be an array, received:', typeof options);
@@ -24,19 +21,20 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
     }
 
     const validOptions = options.filter(option => 
-      typeof option === 'string' && option.trim() !== ''
+      option && typeof option === 'object' && option.id && option.name && option.name.trim() !== ''
     );
 
     if (inputValue.trim() === '') {
-      setFilteredOptions(validOptions.slice(0, 10)); // Show max 10 options when empty
+      setFilteredOptions(validOptions.slice(0, 10));
     } else {
       const filtered = validOptions.filter(option =>
-        option.toLowerCase().includes(inputValue.toLowerCase().trim())
+        option.name.toLowerCase().includes(inputValue.toLowerCase().trim()) ||
+        option.id.toLowerCase().includes(inputValue.toLowerCase().trim())
       );
-      setFilteredOptions(filtered.slice(0, 10)); // Limit to 10 results
+      setFilteredOptions(filtered.slice(0, 10));
     }
     
-    setHighlightedIndex(-1); // Reset highlight when options change
+    setHighlightedIndex(-1);
   }, [inputValue, options]);
 
   const handleInputChange = (e) => {
@@ -47,19 +45,19 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
       setShowDropdown(true);
     }
     
-    // Call onChange immediately for typing
     if (onChange) {
       onChange(newValue);
     }
   };
 
   const handleOptionSelect = (option) => {
-    setInputValue(option);
+    const selectedValue = allowNew ? option.name : option.id;
+    setInputValue(option.name);
     setShowDropdown(false);
     setHighlightedIndex(-1);
     
     if (onChange) {
-      onChange(option);
+      onChange(selectedValue);
     }
   };
 
@@ -72,7 +70,6 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
       onChange("");
     }
     
-    // Focus back to input after clearing
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -107,6 +104,8 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
           handleOptionSelect(filteredOptions[highlightedIndex]);
         } else if (filteredOptions.length === 1) {
           handleOptionSelect(filteredOptions[0]);
+        } else if (allowNew && inputValue.trim()) {
+          handleOptionSelect({ id: inputValue, name: inputValue });
         }
         break;
       
@@ -143,6 +142,11 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
   return (
     <div className="relative w-full" ref={wrapperRef}>
       <div className="relative">
+        {icon && (
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+            {icon}
+          </div>
+        )}
         <input
           ref={inputRef}
           type="text"
@@ -151,7 +155,7 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-8 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+          className={`w-full px-3 py-2 ${icon ? 'pl-10' : ''} pr-8 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors`}
           autoComplete="off"
         />
         <div className="absolute inset-y-0 right-0 flex items-center pr-2">
@@ -174,30 +178,35 @@ const AutocompleteInput = ({ options = [], value = "", onChange, placeholder = "
         </div>
       </div>
 
-      {showDropdown && filteredOptions.length > 0 && (
+      {showDropdown && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-          {filteredOptions.map((option, index) => (
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option, index) => (
+              <div
+                key={`${option.id}-${index}`}
+                onClick={() => handleOptionSelect(option)}
+                className={`px-4 py-2 cursor-pointer transition-colors ${
+                  index === highlightedIndex 
+                    ? 'bg-blue-600 text-white' 
+                    : 'hover:bg-neutral-50 text-neutral-800'
+                }`}
+                onMouseEnter={() => setHighlightedIndex(index)}
+              >
+                {option.name}
+              </div>
+            ))
+          ) : allowNew && inputValue.trim() ? (
             <div
-              key={`${option}-${index}`}
-              onClick={() => handleOptionSelect(option)}
-              className={`px-4 py-2 cursor-pointer transition-colors ${
-                index === highlightedIndex 
-                  ? 'bg-primary text-white' 
-                  : 'hover:bg-neutral-50 text-neutral-800'
-              }`}
-              onMouseEnter={() => setHighlightedIndex(index)}
+              onClick={() => handleOptionSelect({ id: inputValue, name: inputValue })}
+              className="px-4 py-2 cursor-pointer hover:bg-neutral-50 text-neutral-800"
             >
-              {option}
+              Create "{inputValue}"
             </div>
-          ))}
-        </div>
-      )}
-
-      {showDropdown && inputValue.length > 0 && filteredOptions.length === 0 && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg">
-          <div className="px-4 py-2 text-neutral-500 text-sm">
-            No matches found
-          </div>
+          ) : (
+            <div className="px-4 py-2 text-neutral-500 text-sm">
+              No matches found
+            </div>
+          )}
         </div>
       )}
     </div>
