@@ -19,6 +19,17 @@ export const useFirebaseData = () => {
       setUser(user);
       
       if (user) {
+        // Track loading states for all listeners
+        let listenersLoaded = 0;
+        const totalListeners = 6; // sales, debts, expenses, products, clients, bankDeposits
+        
+        const checkAllLoaded = () => {
+          listenersLoaded++;
+          if (listenersLoaded >= totalListeners) {
+            setLoading(false);
+          }
+        };
+
         // Initialize all listeners
         const unsubscribers = [];
         
@@ -33,12 +44,12 @@ export const useFirebaseData = () => {
                 ...doc.data(),
               }));
               setSales(salesData);
-              setLoading(false);
+              checkAllLoaded();
             },
             (err) => {
               console.error("Error fetching sales:", err);
               setError("Failed to load sales. Please try again.");
-              setLoading(false);
+              checkAllLoaded(); // Still mark as loaded even on error
             }
           );
           unsubscribers.push(unsubscribeSales);
@@ -53,10 +64,12 @@ export const useFirebaseData = () => {
                 ...doc.data(),
               }));
               setDebts(debtsData);
+              checkAllLoaded();
             },
             (err) => {
               console.error("Error fetching debts:", err);
-              setError("Failed to load debts. Please try again.");
+              // Don't set error for individual collection failures after initial load
+              checkAllLoaded();
             }
           );
           unsubscribers.push(unsubscribeDebts);
@@ -72,10 +85,11 @@ export const useFirebaseData = () => {
               }));
               setExpenses(expensesData);
               setCategories([...new Set(expensesData.map((e) => e.category).filter(Boolean))]);
+              checkAllLoaded();
             },
             (err) => {
               console.error("Error fetching expenses:", err);
-              setError("Failed to load expenses. Please try again.");
+              checkAllLoaded();
             }
           );
           unsubscribers.push(unsubscribeExpenses);
@@ -90,10 +104,11 @@ export const useFirebaseData = () => {
                 ...doc.data(),
               }));
               setProducts(productsData);
+              checkAllLoaded();
             },
             (err) => {
               console.error("Error fetching products:", err);
-              setError("Failed to load products. Please try again.");
+              checkAllLoaded();
             }
           );
           unsubscribers.push(unsubscribeProducts);
@@ -108,10 +123,11 @@ export const useFirebaseData = () => {
                 ...doc.data(),
               }));
               setClients(clientsData);
+              checkAllLoaded();
             },
             (err) => {
               console.error("Error fetching clients:", err);
-              setError("Failed to load clients. Please try again.");
+              checkAllLoaded();
             }
           );
           unsubscribers.push(unsubscribeClients);
@@ -127,10 +143,11 @@ export const useFirebaseData = () => {
               }));
               setBankDeposits(bankData);
               setDepositors([...new Set(bankData.map((d) => d.depositor).filter(Boolean))]);
+              checkAllLoaded();
             },
             (err) => {
               console.error("Error fetching bank deposits:", err);
-              setError("Failed to load bank deposits. Please try again.");
+              checkAllLoaded();
             }
           );
           unsubscribers.push(unsubscribeBank);
