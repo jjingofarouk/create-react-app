@@ -1,9 +1,8 @@
-// src/components/DebtsPage.jsx
 import React, { useState, useEffect } from "react";
 import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, CreditCard } from "lucide-react";
-import { useReactTable } from "@tanstack/react-table";
+import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
@@ -16,7 +15,7 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
 
   useEffect(() => {
     const filtered = debts.filter(debt => {
-      const matchesDebtor = debt.debtor?.toLowerCase().includes(filter.toLowerCase());
+      const matchesDebtor = debt.client?.toLowerCase().includes(filter.toLowerCase());
       return matchesDebtor;
     });
     setFilteredDebts(filtered);
@@ -25,35 +24,35 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
   const columns = [
     {
       header: "Debtor",
-      accessorKey: "debtor",
-      cell: info => info.getValue(),
+      accessorKey: "client",
+      cell: info => info.getValue() || "-",
     },
     {
       header: "Amount (UGX)",
       accessorKey: "amount",
-      cell: info => info.getValue().toLocaleString(),
+      cell: info => (info.getValue() || 0).toLocaleString(),
     },
     {
       header: "Status",
-      accessorKey: "status",
+      accessorKey: "amount",
       cell: info => (
         <span className={`px-2 py-1 rounded-full text-xs ${
-          info.getValue() === 'paid' ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'
+          info.getValue() === 0 ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'
         }`}>
-          {info.getValue()}
+          {info.getValue() === 0 ? 'Paid' : 'Pending'}
         </span>
       ),
     },
     {
       header: "Date",
-      accessorKey: "date",
-      cell: info => format(info.getValue().toDate(), 'MMM dd, yyyy'),
+      accessorKey: "createdAt",
+      cell: info => info.getValue() ? format(info.getValue().toDate(), 'MMM dd, yyyy') : '-',
     },
     {
       header: "Actions",
       cell: info => (
         <div className="flex gap-2">
-          {info.row.original.status !== 'paid' && (
+          {info.row.original.amount !== 0 && (
             <>
               <button
                 onClick={() => {
@@ -64,6 +63,12 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
               >
                 <Edit className="w-4 h-4" />
               </button>
+              <button
+                onClick={() => handleDeleteDebt(info.row.original.id)}
+                className="p-1 text-neutral-500 hover:text-danger hover:bg-neutral-100 rounded"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </>
           )}
         </div>
@@ -73,7 +78,8 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
 
   const table = useReactTable({
     columns,
-    data: filteredDebts,
+    data: filteredDebts || [],
+    getCoreRowModel: getCoreRowModel(),
   });
 
   const handleDeleteDebt = async (id) => {
@@ -145,7 +151,7 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
                 <tr key={row.id} className="hover:bg-neutral-50">
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                      {cell.renderCell()}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
                 </tr>
