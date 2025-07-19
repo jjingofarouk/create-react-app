@@ -1,9 +1,8 @@
-// src/components/ExpensesPage.jsx
 import React, { useState, useEffect } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X } from "lucide-react";
-import { useReactTable } from "@tanstack/react-table";
+import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
@@ -12,10 +11,10 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [filter, setFilter] = useState("");
-  const [filteredExpenses, setFilteredExpenses] = useState(expenses);
+  const [filteredExpenses, setFilteredExpenses] = useState(expenses || []);
 
   useEffect(() => {
-    const filtered = expenses.filter(expense => {
+    const filtered = (expenses || []).filter(expense => {
       const matchesCategory = expense.category?.toLowerCase().includes(filter.toLowerCase());
       const matchesPayee = expense.payee?.toLowerCase().includes(filter.toLowerCase());
       return matchesCategory || matchesPayee;
@@ -27,17 +26,17 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
     {
       header: "Category",
       accessorKey: "category",
-      cell: info => info.getValue(),
+      cell: info => info.getValue() || "-",
     },
     {
       header: "Amount (UGX)",
       accessorKey: "amount",
-      cell: info => info.getValue().toLocaleString(),
+      cell: info => (info.getValue() || 0).toLocaleString(),
     },
     {
       header: "Description",
       accessorKey: "description",
-      cell: info => info.getValue(),
+      cell: info => info.getValue() || "-",
     },
     {
       header: "Payee",
@@ -46,8 +45,8 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
     },
     {
       header: "Date",
-      accessorKey: "date",
-      cell: info => format(info.getValue().toDate(), 'MMM dd, yyyy'),
+      accessorKey: "createdAt",
+      cell: info => info.getValue() ? format(info.getValue(), 'MMM dd, yyyy') : '-',
     },
     {
       header: "Actions",
@@ -58,13 +57,13 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
               setEditingExpense(info.row.original);
               setShowForm(true);
             }}
-            className="p-1 text-neutral-500 hover:text-primary hover:bg-neutral-100 rounded"
+            className="p-1 text-neutral-500 hover:text-blue-600 hover:bg-blue-50 rounded"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDeleteExpense(info.row.original.id)}
-            className="p-1 text-neutral-500 hover:text-danger hover:bg-neutral-100 rounded"
+            className="p-1 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -76,6 +75,7 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
   const table = useReactTable({
     columns,
     data: filteredExpenses,
+    getCoreRowModel: getCoreRowModel(),
   });
 
   const handleDeleteExpense = async (id) => {
@@ -98,7 +98,7 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
               setEditingExpense(null);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
           >
             <Plus className="w-5 h-5" />
             <span>Add Expense</span>
@@ -115,7 +115,7 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
               placeholder="Search expenses..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-blue-600 focus:ring-2 focus:ring-blue-600 outline-none transition-all"
             />
             {filter && (
               <X
@@ -136,7 +136,7 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
                       key={header.id}
                       className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
                     >
-                      {header.column.columnDef.header}
+                      {flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
@@ -147,7 +147,7 @@ const ExpensesPage = ({ expenses, categories, userId }) => {
                 <tr key={row.id} className="hover:bg-neutral-50">
                   {row.getVisibleCells().map(cell => (
                     <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                      {cell.renderCell()}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
                 </tr>
