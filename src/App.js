@@ -19,6 +19,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [bankDeposits, setBankDeposits] = useState([]);
+  const [depositors, setDepositors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("sales");
@@ -134,6 +135,7 @@ function App() {
                 ...doc.data(),
               }));
               setBankDeposits(bankData);
+              setDepositors([...new Set(bankData.map((d) => d.depositor).filter(Boolean))]);
             },
             (err) => {
               console.error("Error fetching bank deposits:", err);
@@ -165,6 +167,7 @@ function App() {
         setProducts([]);
         setCategories([]);
         setBankDeposits([]);
+        setDepositors([]);
         setLoading(false);
         setError(null);
       }
@@ -228,8 +231,8 @@ function App() {
         return (
           <BankPage
             bankDeposits={bankDeposits}
+            depositors={depositors}
             userId={user.uid}
-            clients={clients}
           />
         );
       case "expenses":
