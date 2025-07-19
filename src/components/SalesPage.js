@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
+import React, { useState, useMemo } from "react";
+import { collection, addDoc, deleteDoc, doc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, User, Package } from "lucide-react";
 import { 
@@ -77,40 +77,38 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         ),
       },
       {
-        header: "Products",
-        accessorKey: "products",
+        header: "Product",
+        accessorKey: "product",
         cell: info => (
           <div className="text-neutral-800">
-            {info.getValue()?.map(p => products.find(prod => prod.id === p.productId)?.name || "Unknown").join(", ") || "-"}
+            {products.find(prod => prod.id === info.getValue()?.productId)?.name || "-"}
           </div>
         ),
       },
       {
         header: "Quantity",
-        accessorKey: "products",
+        accessorKey: "product",
         cell: info => (
           <div className="text-center font-medium">
-            {info.getValue()?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0}
+            {info.getValue()?.quantity || 0}
           </div>
         ),
       },
       {
         header: "Unit Price",
-        accessorKey: "products",
+        accessorKey: "product",
         cell: info => (
           <div className="font-mono text-sm">
-            UGX {info.getValue()?.reduce((sum, p) => sum + (p.unitPrice || 0) * (p.quantity || 0), 0).toLocaleString()}
+            UGX {(info.getValue()?.unitPrice || 0).toLocaleString()}
           </div>
         ),
       },
       {
         header: "Discount",
-        accessorKey: "products",
+        accessorKey: "product",
         cell: info => (
           <div className="font-mono text-sm text-orange-600">
-            {info.getValue()?.reduce((sum, p) => sum + (p.discount || 0), 0) > 0 
-              ? `-UGX ${info.getValue()?.reduce((sum, p) => sum + (p.discount || 0), 0).toLocaleString()}` 
-              : '-'}
+            {info.getValue()?.discount > 0 ? `-UGX ${info.getValue().discount.toLocaleString()}` : "-"}
           </div>
         ),
       },
@@ -190,10 +188,10 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     getSortedRowModel: getSortedRowModel(),
     globalFilterFn: (row, columnId, filterValue) => {
       const client = row.getValue('client')?.toLowerCase() || '';
-      const products = row.getValue('products')?.map(p => products.find(prod => prod.id === p.productId)?.name || '').join(' ').toLowerCase() || '';
+      const product = products.find(prod => prod.id === row.getValue('product')?.productId)?.name.toLowerCase() || '';
       const paymentStatus = row.getValue('paymentStatus')?.toLowerCase() || '';
       const searchTerm = filterValue.toLowerCase();
-      return client.includes(searchTerm) || products.includes(searchTerm) || paymentStatus.includes(searchTerm);
+      return client.includes(searchTerm) || product.includes(searchTerm) || paymentStatus.includes(searchTerm);
     },
     state: {
       globalFilter,
