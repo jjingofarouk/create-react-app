@@ -1,34 +1,31 @@
-// src/components/DebtForm.jsx
 import React, { useState } from "react";
 import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
-import { X } from "lucide-react";
+import { X, User } from "lucide-react";
 import { format } from "date-fns";
 
 const DebtForm = ({ debt, clients, userId, onClose }) => {
   const [formData, setFormData] = useState({
-    debtor: debt?.debtor || "",
+    client: debt?.client || "",
     amount: debt?.amount || 0,
-    status: debt?.status || "outstanding",
     notes: debt?.notes || "",
-    date: debt?.date?.toDate() || new Date(),
+    createdAt: debt?.createdAt ? debt.createdAt.toDate() : new Date(),
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
-      [name]: name === "amount" ? parseFloat(value) || 0 : value
+      [field]: field === "amount" ? parseFloat(value) || 0 : value,
     }));
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.debtor) newErrors.debtor = "Debtor is required";
+    if (!formData.client) newErrors.client = "Client is required";
     if (formData.amount <= 0) newErrors.amount = "Amount must be greater than 0";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -41,16 +38,17 @@ const DebtForm = ({ debt, clients, userId, onClose }) => {
     setIsSubmitting(true);
     try {
       const debtData = {
-        ...formData,
-        createdAt: new Date(),
+        client: formData.client,
+        amount: formData.amount,
+        notes: formData.notes || null,
+        createdAt: new Date(formData.createdAt),
         updatedAt: new Date(),
+        saleId: debt?.saleId || null, // Retain saleId if editing, null for new manual debts
       };
 
       if (debt) {
-        // Update existing debt
         await updateDoc(doc(db, `users/${userId}/debts`, debt.id), debtData);
       } else {
-        // Add new debt
         await addDoc(collection(db, `users/${userId}/debts`), debtData);
       }
       onClose();
@@ -78,69 +76,55 @@ const DebtForm = ({ debt, clients, userId, onClose }) => {
         </div>
 
         {errors.submit && (
-          <div className="mb-4 p-3 bg-error-100 text-error-800 rounded-md">
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
             {errors.submit}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Debtor</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
             <AutocompleteInput
-              options={clients}
-              value={formData.debtor}
-              onChange={(value) => setFormData({ ...formData, debtor: value })}
-              placeholder="Select debtor"
+              options={clients.map(c => ({ id: c.id, name: c.name }))}
+              value={formData.client}
+              onChange={(value) => handleChange("client", value)}
+              placeholder="Select or type client name"
+              allowNew
+              icon={<User className="w-5 h-5 text-neutral-400" />}
             />
-            {errors.debtor && <p className="mt-1 text-sm text-error-600">{errors.debtor}</p>}
+            {errors.client && <p className="mt-1 text-sm text-red-600">{errors.client}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Amount (UGX)</label>
             <input
               type="number"
-              name="amount"
               value={formData.amount}
-              onChange={handleChange}
+              onChange={(e) => handleChange("amount", e.target.value)}
               min="0"
               step="0.01"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
-            {errors.amount && <p className="mt-1 text-sm text-error-600">{errors.amount}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="outstanding">Outstanding</option>
-              <option value="paid">Paid</option>
-            </select>
+            {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
             <input
-              type="datetime-local"
-              name="date"
-              value={format(formData.date, "yyyy-MM-dd'T'HH:mm")}
-              onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              type="date"
+              value={format(formData.createdAt, "yyyy-MM-dd")}
+              onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
             <textarea
-              name="notes"
               value={formData.notes}
-              onChange={handleChange}
+              onChange={(e) => handleChange("notes", e.target.value)}
               rows="3"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
             />
           </div>
 
@@ -155,7 +139,7 @@ const DebtForm = ({ debt, clients, userId, onClose }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Saving..." : debt ? "Update Debt" : "Save Debt"}
             </button>
