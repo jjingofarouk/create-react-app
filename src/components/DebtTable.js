@@ -7,8 +7,6 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 import { Search, Table } from "lucide-react";
-import Skeleton from "react-loading-skeleton";
-import "react-loading-skeleton/dist/skeleton.css";
 import { format } from "date-fns";
 
 function DebtTable({ debts }) {
@@ -64,7 +62,7 @@ function DebtTable({ debts }) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Table className="w-6 h-6 text-primary" />
+          <Table className="w-6 h-6 text-blue-600" />
           <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
             Debt Records
           </h2>
@@ -80,7 +78,7 @@ function DebtTable({ debts }) {
     <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
-          <Table className="w-6 h-6 text-primary" />
+          <Table className="w-6 h-6 text-blue-600" />
           <h2 className="text-lg sm:text-xl font-semibold text-neutral-800">
             Debt Records
           </h2>
@@ -91,7 +89,7 @@ function DebtTable({ debts }) {
             value={globalFilter ?? ""}
             onChange={(e) => setGlobalFilter(e.target.value)}
             placeholder="Search debts..."
-            className="w-full pl-10 pr-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-sm text-neutral-800 placeholder-neutral-400"
+            className="w-full pl-10 pr-4 py-2 border-2 border-neutral-200 rounded-lg focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 outline-none transition-all duration-200 text-sm text-neutral-800 placeholder-neutral-400"
           />
         </div>
       </div>
