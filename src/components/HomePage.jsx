@@ -3,23 +3,23 @@ import { format, startOfDay, endOfDay } from "date-fns";
 import { Bar, Pie } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from "chart.js";
 import { CreditCard, ShoppingCart, TrendingDown, AlertCircle } from "lucide-react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
-const HomePage = ({ sales, debts, userId }) => {
+const HomePage = ({ sales, debts, expenses, userId }) => {
   const [todaySales, setTodaySales] = useState([]);
   const [todayDebts, setTodayDebts] = useState([]);
   const [todayExpenses, setTodayExpenses] = useState([]);
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [expenses, setExpenses] = useState([]);
 
+  // Remove the separate expense fetching since it's already passed as prop
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const { collection, getDocs } = await import("firebase/firestore");
+        const { db } = await import("../firebase");
+
         // Fetch clients
         const clientsSnapshot = await getDocs(collection(db, `users/${userId}/clients`));
         const clientsList = clientsSnapshot.docs.map(doc => ({
@@ -35,64 +35,50 @@ const HomePage = ({ sales, debts, userId }) => {
           name: doc.data().name,
         }));
         setProducts(productsList);
-
-        // Fetch categories
-        const categoriesSnapshot = await getDocs(collection(db, `users/${userId}/categories`));
-        const categoriesList = categoriesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-        }));
-        setCategories(categoriesList);
-
-        // Fetch expenses
-        const expensesSnapshot = await getDocs(collection(db, `users/${userId}/expenses`));
-        const expensesList = expensesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-        }));
-        setExpenses(expensesList);
       } catch (err) {
         console.error("Error fetching data:", err);
       }
     };
 
-    fetchData();
+    if (userId) {
+      fetchData();
+    }
   }, [userId]);
 
   useEffect(() => {
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
-    setTodaySales(
-      (sales || []).filter(s => {
-        const saleDate = s.createdAt?.toDate();
-        return saleDate && saleDate >= todayStart && saleDate <= todayEnd;
-      })
-    );
+    // Filter today's sales
+    const filteredSales = (sales || []).filter(s => {
+      const saleDate = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+      return saleDate && saleDate >= todayStart && saleDate <= todayEnd;
+    });
+    setTodaySales(filteredSales);
 
-    setTodayDebts(
-      (debts || []).filter(d => {
-        const debtDate = d.createdAt?.toDate();
-        return debtDate && debtDate >= todayStart && debtDate <= todayEnd;
-      })
-    );
+    // Filter today's debts
+    const filteredDebts = (debts || []).filter(d => {
+      const debtDate = d.createdAt?.toDate ? d.createdAt.toDate() : new Date(d.createdAt);
+      return debtDate && debtDate >= todayStart && debtDate <= todayEnd;
+    });
+    setTodayDebts(filteredDebts);
 
-    setTodayExpenses(
-      (expenses || []).filter(e => {
-        const expenseDate = e.createdAt?.toDate();
-        return expenseDate && expenseDate >= todayStart && expenseDate <= todayEnd;
-      })
-    );
+    // Filter today's expenses - use the expenses prop directly
+    const filteredExpenses = (expenses || []).filter(e => {
+      const expenseDate = e.createdAt?.toDate ? e.createdAt.toDate() : new Date(e.createdAt);
+      return expenseDate && expenseDate >= todayStart && expenseDate <= todayEnd;
+    });
+    setTodayExpenses(filteredExpenses);
   }, [sales, debts, expenses]);
 
-  const totalTodaySales = todaySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-  const totalTodayPaid = todaySales.reduce((sum, sale) => sum + (sale.amountPaid || 0), 0);
-  const totalTodayDebts = todayDebts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
-  const totalTodayExpenses = todayExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const totalTodaySales = todaySales.reduce((sum, sale) => sum + (parseFloat(sale.totalAmount) || 0), 0);
+  const totalTodayPaid = todaySales.reduce((sum, sale) => sum + (parseFloat(sale.amountPaid) || 0), 0);
+  const totalTodayDebts = todayDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
+  const totalTodayExpenses = todayExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
   const todayBalance = totalTodayPaid - totalTodayExpenses;
 
   const createGradient = (ctx, chartArea, colorStart, colorEnd) => {
+    if (!ctx || !chartArea) return colorStart;
     const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
     gradient.addColorStop(0, colorStart);
     gradient.addColorStop(1, colorEnd);
@@ -120,49 +106,38 @@ const HomePage = ({ sales, debts, userId }) => {
     ],
   };
 
+  // Group expenses by category and sum amounts
+  const expensesByCategory = todayExpenses.reduce((acc, expense) => {
+    const category = expense.category || "Unknown";
+    const amount = parseFloat(expense.amount) || 0;
+    acc[category] = (acc[category] || 0) + amount;
+    return acc;
+  }, {});
+
   const expensesChartData = {
-    labels: todayExpenses.length > 0 ? todayExpenses.map(e => e.category || "Unknown") : ["No Data"],
+    labels: Object.keys(expensesByCategory).length > 0 ? Object.keys(expensesByCategory) : ["No Data"],
     datasets: [
       {
-        data: todayExpenses.length > 0 ? todayExpenses.map(e => e.amount || 0) : [1],
-        backgroundColor: todayExpenses.length > 0 ? [
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return "rgba(255, 99, 132, 0.8)";
-            return createGradient(ctx, chartArea, "rgba(255, 99, 132, 0.8)", "rgba(255, 99, 132, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return "rgba(54, 162, 235, 0.8)";
-            return createGradient(ctx, chartArea, "rgba(54, 162, 235, 0.8)", "rgba(54, 162, 235, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return "rgba(255, 206, 86, 0.8)";
-            return createGradient(ctx, chartArea, "rgba(255, 206, 86, 0.8)", "rgba(255, 206, 86, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return "rgba(75, 192, 192, 0.8)";
-            return createGradient(ctx, chartArea, "rgba(75, 192, 192, 0.8)", "rgba(75, 192, 192, 0.3)");
-          },
-          (context) => {
-            const chart = context.chart;
-            const { ctx, chartArea } = chart;
-            if (!chartArea) return "rgba(153, 102, 255, 0.8)";
-            return createGradient(ctx, chartArea, "rgba(153, 102, 255, 0.8)", "rgba(153, 102, 255, 0.3)");
-          },
+        data: Object.keys(expensesByCategory).length > 0 ? Object.values(expensesByCategory) : [1],
+        backgroundColor: Object.keys(expensesByCategory).length > 0 ? [
+          "rgba(255, 99, 132, 0.8)",
+          "rgba(54, 162, 235, 0.8)",
+          "rgba(255, 206, 86, 0.8)",
+          "rgba(75, 192, 192, 0.8)",
+          "rgba(153, 102, 255, 0.8)",
+          "rgba(255, 159, 64, 0.8)",
+          "rgba(199, 199, 199, 0.8)",
+          "rgba(83, 102, 255, 0.8)",
         ] : ["rgba(200, 200, 200, 0.5)"],
-        borderColor: todayExpenses.length > 0 ? [
+        borderColor: Object.keys(expensesByCategory).length > 0 ? [
           "rgba(255, 99, 132, 1)",
           "rgba(54, 162, 235, 1)",
           "rgba(255, 206, 86, 1)",
           "rgba(75, 192, 192, 1)",
           "rgba(153, 102, 255, 1)",
+          "rgba(255, 159, 64, 1)",
+          "rgba(199, 199, 199, 1)",
+          "rgba(83, 102, 255, 1)",
         ] : ["rgba(200, 200, 200, 1)"],
         borderWidth: 1,
         hoverOffset: 20,
