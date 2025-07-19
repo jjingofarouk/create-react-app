@@ -1,409 +1,202 @@
-import React, { useState, useEffect } from "react";
-import { collection, addDoc, updateDoc, doc } from "firebase/firestore";
+import React, { useState } from "react";
+import { collection, addDoc, updateDoc, doc, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Package, User } from "lucide-react";
 import AutocompleteInput from "./AutocompleteInput";
 
 const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   const [formData, setFormData] = useState({
-    client: "",
-    products: [{ productId: "", quantity: 1, unitPrice: 0, discount: 0 }],
-    paymentStatus: "unpaid",
-    amountPaid: 0,
-    date: new Date().toISOString().split("T")[0],
+    client: sale?.client || "",
+    productId: sale?.product?.productId || "",
+    quantity: sale?.product?.quantity || 1,
+    unitPrice: sale?.product?.unitPrice || "",
+    discount: sale?.product?.discount || 0,
+    amountPaid: sale?.amountPaid || 0,
+    date: sale?.date ? sale.date.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
   });
-  const [errors, setErrors] = useState({});
-
-  // Debug logging to see what data we're receiving
-  useEffect(() => {
-    console.log('SalesForm received clients:', clients);
-    console.log('SalesForm received products:', products);
-  }, [clients, products]);
-
-  useEffect(() => {
-    if (sale) {
-      setFormData({
-        client: sale.client || "",
-        products: sale.products || [{ productId: "", quantity: 1, unitPrice: 0, discount: 0 }],
-        paymentStatus: sale.paymentStatus || "unpaid",
-        amountPaid: sale.amountPaid || 0,
-        date: sale.date?.toDate ? sale.date.toDate().toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-      });
-    }
-  }, [sale]);
-
-  const handleInputChange = (e, index = null) => {
-    const { name, value } = e.target;
-    if (index !== null) {
-      const updatedProducts = [...formData.products];
-      updatedProducts[index][name] = name === "quantity" || name === "unitPrice" || name === "discount" ? parseFloat(value) || 0 : value;
-      setFormData({ ...formData, products: updatedProducts });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
-    setErrors({ ...errors, [name]: "" });
-  };
-
-  const handleAddProduct = () => {
-    setFormData({
-      ...formData,
-      products: [...formData.products, { productId: "", quantity: 1, unitPrice: 0, discount: 0 }],
-    });
-  };
-
-  const handleRemoveProduct = (index) => {
-    const updatedProducts = formData.products.filter((_, i) => i !== index);
-    setFormData({ ...formData, products: updatedProducts });
-  };
-
-  const handleClientSelect = (clientName) => {
-    console.log('Client selected:', clientName);
-    setFormData({ ...formData, client: clientName });
-    setErrors({ ...errors, client: "" });
-  };
-
-  const handleProductSelect = (productName, index) => {
-    console.log('Product selected:', productName, 'at index:', index);
-    
-    if (!products || !Array.isArray(products)) {
-      console.error('Products array is not available or not an array:', products);
-      return;
-    }
-    
-    const selectedProduct = products.find(p => p?.name === productName);
-    console.log('Found product:', selectedProduct);
-    
-    if (selectedProduct) {
-      const updatedProducts = [...formData.products];
-      updatedProducts[index] = {
-        ...updatedProducts[index],
-        productId: selectedProduct.id,
-        unitPrice: selectedProduct.price || 0,
-      };
-      setFormData({ ...formData, products: updatedProducts });
-    }
-  };
-
-  const calculateTotal = () => {
-    return formData.products.reduce((total, item) => {
-      const subtotal = item.quantity * item.unitPrice - (item.discount || 0);
-      return total + (subtotal > 0 ? subtotal : 0);
-    }, 0);
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.client?.trim()) newErrors.client = "Client is required";
-    if (formData.products.some(item => !item.productId)) newErrors.products = "All products must be selected";
-    if (formData.products.some(item => item.quantity <= 0)) newErrors.quantity = "Quantity must be greater than 0";
-    if (parseFloat(formData.amountPaid) > calculateTotal()) newErrors.amountPaid = "Amount paid cannot exceed total";
-    return newErrors;
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationErrors = validateForm();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    const saleData = {
-      ...formData,
-      totalAmount: calculateTotal(),
-      amountPaid: parseFloat(formData.amountPaid) || 0,
-      date: new Date(formData.date),
-      updatedAt: new Date(),
-    };
+    setIsSubmitting(true);
+    setError("");
 
     try {
+      const totalAmount = formData.quantity * formData.unitPrice - (formData.discount || 0);
+      const paymentStatus = formData.amountPaid >= totalAmount ? "paid" : formData.amountPaid > 0 ? "partial" : "unpaid";
+      const saleData = {
+        client: formData.client,
+        product: {
+          productId: formData.productId,
+          quantity: parseInt(formData.quantity),
+          unitPrice: parseFloat(formData.unitPrice),
+          discount: parseFloat(formData.discount || 0),
+        },
+        totalAmount,
+        amountPaid: parseFloat(formData.amountPaid || 0),
+        paymentStatus,
+        date: new Date(formData.date),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       if (sale) {
         await updateDoc(doc(db, `users/${userId}/sales`, sale.id), saleData);
-        if (saleData.totalAmount > saleData.amountPaid) {
-          await addDoc(collection(db, `users/${userId}/debts`), {
-            saleId: sale.id,
-            client: saleData.client,
-            amount: saleData.totalAmount - saleData.amountPaid,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
-      } else {
-        const docRef = await addDoc(collection(db, `users/${userId}/sales`), {
-          ...saleData,
-          createdAt: new Date(),
+        const existingDebtQuery = query(
+          collection(db, `users/${userId}/debts`),
+          where("saleId", "==", sale.id)
+        );
+        const querySnapshot = await getDocs(existingDebtQuery);
+        querySnapshot.forEach(async (doc) => {
+          await deleteDoc(doc.ref);
         });
-        if (saleData.totalAmount > saleData.amountPaid) {
+      } else {
+        const saleRef = await addDoc(collection(db, `users/${userId}/sales`), saleData);
+        if (totalAmount > formData.amountPaid && formData.amountPaid < totalAmount) {
           await addDoc(collection(db, `users/${userId}/debts`), {
-            saleId: docRef.id,
-            client: saleData.client,
-            amount: saleData.totalAmount - saleData.amountPaid,
+            client: formData.client,
+            amount: totalAmount - formData.amountPaid,
+            saleId: saleRef.id,
             createdAt: new Date(),
             updatedAt: new Date(),
           });
         }
       }
+
       onClose();
     } catch (err) {
       console.error("Error saving sale:", err);
-      setErrors({ form: "Failed to save sale. Please try again." });
+      setError("Failed to save sale. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Safely prepare options for autocomplete
-  const clientOptions = React.useMemo(() => {
-    if (!clients || !Array.isArray(clients)) {
-      console.warn('Clients is not an array:', clients);
-      return [];
-    }
-    
-    return clients
-      .filter(client => client && typeof client.name === 'string' && client.name.trim() !== '')
-      .map(client => client.name.trim())
-      .filter((name, index, array) => array.indexOf(name) === index); // Remove duplicates
-  }, [clients]);
-
-  const productOptions = React.useMemo(() => {
-    if (!products || !Array.isArray(products)) {
-      console.warn('Products is not an array:', products);
-      return [];
-    }
-    
-    return products
-      .filter(product => product && typeof product.name === 'string' && product.name.trim() !== '')
-      .map(product => product.name.trim())
-      .filter((name, index, array) => array.indexOf(name) === index); // Remove duplicates
-  }, [products]);
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[95vh] flex flex-col">
-        {/* Header - Fixed */}
-        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
-          <h3 className="text-lg font-semibold text-neutral-800">
-            {sale ? "Edit Sale" : "New Sale"}
-          </h3>
-          <button 
-            onClick={onClose} 
-            className="text-neutral-400 hover:text-neutral-600 transition-colors p-1"
-          >
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[95vh] flex flex-col">
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200">
+          <h3 className="text-lg font-semibold text-neutral-800">{sale ? "Edit Sale" : "Add New Sale"}</h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Form Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="space-y-6">
-            {/* Client Selection */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Client <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Client</label>
               <AutocompleteInput
-                options={clientOptions}
+                options={clients.map((c) => ({ id: c.id, name: c.name }))}
                 value={formData.client}
-                onChange={handleClientSelect}
+                onChange={(value) => handleChange("client", value)}
                 placeholder="Select or type client name"
+                allowNew
+                icon={<User className="w-5 h-5 text-neutral-400" />}
               />
-              {errors.client && <p className="mt-1 text-sm text-red-500">{errors.client}</p>}
-              
-              {/* Debug info */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-2 text-xs text-gray-500">
-                  Debug: {clientOptions.length} client options available
-                  {clientOptions.length > 0 && `: ${clientOptions.slice(0, 3).join(', ')}${clientOptions.length > 3 ? '...' : ''}`}
-                </div>
-              )}
             </div>
 
-            {/* Products Section */}
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-4">
-                Products <span className="text-red-500">*</span>
-              </label>
-              
-              {formData.products.map((item, index) => (
-                <div key={index} className="mb-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                  {/* Product Selection */}
-                  <div className="mb-3">
-                    <label className="block text-xs font-medium text-neutral-600 mb-1">Product</label>
-                    <AutocompleteInput
-                      options={productOptions}
-                      value={products?.find(p => p?.id === item.productId)?.name || ""}
-                      onChange={(value) => handleProductSelect(value, index)}
-                      placeholder="Select product"
-                    />
-                    
-                    {/* Debug info */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        Debug: {productOptions.length} product options available
-                        {productOptions.length > 0 && `: ${productOptions.slice(0, 3).join(', ')}${productOptions.length > 3 ? '...' : ''}`}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Product Details Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-600 mb-1">Quantity</label>
-                      <input
-                        type="number"
-                        name="quantity"
-                        value={item.quantity}
-                        onChange={(e) => handleInputChange(e, index)}
-                        min="1"
-                        placeholder="Quantity"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-600 mb-1">Unit Price (UGX)</label>
-                      <input
-                        type="number"
-                        name="unitPrice"
-                        value={item.unitPrice}
-                        onChange={(e) => handleInputChange(e, index)}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-600 mb-1">Discount (UGX)</label>
-                      <input
-                        type="number"
-                        name="discount"
-                        value={item.discount}
-                        onChange={(e) => handleInputChange(e, index)}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Product Subtotal and Remove Button */}
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-neutral-200">
-                    <div className="text-sm font-medium text-neutral-700">
-                      Subtotal: UGX {((item.quantity * item.unitPrice) - (item.discount || 0)).toLocaleString()}
-                    </div>
-                    {formData.products.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveProduct(index)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remove product"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {errors.products && <p className="mt-1 text-sm text-red-500">{errors.products}</p>}
-              {errors.quantity && <p className="mt-1 text-sm text-red-500">{errors.quantity}</p>}
-
-              {/* Add Product Button */}
-              <button
-                type="button"
-                onClick={handleAddProduct}
-                className="flex items-center gap-2 text-primary hover:text-blue-700 font-medium text-sm mt-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Another Product
-              </button>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Product</label>
+              <AutocompleteInput
+                options={products.map((p) => ({ id: p.id, name: p.name }))}
+                value={formData.productId}
+                onChange={(value) => {
+                  handleChange("productId", value);
+                  const product = products.find((p) => p.id === value);
+                  if (product) handleChange("unitPrice", product.price || "");
+                }}
+                placeholder="Select product"
+                icon={<Package className="w-5 h-5 text-neutral-400" />}
+              />
             </div>
 
-            {/* Payment Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">Payment Status</label>
-                <select
-                  name="paymentStatus"
-                  value={formData.paymentStatus}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                >
-                  <option value="paid">Paid</option>
-                  <option value="partial">Partial</option>
-                  <option value="unpaid">Unpaid</option>
-                </select>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Quantity</label>
+                <input
+                  type="number"
+                  value={formData.quantity}
+                  onChange={(e) => handleChange("quantity", e.target.value)}
+                  min="1"
+                  required
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Unit Price (UGX)</label>
+                <input
+                  type="number"
+                  value={formData.unitPrice}
+                  onChange={(e) => handleChange("unitPrice", e.target.value)}
+                  min="0"
+                  step="0.01"
+                  required
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Discount (UGX)</label>
+                <input
+                  type="number"
+                  value={formData.discount}
+                  onChange={(e) => handleChange("discount", e.target.value)}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">Amount Paid (UGX)</label>
                 <input
                   type="number"
-                  name="amountPaid"
                   value={formData.amountPaid}
-                  onChange={handleInputChange}
+                  onChange={(e) => handleChange("amountPaid", e.target.value)}
                   min="0"
                   step="0.01"
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 />
-                {errors.amountPaid && <p className="mt-1 text-sm text-red-500">{errors.amountPaid}</p>}
               </div>
             </div>
 
-            {/* Date */}
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">Sale Date</label>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Date</label>
               <input
                 type="date"
-                name="date"
                 value={formData.date}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                onChange={(e) => handleChange("date", e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
 
-            {/* Sale Summary */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-              <h4 className="text-sm font-semibold text-neutral-800 mb-2">Sale Summary</h4>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">Total Amount:</span>
-                  <span className="font-semibold text-primary">UGX {calculateTotal().toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">Amount Paid:</span>
-                  <span className="font-semibold text-green-600">UGX {(parseFloat(formData.amountPaid) || 0).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between border-t border-blue-200 pt-1">
-                  <span className="text-neutral-600">Outstanding:</span>
-                  <span className="font-semibold text-orange-600">
-                    UGX {(calculateTotal() - (parseFloat(formData.amountPaid) || 0)).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {errors.form && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-sm text-red-600">{errors.form}</p>
-              </div>
-            )}
-          </div>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+          </form>
         </div>
 
-        {/* Footer - Fixed */}
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 flex-shrink-0">
+        <div className="flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200">
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+            className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
           >
             Cancel
           </button>
           <button
+            type="submit"
             onClick={handleSubmit}
-            className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            disabled={isSubmitting || !formData.client || !formData.productId || !formData.unitPrice || !formData.quantity}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
           >
-            {sale ? "Update Sale" : "Save Sale"}
+            {isSubmitting ? "Saving..." : sale ? "Update Sale" : "Add Sale"}
           </button>
         </div>
       </div>
