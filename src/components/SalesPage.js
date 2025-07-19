@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, User, Package } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X, User, Package, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { 
   useReactTable, 
   getCoreRowModel, 
@@ -329,27 +329,28 @@ const SalesPage = ({ sales, clients, products, userId }) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-neutral-200">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full divide-y divide-neutral-200">
             <thead className="bg-neutral-50">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors"
+                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider cursor-pointer hover:bg-neutral-100 transition-colors min-w-0 whitespace-nowrap"
                       onClick={header.column.getToggleSortingHandler()}
                     >
                       <div className="flex items-center gap-2">
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                        <span className="text-neutral-400">
-                          {{
-                            asc: '↑',
-                            desc: '↓',
-                          }[header.column.getIsSorted()] ?? '↕'}
+                        <span className="truncate">
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                        </span>
+                        <span className="text-neutral-400 flex-shrink-0">
+                          {header.column.getIsSorted() === 'asc' && <ChevronUp className="w-4 h-4" />}
+                          {header.column.getIsSorted() === 'desc' && <ChevronDown className="w-4 h-4" />}
+                          {!header.column.getIsSorted() && <ChevronsUpDown className="w-4 h-4" />}
                         </span>
                       </div>
                     </th>
@@ -361,7 +362,7 @@ const SalesPage = ({ sales, clients, products, userId }) => {
               {table.getRowModel().rows.map(row => (
                 <tr key={row.id} className="hover:bg-neutral-50 transition-colors">
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td key={cell.id} className="px-6 py-4 text-sm min-w-0 whitespace-nowrap">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
