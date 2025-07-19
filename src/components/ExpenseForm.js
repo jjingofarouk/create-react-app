@@ -51,6 +51,15 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
         await updateDoc(doc(db, `users/${userId}/expenses`, expense.id), expenseData);
       } else {
         await addDoc(collection(db, `users/${userId}/expenses`), expenseData);
+        // Add new category to Firestore if it doesn't exist
+        const existingCategory = categories.find(c => c.name.toLowerCase() === formData.category.toLowerCase());
+        if (!existingCategory && formData.category) {
+          await addDoc(collection(db, `users/${userId}/categories`), {
+            name: formData.category,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
       }
       onClose();
     } catch (err) {
