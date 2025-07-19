@@ -28,25 +28,7 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-      
-    case "bank":
-      return (
-        <BankPage
-          bankDeposits={bankDeposits}
-          depositors={depositors}
-          userId={user.uid}
-        />
-      );
-      
-    case "expenses":
-      return (
-        <ExpensesPage
-          expenses={expenses}
-          categories={categories}
-          userId={user.uid}
-        />
-      );
-      
+
     case "debts":
       return (
         <DebtsPage
@@ -56,7 +38,25 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-      
+
+    case "expenses":
+      return (
+        <ExpensesPage
+          expenses={expenses}
+          categories={categories}
+          userId={user.uid}
+        />
+      );
+
+    case "bank":
+      return (
+        <BankPage
+          bankDeposits={bankDeposits}
+          depositors={depositors}
+          userId={user.uid}
+        />
+      );
+
     case "reports":
       return (
         <ReportsPage
@@ -67,7 +67,7 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-      
+
     case "profile":
       return <ProfilePage user={user} />;
       
