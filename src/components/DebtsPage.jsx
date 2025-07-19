@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, CreditCard } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X } from "lucide-react";
 import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
 
-const DebtsPage = ({ debts, sales, clients, userId }) => {
+const DebtsPage = ({ debts, clients, userId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
   const [filter, setFilter] = useState("");
@@ -37,7 +37,7 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
       accessorKey: "amount",
       cell: info => (
         <span className={`px-2 py-1 rounded-full text-xs ${
-          info.getValue() === 0 ? 'bg-success-100 text-success-800' : 'bg-error-100 text-error-800'
+          info.getValue() === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
           {info.getValue() === 0 ? 'Paid' : 'Pending'}
         </span>
@@ -59,13 +59,13 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
                   setEditingDebt(info.row.original);
                   setShowForm(true);
                 }}
-                className="p-1 text-neutral-500 hover:text-primary hover:bg-neutral-100 rounded"
+                className="p-1 text-neutral-500 hover:text-blue-600 hover:bg-blue-50 rounded"
               >
                 <Edit className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handleDeleteDebt(info.row.original.id)}
-                className="p-1 text-neutral-500 hover:text-danger hover:bg-neutral-100 rounded"
+                className="p-1 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -102,7 +102,7 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
               setEditingDebt(null);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
           >
             <Plus className="w-5 h-5" />
             <span>Add Debt</span>
@@ -119,7 +119,7 @@ const DebtsPage = ({ debts, sales, clients, userId }) => {
               placeholder="Search debts..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-blue-600 focus:ring-2 focus:ring-blue-600/50 outline-none transition-all"
             />
             {filter && (
               <X
