@@ -132,167 +132,226 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-neutral-800">{sale ? "Edit Sale" : "New Sale"}</h3>
-        <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 transition-colors">
-          <X className="w-6 h-6" />
-        </button>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">
-            Client <span className="text-red-500">*</span>
-          </label>
-          <AutocompleteInput
-            suggestions={clients.map(c => c.name)}
-            value={formData.client}
-            onChange={(value) => handleClientSelect(value)}
-            placeholder="Select or type client name"
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-          />
-          {errors.client && <p className="mt-1 text-sm text-red-500">{errors.client}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">Products</label>
-          {formData.products.map((item, index) => (
-            <div key={index} className="flex flex-col sm:flex-row gap-3 mb-4 p-4 bg-neutral-50 rounded-lg">
-              <div className="flex-1">
-                <AutocompleteInput
-                  suggestions={products.map(p => ({ id: p.id, name: p.name, price: p.price }))}
-                  value={products.find(p => p.id === item.productId)?.name || ""}
-                  onChange={(value) => {
-                    const selected = products.find(p => p.name === value);
-                    if (selected) handleProductSelect(selected, index);
-                  }}
-                  placeholder="Select product"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
-                {errors.products && <p className="mt-1 text-sm text-red-500">{errors.products}</p>}
-              </div>
-              <div className="flex-1">
-                <input
-                  type="number"
-                  name="quantity"
-                  value={item.quantity}
-                  onChange={(e) => handleInputChange(e, index)}
-                  min="1"
-                  placeholder="Quantity"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
-                {errors.quantity && <p className="mt-1 text-sm text-red-500">{errors.quantity}</p>}
-              </div>
-              <div className="flex-1">
-                <input
-                  type="number"
-                  name="unitPrice"
-                  value={item.unitPrice}
-                  onChange={(e) => handleInputChange(e, index)}
-                  min="0"
-                  step="0.01"
-                  placeholder="Unit Price"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
-              </div>
-              <div className="flex-1">
-                <input
-                  type="number"
-                  name="discount"
-                  value={item.discount}
-                  onChange={(e) => handleInputChange(e, index)}
-                  min="0"
-                  step="0.01"
-                  placeholder="Discount"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                />
-              </div>
-              {formData.products.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveProduct(index)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={handleAddProduct}
-            className="flex items-center gap-2 text-primary hover:text-blue-700 font-medium"
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[95vh] flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200 flex-shrink-0">
+          <h3 className="text-lg font-semibold text-neutral-800">
+            {sale ? "Edit Sale" : "New Sale"}
+          </h3>
+          <button 
+            onClick={onClose} 
+            className="text-neutral-400 hover:text-neutral-600 transition-colors p-1"
           >
-            <Plus className="w-5 h-5" />
-            Add Another Product
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">Payment Status</label>
-            <select
-              name="paymentStatus"
-              value={formData.paymentStatus}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-            >
-              <option value="paid">Paid</option>
-              <option value="partial">Partial</option>
-              <option value="unpaid">Unpaid</option>
-            </select>
+        {/* Form Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="space-y-6">
+            {/* Client Selection */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">
+                Client <span className="text-red-500">*</span>
+              </label>
+              <AutocompleteInput
+                suggestions={clients.map(c => c.name)}
+                value={formData.client}
+                onChange={(value) => handleClientSelect(value)}
+                placeholder="Select or type client name"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+              />
+              {errors.client && <p className="mt-1 text-sm text-red-500">{errors.client}</p>}
+            </div>
+
+            {/* Products Section */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-4">
+                Products <span className="text-red-500">*</span>
+              </label>
+              
+              {formData.products.map((item, index) => (
+                <div key={index} className="mb-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                  {/* Product Selection */}
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Product</label>
+                    <AutocompleteInput
+                      suggestions={products.map(p => ({ id: p.id, name: p.name, price: p.price }))}
+                      value={products.find(p => p.id === item.productId)?.name || ""}
+                      onChange={(value) => {
+                        const selected = products.find(p => p.name === value);
+                        if (selected) handleProductSelect(selected, index);
+                      }}
+                      placeholder="Select product"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
+                    />
+                  </div>
+
+                  {/* Product Details Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-600 mb-1">Quantity</label>
+                      <input
+                        type="number"
+                        name="quantity"
+                        value={item.quantity}
+                        onChange={(e) => handleInputChange(e, index)}
+                        min="1"
+                        placeholder="Quantity"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-600 mb-1">Unit Price (UGX)</label>
+                      <input
+                        type="number"
+                        name="unitPrice"
+                        value={item.unitPrice}
+                        onChange={(e) => handleInputChange(e, index)}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-600 mb-1">Discount (UGX)</label>
+                      <input
+                        type="number"
+                        name="discount"
+                        value={item.discount}
+                        onChange={(e) => handleInputChange(e, index)}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Product Subtotal and Remove Button */}
+                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-neutral-200">
+                    <div className="text-sm font-medium text-neutral-700">
+                      Subtotal: UGX {((item.quantity * item.unitPrice) - (item.discount || 0)).toLocaleString()}
+                    </div>
+                    {formData.products.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProduct(index)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove product"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {errors.products && <p className="mt-1 text-sm text-red-500">{errors.products}</p>}
+              {errors.quantity && <p className="mt-1 text-sm text-red-500">{errors.quantity}</p>}
+
+              {/* Add Product Button */}
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                className="flex items-center gap-2 text-primary hover:text-blue-700 font-medium text-sm mt-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Another Product
+              </button>
+            </div>
+
+            {/* Payment Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Payment Status</label>
+                <select
+                  name="paymentStatus"
+                  value={formData.paymentStatus}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                >
+                  <option value="paid">Paid</option>
+                  <option value="partial">Partial</option>
+                  <option value="unpaid">Unpaid</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Amount Paid (UGX)</label>
+                <input
+                  type="number"
+                  name="amountPaid"
+                  value={formData.amountPaid}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                />
+                {errors.amountPaid && <p className="mt-1 text-sm text-red-500">{errors.amountPaid}</p>}
+              </div>
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">Sale Date</label>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+              />
+            </div>
+
+            {/* Sale Summary */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="text-sm font-semibold text-neutral-800 mb-2">Sale Summary</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-600">Total Amount:</span>
+                  <span className="font-semibold text-primary">UGX {calculateTotal().toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600">Amount Paid:</span>
+                  <span className="font-semibold text-green-600">UGX {(parseFloat(formData.amountPaid) || 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-t border-blue-200 pt-1">
+                  <span className="text-neutral-600">Outstanding:</span>
+                  <span className="font-semibold text-orange-600">
+                    UGX {(calculateTotal() - (parseFloat(formData.amountPaid) || 0)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {errors.form && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-600">{errors.form}</p>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-2">Amount Paid (UGX)</label>
-            <input
-              type="number"
-              name="amountPaid"
-              value={formData.amountPaid}
-              onChange={handleInputChange}
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-            />
-            {errors.amountPaid && <p className="mt-1 text-sm text-red-500">{errors.amountPaid}</p>}
-          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">Date</label>
-          <input
-            type="date"
-            name="date"
-            value={formData.date}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-          />
-        </div>
-
-        <div className="bg-neutral-50 p-4 rounded-lg">
-          <div className="text-sm font-medium text-neutral-700">Total: UGX {calculateTotal().toLocaleString()}</div>
-          <div className="text-sm text-neutral-600">Outstanding: UGX {(calculateTotal() - (parseFloat(formData.amountPaid) || 0)).toLocaleString()}</div>
-        </div>
-
-        {errors.form && <p className="text-sm text-red-500">{errors.form}</p>}
-
-        <div className="flex justify-end gap-3 pt-4">
+        {/* Footer - Fixed */}
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+            className="w-full sm:w-auto px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
           >
             Cancel
           </button>
           <button
-            type="submit"
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={handleSubmit}
+            className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             {sale ? "Update Sale" : "Save Sale"}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 };
