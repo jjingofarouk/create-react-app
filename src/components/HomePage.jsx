@@ -108,7 +108,7 @@ const HomePage = ({ sales, debts, userId }) => {
         backgroundColor: (context) => {
           const chart = context.chart;
           const { ctx, chartArea } = chart;
-          if (!chartArea) return;
+          if (!chartArea) return "rgba(59, 130, 246, 0.8)";
           return createGradient(ctx, chartArea, "rgba(59, 130, 246, 0.8)", "rgba(59, 130, 246, 0.3)");
         },
         borderColor: "rgba(59, 130, 246, 1)",
@@ -121,52 +121,49 @@ const HomePage = ({ sales, debts, userId }) => {
   };
 
   const expensesChartData = {
-    labels: todayExpenses.map(e => {
-      const category = categories.find(c => c.id === e.category || c.name === e.category);
-      return category ? category.name : e.category || "Unknown";
-    }),
+    labels: todayExpenses.length > 0 ? todayExpenses.map(e => e.category || "Unknown") : ["No Data"],
     datasets: [
       {
-        data: todayExpenses.map(e => e.amount || 0),
-        backgroundColor: [
+        data: todayExpenses.length > 0 ? todayExpenses.map(e => e.amount || 0) : [1],
+        backgroundColor: todayExpenses.length > 0 ? [
           (context) => {
             const chart = context.chart;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return;
+            if (!chartArea) return "rgba(255, 99, 132, 0.8)";
             return createGradient(ctx, chartArea, "rgba(255, 99, 132, 0.8)", "rgba(255, 99, 132, 0.3)");
           },
           (context) => {
             const chart = context.chart;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return;
+            if (!chartArea) return "rgba(54, 162, 235, 0.8)";
             return createGradient(ctx, chartArea, "rgba(54, 162, 235, 0.8)", "rgba(54, 162, 235, 0.3)");
           },
           (context) => {
             const chart = context.chart;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return;
+            if (!chartArea) return "rgba(255, 206, 86, 0.8)";
             return createGradient(ctx, chartArea, "rgba(255, 206, 86, 0.8)", "rgba(255, 206, 86, 0.3)");
           },
           (context) => {
             const chart = context.chart;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return;
+            if (!chartArea) return "rgba(75, 192, 192, 0.8)";
             return createGradient(ctx, chartArea, "rgba(75, 192, 192, 0.8)", "rgba(75, 192, 192, 0.3)");
           },
           (context) => {
             const chart = context.chart;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return;
+            if (!chartArea) return "rgba(153, 102, 255, 0.8)";
             return createGradient(ctx, chartArea, "rgba(153, 102, 255, 0.8)", "rgba(153, 102, 255, 0.3)");
           },
-        ],
-        borderColor: [
+        ] : ["rgba(200, 200, 200, 0.5)"],
+        borderColor: todayExpenses.length > 0 ? [
           "rgba(255, 99, 132, 1)",
           "rgba(54, 162, 235, 1)",
           "rgba(255, 206, 86, 1)",
           "rgba(75, 192, 192, 1)",
           "rgba(153, 102, 255, 1)",
-        ],
+        ] : ["rgba(200, 200, 200, 1)"],
         borderWidth: 1,
         hoverOffset: 20,
       },
