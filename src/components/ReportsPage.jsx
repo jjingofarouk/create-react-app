@@ -1,23 +1,20 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { Download, Calendar, BarChart2 } from "lucide-react";
+import { Download, Calendar } from "lucide-react";
 import { format } from "date-fns";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
   createColumnHelper,
 } from "@tanstack/react-table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import ReportHeader from "./ReportHeader";
 import DateRangeSelector from "./DateRangeSelector";
 import ReportTable from "./ReportTable";
-import ReportChart from "./ReportChart";
 import ReportSummary from "./ReportSummary";
 import ReportTypeSelector from "./ReportTypeSelector";
+import ReportPDF from "./ReportPDF";
 
 const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors }) => {
   const [reportType, setReportType] = useState("debts");
@@ -127,161 +124,13 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
     processData();
   }, [reportType, startDate, endDate, sales, debts, expenses, bankDeposits]);
 
-  // Generate PDF report
-  const generatePDF = () => {
-    const doc = new jsPDF();
-    
-    // Corporate branding
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(0, 51, 102);
-    doc.text("Richmond Manufacturer's Ltd", 14, 20);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    const contactInfo = [
-      "Plot 123, Industrial Area, Kampala, Uganda",
-      "Phone: +256 123 456 789 | Email: info@richmondltd.ug",
-      "Prepared by: Shadia Nakitto | shadia@richmondltd.ug"
-    ];
-    contactInfo.forEach((line, index) => {
-      doc.text(line, 14, 30 + index * 5);
-    });
-
-    // Report title
-    const title = `${
-      reportType.charAt(0).toUpperCase() + reportType.slice(1)
-    } Report`;
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text(title, 14, 50);
-
-    // Date range
-    const dateRangeText = startDate && endDate
-      ? `From: ${format(new Date(startDate), "MMM dd, yyyy")} To: ${format(
-          new Date(endDate),
-          "MMM dd, yyyy"
-        )}`
-      : `All Time`;
-    doc.setFontSize(12);
-    doc.text(dateRangeText, 14, 60);
-
-    // Table configuration
-    const tableData = data.map((item) => {
-      if (reportType === "debts") {
-        return [
-          item.client || "-",
-          (item.amount || 0).toLocaleString("en-UG", {
-            style: "currency",
-            currency: "UGX",
-          }),
-          item.amount === 0 ? "Paid" : "Pending",
-          format hem.createdAt, "MMM dd, yyyy HH:mm"),
-          item.notes || "-",
-        ];
-      } else if (reportType === "sales") {
-        const product = products.find((p) => p.id === item.product?.productId);
-        return [
-          item.client || "-",
-          product?.name || item.product?.name || "-",
-          item.product?.quantity || 0,
-          (item.totalAmount || 0).toLocaleString("en-UG", {
-            style: "currency",
-            currency: "UGX",
-          }),
-          format(item.createdAt, "MMM dd, yyyy HH:mm"),
-        ];
-      } else if (reportType === "expenses") {
-        return [
-          item.category || "-",
-率先
-          (item.amount || 0).toLocaleString("en-UG", {
-            style: "currency",
-            currency: "UGX",
-          }),
-          format(item.createdAt, "MMM dd, yyyy HH:mm"),
-          item.notes || "-",
-        ];
-      } else if (reportType === "bank") {
-        return [
-          item.depositor || "-",
-          (item.amount || 0).toLocaleString("en-UG", {
-            style: "currency",
-            currency: "UGX",
-          }),
-          format(item.createdAt, "MMM dd, yyyy HH:mm"),
-          item.description || "-",
-        ];
-      }
-    });
-
-    autoTable(doc, {
-      startY: 70,
-      head: [
-        reportType === "debts"
-          ? ["Client", "Amount", "Status", "Date", "Notes"]
-          : reportType === "sales"
-          ? ["Client", "Product", "Quantity", "Amount", "Date"]
-          : reportType === "expenses"
-          ? ["Category", "Amount", "Date", "Notes"]
-          : ["Depositor", "Amount", "Date", "Description"],
-      ],
-      body: tableData,
-      theme: "striped",
-      headStyles: {
-        fillColor: [0, 51, 102],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      bodyStyles: {
-        textColor: [50, 50, 50],
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      margin: { top: 70 },
-      styles: {
-        fontSize: 10,
-        cellPadding: 3,
-      },
-    });
-
-    // Summary statistics
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    const summaryText = `Total: ${totals.total.toLocaleString("en-UG", {
-      style: "currency",
-      currency: "UGX",
-    })} | Count: ${totals.count}${
-      reportType === "debts"
-        ? ` | Paid: ${totals.paid} | Pending: ${totals.pending}`
-        : ""
-    }`;
-    doc.text(summaryText, 14, doc.lastAutoTable.finalY + 10);
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text(
-      "Richmond Manufacturer's Ltd | Confidential Report",
-      14,
-      doc.internal.pageSize.height - 10
-    );
-
-    doc.save(
-      `${reportType}-report-${format(new Date(), "yyyy-MM-dd")}.pdf`
-    );
-  };
-
   // Table columns configuration
   const columnHelper = createColumnHelper();
   const columns = useMemo(() => {
     const baseColumns = [
       columnHelper.accessor("createdAt", {
         header: "Date",
-        cell: (info) =>
-          format(info.getValue(), "MMM dd, yyyy HH:mm"),
+        cell: (info) => format(info.getValue(), "MMM dd, yyyy HH:mm"),
         minSize: 150,
       }),
     ];
@@ -436,21 +285,23 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
   }, [data, reportType]);
 
   return (
-    <div className="space-y-6 p-6">
-      <ReportHeader title="Reports" />
+    <div className="space-y-6 p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      <ReportHeader title="Financial Reports" />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <ReportTypeSelector
           reportType={reportType}
           setReportType={setReportType}
           includeBank={true}
         />
-        <button
-          onClick={generatePDF}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
-        >
-          <Download className="w-5 h-5" />
-          <span>Export PDF</span>
-        </button>
+        <ReportPDF
+          reportType={reportType}
+          data={data}
+          totals={totals}
+          products={products}
+          startDate={startDate}
+          endDate={endDate}
+          chartData={chartData}
+        />
       </div>
       <DateRangeSelector
         startDate={startDate}
@@ -460,14 +311,11 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
       />
       <ReportTable table={table} reportType={reportType} />
       {data.length === 0 && (
-        <div className="text-center py-8 text-neutral-500">
+        <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
           No {reportType} found for the selected period
         </div>
       )}
       <ReportSummary totals={totals} reportType={reportType} />
-      {data.length > 0 && (
-        <ReportChart chartData={chartData} reportType={reportType} />
-      )}
     </div>
   );
 };
