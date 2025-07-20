@@ -1,22 +1,22 @@
-import React from 'react';
-import SalesPage from './SalesPage';
-import ExpensesPage from './ExpensesPage';
-import DebtsPage from './DebtsPage';
-import ProfilePage from './ProfilePage';
-import ReportsPage from './ReportsPage';
-import BankPage from './BankPage';
+import React from "react";
+import SalesPage from "./SalesPage";
+import ExpensesPage from "./ExpensesPage";
+import DebtsPage from "./DebtsPage";
+import ProfilePage from "./ProfilePage";
+import ReportsPage from "./ReportsPage";
+import BankPage from "./BankPage";
 
-const PageRouter = ({ 
-  activeTab, 
-  user, 
-  sales, 
-  debts, 
-  expenses, 
-  clients, 
-  products, 
-  categories, 
-  bankDeposits, 
-  depositors 
+const PageRouter = ({
+  activeTab,
+  user,
+  sales,
+  debts,
+  expenses,
+  clients,
+  products,
+  categories,
+  bankDeposits,
+  depositors,
 }) => {
   switch (activeTab) {
     case "sales":
@@ -28,7 +28,6 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-
     case "debts":
       return (
         <DebtsPage
@@ -38,7 +37,6 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-
     case "expenses":
       return (
         <ExpensesPage
@@ -47,7 +45,6 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-
     case "bank":
       return (
         <BankPage
@@ -56,17 +53,20 @@ const PageRouter = ({
           userId={user.uid}
         />
       );
-
     case "reports":
       return (
         <ReportsPage
+          sales={sales}
+          debts={debts}
+          expenses={expenses}
+          clients={clients}
+          products={products}
+          categories={categories}
           userId={user.uid}
         />
       );
-
     case "profile":
       return <ProfilePage user={user} />;
-      
     default:
       return (
         <div className="flex items-center justify-center min-h-[50vh]">
