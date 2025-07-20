@@ -60,10 +60,6 @@ const PageRouter = ({
     case "reports":
       return (
         <ReportsPage
-          sales={sales}
-          debts={debts}
-          expenses={expenses}
-          bankDeposits={bankDeposits}
           userId={user.uid}
         />
       );
