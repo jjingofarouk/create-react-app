@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Font, PDFDownloadLink } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import logo from "./logo.jpg";
 import { Download } from "lucide-react";
@@ -225,6 +225,8 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
 };
 
 const ReportPDF = ({ reportType, data, totals, products, startDate, endDate }) => {
+  const professionalFileName = `Richmond_Manufacturers_${reportType.charAt(0).toUpperCase() + reportType.slice(1)}_Report_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+
   return (
     <PDFDownloadLink
       document={
@@ -237,7 +239,7 @@ const ReportPDF = ({ reportType, data, totals, products, startDate, endDate }) =
           endDate={endDate}
         />
       }
-      fileName={`${reportType}-report-${format(new Date(), "yyyy-MM-dd")}.pdf`}
+      fileName={professionalFileName}
     >
       {({ loading }) => (
         <button
