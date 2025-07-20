@@ -1,7 +1,7 @@
 {
-  "name": "MyMoney",
-  "short_name": "MyMoney",
-  "description": "Personal finance tracking application",
+  "name": "RichBooks",
+  "short_name": "RichBooks",
+  "description": "RichBooks is a smart daily finance reporting app for sales, debts, banking, and expenses by Richmond.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F8FAFC",
@@ -15,7 +15,7 @@
     {
       "src": "/auth.jpg",
       "sizes": "512x512",
-      "type": "image/jph"
+      "type": "image/jpg"
     }
   ],
   "orientation": "portrait",
