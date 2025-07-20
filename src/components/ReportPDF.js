@@ -19,47 +19,41 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto",
     backgroundColor: "#ffffff",
     position: "relative",
+    paddingBottom: 120, // Reserve space for footer
   },
-  // Modern gradient header background
+  // Fixed gradient header background - positioned behind content
   headerBackground: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
-    backgroundColor: "#1e3a8a", // Deep blue
-    background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%)",
+    height: 140,
+    backgroundColor: "#1e3a8a",
+    zIndex: 1, // Behind the header content
   },
-  // Subtle geometric pattern overlay
-  headerPattern: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    opacity: 0.1,
-    backgroundColor: "transparent",
-  },
+  // Watermark positioned correctly
   watermark: {
     position: "absolute",
-    top: "50%",
+    top: "45%",
     left: "50%",
     transform: "translate(-50%, -50%) rotate(-45deg)",
-    opacity: 0.03,
-    fontSize: 80,
+    opacity: 0.02,
+    fontSize: 100,
     color: "#1e3a8a",
     fontWeight: "bold",
     letterSpacing: 8,
+    zIndex: 0, // Behind everything
   },
+  // Header content positioned above the background
   header: {
     position: "relative",
-    zIndex: 10,
+    zIndex: 10, // Above the background
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     padding: 30,
     paddingBottom: 25,
-    height: 120,
+    minHeight: 140,
   },
   logoSection: {
     flexDirection: "row",
@@ -67,42 +61,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 80,
     marginRight: 20,
     borderRadius: 8,
-    border: "3pt solid rgba(255,255,255,0.2)",
+    border: "3pt solid rgba(255,255,255,0.3)",
   },
   companyInfo: {
     fontSize: 11,
     color: "#ffffff",
-    lineHeight: 1.4,
+    lineHeight: 1.5,
   },
   companyName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#ffffff",
-    marginBottom: 5,
+    marginBottom: 8,
     letterSpacing: 1,
   },
   reportMeta: {
     alignItems: "flex-end",
     color: "#ffffff",
-    fontSize: 9,
+    fontSize: 10,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 10,
+    borderRadius: 6,
   },
+  // Content area with proper spacing
   contentArea: {
     padding: 30,
     paddingTop: 20,
+    minHeight: 600, // Ensure minimum content height
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
     color: "#1e3a8a",
     marginBottom: 8,
     letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#6b7280",
     marginBottom: 25,
     fontWeight: "normal",
@@ -111,14 +110,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#374151",
     marginBottom: 25,
-    padding: 12,
+    padding: 15,
     backgroundColor: "#f8fafc",
     borderLeft: "4pt solid #3b82f6",
-    borderRadius: 4,
+    borderRadius: 6,
   },
-  // Modern card-style table
+  // Modern card-style table with better spacing
   tableContainer: {
-    marginBottom: 25,
+    marginBottom: 30,
     borderRadius: 12,
     overflow: "hidden",
     border: "1pt solid #e5e7eb",
@@ -136,15 +135,16 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "bold",
     fontSize: 10,
-    padding: 12,
+    padding: 15,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   tableCell: {
     fontSize: 10,
-    padding: 12,
+    padding: 15,
     color: "#374151",
     borderRight: "1pt solid #f3f4f6",
+    lineHeight: 1.3,
   },
   tableCellLast: {
     borderRight: "none",
@@ -155,28 +155,28 @@ const styles = StyleSheet.create({
   oddRow: {
     backgroundColor: "#ffffff",
   },
-  // Modern summary cards
+  // Modern summary cards with better spacing
   summaryContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 25,
+    marginBottom: 40,
+    gap: 10,
   },
   summaryCard: {
     flex: 1,
-    padding: 15,
+    padding: 20,
     backgroundColor: "#ffffff",
-    borderRadius: 8,
+    borderRadius: 10,
     border: "1pt solid #e5e7eb",
-    marginHorizontal: 3,
     alignItems: "center",
     boxShadow: "0 2 4 -1 rgba(0, 0, 0, 0.05)",
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#1e3a8a",
-    marginBottom: 3,
+    marginBottom: 5,
   },
   summaryLabel: {
     fontSize: 9,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  // Enhanced footer with modern styling
+  // Fixed footer positioning
   footer: {
     position: "absolute",
     bottom: 0,
@@ -192,7 +192,8 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "#f8fafc",
     borderTop: "2pt solid #e5e7eb",
-    padding: 20,
+    padding: 25,
+    zIndex: 5,
   },
   footerContent: {
     flexDirection: "row",
@@ -210,23 +211,42 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "bold",
     color: "#374151",
-    marginBottom: 3,
+    marginBottom: 4,
   },
   footerText: {
-    fontSize: 8,
+    fontSize: 9,
     color: "#6b7280",
-    lineHeight: 1.3,
+    lineHeight: 1.4,
   },
   confidentialBadge: {
     backgroundColor: "#dc2626",
     color: "#ffffff",
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
-    padding: 4,
-    borderRadius: 3,
+    padding: 6,
+    borderRadius: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginTop: 5,
+    marginTop: 8,
+  },
+  // Page break helpers
+  pageBreak: {
+    marginTop: 40,
+    marginBottom: 40,
+  },
+  // Continuation header for subsequent pages
+  continuationHeader: {
+    backgroundColor: "#f8fafc",
+    padding: 20,
+    marginBottom: 20,
+    borderBottom: "2pt solid #e5e7eb",
+    borderRadius: 6,
+  },
+  continuationTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#1e3a8a",
+    textAlign: "center",
   },
 });
 
@@ -312,14 +332,23 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
     return cards;
   };
 
+  // Split data into chunks for better page management
+  const itemsPerPage = 15; // Adjust based on your needs
+  const tableData = getTableData();
+  const chunks = [];
+  for (let i = 0; i < tableData.length; i += itemsPerPage) {
+    chunks.push(tableData.slice(i, i + itemsPerPage));
+  }
+
   return (
     <Document>
+      {/* First Page */}
       <Page size="A4" style={styles.page}>
         {/* Background Elements */}
         <View style={styles.headerBackground} />
         <Text style={styles.watermark}>RICHMOND</Text>
         
-        {/* Header */}
+        {/* Header Content */}
         <View style={styles.header}>
           <View style={styles.logoSection}>
             <Image src={logo} style={styles.logo} />
@@ -355,49 +384,6 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
             </Text>
           </View>
 
-          {/* Modern Table */}
-          <View style={styles.tableContainer}>
-            <View style={styles.table}>
-              <View style={[styles.tableRow, styles.tableHeader]}>
-                {getTableHeaders().map((header, index) => (
-                  <Text 
-                    key={index} 
-                    style={[
-                      styles.tableCell, 
-                      styles.tableHeader, 
-                      { flex: 1 },
-                      index === getTableHeaders().length - 1 ? styles.tableCellLast : {}
-                    ]}
-                  >
-                    {header}
-                  </Text>
-                ))}
-              </View>
-              {getTableData().map((row, rowIndex) => (
-                <View
-                  key={rowIndex}
-                  style={[
-                    styles.tableRow,
-                    rowIndex % 2 === 0 ? styles.evenRow : styles.oddRow
-                  ]}
-                >
-                  {row.map((cell, cellIndex) => (
-                    <Text 
-                      key={cellIndex} 
-                      style={[
-                        styles.tableCell, 
-                        { flex: 1 },
-                        cellIndex === row.length - 1 ? styles.tableCellLast : {}
-                      ]}
-                    >
-                      {cell}
-                    </Text>
-                  ))}
-                </View>
-              ))}
-            </View>
-          </View>
-
           {/* Summary Cards */}
           <View style={styles.summaryContainer}>
             {getSummaryCards().map((card, index) => (
@@ -407,9 +393,54 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
               </View>
             ))}
           </View>
+
+          {/* First chunk of table data */}
+          {chunks.length > 0 && (
+            <View style={styles.tableContainer}>
+              <View style={styles.table}>
+                <View style={[styles.tableRow, styles.tableHeader]}>
+                  {getTableHeaders().map((header, index) => (
+                    <Text 
+                      key={index} 
+                      style={[
+                        styles.tableCell, 
+                        styles.tableHeader, 
+                        { flex: 1 },
+                        index === getTableHeaders().length - 1 ? styles.tableCellLast : {}
+                      ]}
+                    >
+                      {header}
+                    </Text>
+                  ))}
+                </View>
+                {chunks[0].map((row, rowIndex) => (
+                  <View
+                    key={rowIndex}
+                    style={[
+                      styles.tableRow,
+                      rowIndex % 2 === 0 ? styles.evenRow : styles.oddRow
+                    ]}
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <Text 
+                        key={cellIndex} 
+                        style={[
+                          styles.tableCell, 
+                          { flex: 1 },
+                          cellIndex === row.length - 1 ? styles.tableCellLast : {}
+                        ]}
+                      >
+                        {cell}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* Enhanced Footer */}
+        {/* Footer */}
         <View style={styles.footer}>
           <View style={styles.footerContent}>
             <View style={styles.footerLeft}>
@@ -431,6 +462,79 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
           </View>
         </View>
       </Page>
+
+      {/* Additional Pages for remaining data */}
+      {chunks.slice(1).map((chunk, pageIndex) => (
+        <Page key={pageIndex + 1} size="A4" style={styles.page}>
+          <Text style={styles.watermark}>RICHMOND</Text>
+          
+          {/* Continuation Header */}
+          <View style={styles.continuationHeader}>
+            <Text style={styles.continuationTitle}>
+              {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report - Continued (Page {pageIndex + 2})
+            </Text>
+          </View>
+
+          <View style={styles.contentArea}>
+            <View style={styles.tableContainer}>
+              <View style={styles.table}>
+                <View style={[styles.tableRow, styles.tableHeader]}>
+                  {getTableHeaders().map((header, index) => (
+                    <Text 
+                      key={index} 
+                      style={[
+                        styles.tableCell, 
+                        styles.tableHeader, 
+                        { flex: 1 },
+                        index === getTableHeaders().length - 1 ? styles.tableCellLast : {}
+                      ]}
+                    >
+                      {header}
+                    </Text>
+                  ))}
+                </View>
+                {chunk.map((row, rowIndex) => (
+                  <View
+                    key={rowIndex}
+                    style={[
+                      styles.tableRow,
+                      rowIndex % 2 === 0 ? styles.evenRow : styles.oddRow
+                    ]}
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <Text 
+                        key={cellIndex} 
+                        style={[
+                          styles.tableCell, 
+                          { flex: 1 },
+                          cellIndex === row.length - 1 ? styles.tableCellLast : {}
+                        ]}
+                      >
+                        {cell}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Footer for continuation pages */}
+          <View style={styles.footer}>
+            <View style={styles.footerContent}>
+              <View style={styles.footerLeft}>
+                <Text style={styles.footerText}>
+                  Richmond Manufacturer's Ltd © {new Date().getFullYear()}
+                </Text>
+              </View>
+              <View style={styles.footerRight}>
+                <Text style={styles.footerText}>Page {pageIndex + 2}</Text>
+                <Text style={styles.confidentialBadge}>CONFIDENTIAL</Text>
+              </View>
+            </View>
+          </View>
+        </Page>
+      ))}
     </Document>
   );
 };
