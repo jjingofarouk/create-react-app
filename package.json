@@ -23,7 +23,8 @@
     "postcss": "^8.4.47",
     "react-hot-toast": "^2.4.1",
     "react-hook-form": "^7.51.3",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "recharts": "^2.9.0"
   },
   "devDependencies": {
     "workbox-cli": "^7.1.0",
