@@ -1,12 +1,12 @@
 import React from 'react';
-import { ShoppingCart, TrendingDown, FileText, CreditCard, Banknote } from 'lucide-react';
+import { ShoppingCart, CreditCard, TrendingDown, Banknote, FileText } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: "sales", name: "Sales", icon: ShoppingCart },
-    { id: "bank", name: "Bank", icon: Banknote },
-    { id: "expenses", name: "Expenses", icon: TrendingDown },
     { id: "debts", name: "Debts", icon: CreditCard },
+    { id: "expenses", name: "Expenses", icon: TrendingDown },
+    { id: "bank", name: "Bank", icon: Banknote },
     { id: "reports", name: "Reports", icon: FileText },
   ];
 
