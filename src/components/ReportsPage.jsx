@@ -15,9 +15,10 @@ import ReportTable from "./ReportTable";
 import ReportSummary from "./ReportSummary";
 import ReportTypeSelector from "./ReportTypeSelector";
 import ReportPDF from "./ReportPDF";
+import ReportChart from "./ReportChart";
 
 const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors }) => {
-  const [reportType, setReportType] = useState("debts");
+  const [reportType, setReportType] = useState("sales"); // Default to sales
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState([]);
@@ -28,22 +29,20 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
   // Fetch products for sales reports
   useEffect(() => {
     const fetchProducts = async () => {
-      if (reportType === "sales") {
-        try {
-          const productsCollection = collection(db, `users/${userId}/products`);
-          const snapshot = await getDocs(productsCollection);
-          const productsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setProducts(productsData);
-        } catch (err) {
-          console.error("Error fetching products:", err);
-        }
+      try {
+        const productsCollection = collection(db, `users/${userId}/products`);
+        const snapshot = await getDocs(productsCollection);
+        const productsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setProducts(productsData);
+      } catch (err) {
+        console.error("Error fetching products:", err);
       }
     };
     fetchProducts();
-  }, [reportType, userId]);
+  }, [userId]);
 
   // Process data for reports
   useEffect(() => {
@@ -264,12 +263,12 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // Chart data preparation
+  // Modern chart data preparation with remarks
   const chartData = useMemo(() => {
     const groupedData = data.reduce((acc, item) => {
       const dateKey = format(item.createdAt, "MMM dd");
       if (!acc[dateKey]) {
-        acc[dateKey] = { date: dateKey, amount: 0, count: 0 };
+        acc[dateKey] = { date: dateKey, amount: 0, count: 0, remarks: [] };
       }
       const amount =
         reportType === "sales"
@@ -277,11 +276,23 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
           : item.amount || 0;
       acc[dateKey].amount += amount;
       acc[dateKey].count += 1;
+      
+      // Generate remarks based on amount thresholds
+      if (amount > 1000000) {
+        acc[dateKey].remarks.push("High-value transaction detected");
+      } else if (amount < 10000) {
+        acc[dateKey].remarks.push("Low-value transaction recorded");
+      }
+      if (reportType === "sales" && item.product?.quantity > 50) {
+        acc[dateKey].remarks.push("Large quantity sale");
+      }
       return acc;
     }, {});
-    return Object.values(groupedData).sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    );
+    
+    // Sort and limit to recent 7 days for cleaner visualization
+    return Object.values(groupedData)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-7);
   }, [data, reportType]);
 
   return (
@@ -309,6 +320,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         endDate={endDate}
         setEndDate={setEndDate}
       />
+      <ReportChart chartData={chartData} reportType={reportType} />
       <ReportTable table={table} reportType={reportType} />
       {data.length === 0 && (
         <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
