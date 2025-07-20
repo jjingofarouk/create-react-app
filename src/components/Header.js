@@ -13,7 +13,7 @@ const Header = ({ user, activeTab, setActiveTab }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <div className="flex items-center">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-800">
-            Sales Tracker
+            RevEx
           </h1>
         </div>
         
