@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image, Font, PDFDownloadLink } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import logo from "./logo.jpg";
 import { Download } from "lucide-react";
@@ -18,21 +18,32 @@ const styles = StyleSheet.create({
     padding: 30,
     fontFamily: "Roboto",
     backgroundColor: "#ffffff",
+    position: "relative",
+  },
+  watermark: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%) rotate(-45deg)",
+    opacity: 0.1,
+    fontSize: 60,
+    color: "#003366",
+    fontWeight: "bold",
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
     marginBottom: 20,
     borderBottom: "2pt solid #003366",
     paddingBottom: 10,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
+    marginRight: 20,
   },
   companyInfo: {
-    textAlign: "right",
     fontSize: 10,
     color: "#333333",
   },
@@ -86,11 +97,15 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 30,
     right: 30,
-    textAlign: "center",
     fontSize: 8,
-    color: "#666666",
+    color: "#333333",
     borderTop: "1pt solid #e0e0e0",
     paddingTop: 10,
+  },
+  recipient: {
+    fontSize: 10,
+    fontWeight: "bold",
+    marginBottom: 5,
   },
 });
 
@@ -151,14 +166,15 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        <Text style={styles.watermark}>RICHMOND</Text>
         <View style={styles.header}>
           <Image src={logo} style={styles.logo} />
-<View style={styles.companyInfo}>
-  <Text>RICHMOND MANUFACTURER'S LTD</Text>
-  <Text>Plot 19191, Kimwanyi Road, Nakwero, Wakiso District</Text>
-  <Text>Kira Municipality, Kira Division</Text>
-  <Text>Tel: 0705555498 / 0776 210570</Text>
-</View>
+          <View style={styles.companyInfo}>
+            <Text>RICHMOND MANUFACTURER'S LTD</Text>
+            <Text>Plot 19191, Kimwanyi Road, Nakwero, Wakiso District</Text>
+            <Text>Kira Municipality, Kira Division</Text>
+            <Text>Tel: 0705555498 / 0776 210570</Text>
+          </View>
         </View>
         <Text style={styles.title}>
           {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report
@@ -198,9 +214,11 @@ const ReportDocument = ({ reportType, data, totals, products, startDate, endDate
             {reportType === "debts" && ` | Paid: ${totals.paid} | Pending: ${totals.pending}`}
           </Text>
         </View>
-        <Text style={styles.footer}>
-          Richmond Manufacturer's Ltd | Confidential Report | Generated on {format(new Date(), "MMM dd, yyyy")}
-        </Text>
+        <View style={styles.footer}>
+          <Text style={styles.recipient}>Prepared for: Board of Directors</Text>
+          <Text style={styles.recipient}>Prepared by: Jane Doe, Marketing Manager</Text>
+          <Text>Richmond Manufacturer's Ltd | Confidential Report | Generated on {format(new Date(), "MMM dd, yyyy")}</Text>
+        </View>
       </Page>
     </Document>
   );
