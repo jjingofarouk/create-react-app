@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import { Download, Calendar } from "lucide-react";
 import { format } from "date-fns";
@@ -17,123 +17,156 @@ import ReportTypeSelector from "./ReportTypeSelector";
 import ReportPDF from "./ReportPDF";
 import ReportChart from "./ReportChart";
 
-const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors }) => {
+const ReportsPage = ({ userId }) => {
   const [reportType, setReportType] = useState("sales");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState([]);
   const [totals, setTotals] = useState({ total: 0, count: 0, paid: 0, pending: 0 });
   const [products, setProducts] = useState([]);
-  const [sorting, setSorting] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sorting, setSorting] = useState([]);
 
   // Fetch products for sales reports
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const productsCollection = collection(db, `users/${userId}/products`);
-        const snapshot = await getDocs(productsCollection);
-        const productsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setProducts(productsData);
+        const productsQuery = query(collection(db, `users/${userId}/products`));
+        const unsubscribe = onSnapshot(
+          productsQuery,
+          (snapshot) => {
+            const productsData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setProducts(productsData);
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Error fetching products:", err);
+            setError("Failed to load products. Please try again.");
+            setLoading(false);
+          }
+        );
+        return () => unsubscribe();
       } catch (err) {
-        console.error("Error fetching products:", err);
-        setError("Failed to load products. Please try again.");
+        console.error("Error setting up products listener:", err);
+        setError("Failed to initialize product data. Please try again.");
+        setLoading(false);
       }
     };
     fetchProducts();
   }, [userId]);
 
-  // Process data for reports
+  // Fetch data based on report type
   useEffect(() => {
-    const processData = () => {
-      try {
-        // Initialize items based on report type
-        let items = [];
-        switch (reportType) {
-          case "debts":
-            items = Array.isArray(debts) ? debts : [];
-            break;
-          case "sales":
-            items = Array.isArray(sales) ? sales : [];
-            break;
-          case "expenses":
-            items = Array.isArray(expenses) ? expenses : [];
-            break;
-          case "bank":
-            items = Array.isArray(bankDeposits)
-              ? bankDeposits.filter((deposit) => !deposit.isDepositorOnly)
-              : [];
-            break;
-          default:
-            console.warn("Unknown report type:", reportType);
-            setError("Invalid report type selected.");
-            return;
-        }
+    setLoading(true);
+    const collections = {
+      sales: `users/${userId}/sales`,
+      debts: `users/${userId}/debts`,
+      expenses: `users/${userId}/expenses`,
+      bank: `users/${userId}/bankDeposits`,
+    };
 
-        // Log data for debugging
-        console.log(`Processing ${reportType} data:`, items);
+    const collectionPath = collections[reportType];
+    if (!collectionPath) {
+      setError("Invalid report type selected.");
+      setData([]);
+      setTotals({ total: 0, count: 0, paid: 0, pending: 0 });
+      setLoading(false);
+      return;
+    }
 
-        // Normalize dates
-        items = items.map((item) => {
-          const date = item.date?.toDate
-            ? item.date.toDate()
-            : item.createdAt?.toDate
-            ? item.createdAt.toDate()
-            : item.date instanceof Date
-            ? item.date
-            : item.createdAt instanceof Date
-            ? item.createdAt
-            : new Date();
-          return { ...item, createdAt: date };
-        });
+    const unsubscribe = onSnapshot(
+      query(collection(db, collectionPath)),
+      (snapshot) => {
+        try {
+          let items = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
 
-        // Apply date filtering
-        if (startDate && endDate) {
-          const start = new Date(startDate);
-          const end = new Date(endDate);
-          items = items.filter((item) => {
-            const itemDate = item.createdAt;
-            return itemDate >= start && itemDate <= end;
-          });
-        }
-
-        // Calculate totals
-        const calculatedTotals = items.reduce(
-          (acc, item) => {
-            let amount = 0;
-            if (reportType === "sales") {
-              amount = item.totalAmount || 0;
-            } else if (reportType === "debts") {
-              amount = item.amount || 0;
-              if (item.amount === 0) acc.paid += 1;
-              else acc.pending += 1;
-            } else if (reportType === "expenses") {
-              amount = item.amount || 0;
-            } else if (reportType === "bank") {
-              amount = item.amount || 0;
+          // Normalize dates
+          items = items.map((item) => {
+            let date;
+            try {
+              date = item.date?.toDate
+                ? item.date.toDate()
+                : item.createdAt?.toDate
+                ? item.createdAt.toDate()
+                : item.date instanceof Date
+                ? item.date
+                : item.createdAt instanceof Date
+                ? item.createdAt
+                : new Date();
+            } catch (err) {
+              console.warn(`Invalid date in ${reportType} item:`, item);
+              date = new Date();
             }
-            acc.total += amount;
-            acc.count += 1;
-            return acc;
-          },
-          { total: 0, count: 0, paid: 0, pending: 0 }
-        );
+            return { ...item, createdAt: date };
+          });
 
-        setData(items);
-        setTotals(calculatedTotals);
-        setError(null);
-      } catch (err) {
-        console.error(`Error processing ${reportType} data:`, err);
-        setError(`Failed to process ${reportType} data. Please try again.`);
+          // Apply date filtering
+          if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            items = items.filter((item) => {
+              const itemDate = item.createdAt;
+              return itemDate >= start && itemDate <= end;
+            });
+          }
+
+          // Filter bank deposits
+          if (reportType === "bank") {
+            items = items.filter((deposit) => !deposit.isDepositorOnly);
+          }
+
+          // Calculate totals
+          const calculatedTotals = items.reduce(
+            (acc, item) => {
+              let amount = 0;
+              if (reportType === "sales") {
+                amount = item.totalAmount || 0;
+              } else if (reportType === "debts") {
+                amount = item.amount || 0;
+                if (item.amount === 0) acc.paid += 1;
+                else acc.pending += 1;
+              } else if (reportType === "expenses") {
+                amount = item.amount || 0;
+              } else if (reportType === "bank") {
+                amount = item.amount || 0;
+              }
+              acc.total += amount;
+              acc.count += 1;
+              return acc;
+            },
+            { total: 0, count: 0, paid: 0, pending: 0 }
+          );
+
+          setData(items);
+          setTotals(calculatedTotals);
+          setError(null);
+          setLoading(false);
+        } catch (err) {
+          console.error(`Error processing ${reportType} data:`, err);
+          setError(`Failed to process ${reportType} data. Please try again.`);
+          setData([]);
+          setTotals({ total: 0, count: 0, paid: 0, pending: 0 });
+          setLoading(false);
+        }
+      },
+      (err) => {
+        console.error(`Error fetching ${reportType}:`, err);
+        setError(`Failed to load ${reportType} data. Please try again.`);
         setData([]);
         setTotals({ total: 0, count: 0, paid: 0, pending: 0 });
+        setLoading(false);
       }
-    };
-    processData();
-  }, [reportType, startDate, endDate, sales, debts, expenses, bankDeposits]);
+    );
+
+    return () => unsubscribe();
+  }, [reportType, startDate, endDate, userId]);
 
   // Table columns configuration
   const columnHelper = createColumnHelper();
@@ -156,7 +189,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         columnHelper.accessor("amount", {
           header: "Amount (UGX)",
           cell: (info) =>
-            info.getValue().toLocaleString("en-UG", {
+            (info.getValue() || 0).toLocaleString("en-UG", {
               style: "currency",
               currency: "UGX",
             }),
@@ -209,7 +242,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         columnHelper.accessor("totalAmount", {
           header: "Amount (UGX)",
           cell: (info) =>
-            info.getValue().toLocaleString("en-UG", {
+            (info.getValue() || 0).toLocaleString("en-UG", {
               style: "currency",
               currency: "UGX",
             }),
@@ -227,7 +260,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         columnHelper.accessor("amount", {
           header: "Amount (UGX)",
           cell: (info) =>
-            info.getValue().toLocaleString("en-UG", {
+            (info.getValue() || 0).toLocaleString("en-UG", {
               style: "currency",
               currency: "UGX",
             }),
@@ -250,7 +283,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         columnHelper.accessor("amount", {
           header: "Amount (UGX)",
           cell: (info) =>
-            info.getValue().toLocaleString("en-UG", {
+            (info.getValue() || 0).toLocaleString("en-UG", {
               style: "currency",
               currency: "UGX",
             }),
@@ -332,19 +365,28 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         endDate={endDate}
         setEndDate={setEndDate}
       />
+      {loading && (
+        <div className="text-center py-4 text-gray-500 bg-white rounded-lg shadow">
+          Loading {reportType} data...
+        </div>
+      )}
       {error && (
         <div className="text-center py-4 text-red-500 bg-white rounded-lg shadow">
           {error}
         </div>
       )}
-      <ReportChart chartData={chartData} reportType={reportType} />
-      <ReportTable table={table} reportType={reportType} />
-      {data.length === 0 && !error && (
-        <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
-          No {reportType} found for the selected period
-        </div>
+      {!loading && !error && (
+        <>
+          <ReportChart chartData={chartData} reportType={reportType} />
+          <ReportTable table={table} reportType={reportType} />
+          {data.length === 0 && (
+            <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
+              No {reportType} found for the selected period
+            </div>
+          )}
+          <ReportSummary totals={totals} reportType={reportType} />
+        </>
       )}
-      <ReportSummary totals={totals} reportType={reportType} />
     </div>
   );
 };
