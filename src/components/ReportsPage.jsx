@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import ReportSelector from "./ReportSelector";
-import DateFilter from "./DateFilter";
+import DateRangeSelector from "./DateRangeSelector"; // Updated import
 import ReportTable from "./ReportTable";
 import PDFGenerator from "./PDFGenerator";
 
@@ -18,7 +18,7 @@ const ReportsPage = ({ sales, debts, expenses, clients, products, categories, us
       <div className="bg-white rounded-lg shadow border border-neutral-200 p-4 sm:p-6">
         <div className="mobile-stack items-start sm:items-center">
           <ReportSelector reportType={reportType} setReportType={setReportType} />
-          <DateFilter dateFilter={dateFilter} setDateFilter={setDateFilter} />
+          <DateRangeSelector dateFilter={dateFilter} setDateFilter={setDateFilter} />
           <PDFGenerator
             reportType={reportType}
             dateFilter={dateFilter}
