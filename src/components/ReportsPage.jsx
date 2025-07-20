@@ -18,13 +18,14 @@ import ReportPDF from "./ReportPDF";
 import ReportChart from "./ReportChart";
 
 const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors }) => {
-  const [reportType, setReportType] = useState("sales"); // Default to sales
+  const [reportType, setReportType] = useState("sales");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [data, setData] = useState([]);
   const [totals, setTotals] = useState({ total: 0, count: 0, paid: 0, pending: 0 });
   const [products, setProducts] = useState([]);
   const [sorting, setSorting] = useState([]);
+  const [error, setError] = useState(null);
 
   // Fetch products for sales reports
   useEffect(() => {
@@ -39,6 +40,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         setProducts(productsData);
       } catch (err) {
         console.error("Error fetching products:", err);
+        setError("Failed to load products. Please try again.");
       }
     };
     fetchProducts();
@@ -48,28 +50,35 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
   useEffect(() => {
     const processData = () => {
       try {
+        // Initialize items based on report type
         let items = [];
         switch (reportType) {
           case "debts":
-            items = debts || [];
+            items = Array.isArray(debts) ? debts : [];
             break;
           case "sales":
-            items = sales || [];
+            items = Array.isArray(sales) ? sales : [];
             break;
           case "expenses":
-            items = expenses || [];
+            items = Array.isArray(expenses) ? expenses : [];
             break;
           case "bank":
-            items = bankDeposits?.filter((deposit) => !deposit.isDepositorOnly) || [];
+            items = Array.isArray(bankDeposits)
+              ? bankDeposits.filter((deposit) => !deposit.isDepositorOnly)
+              : [];
             break;
           default:
+            console.warn("Unknown report type:", reportType);
+            setError("Invalid report type selected.");
             return;
         }
 
+        // Log data for debugging
+        console.log(`Processing ${reportType} data:`, items);
+
         // Normalize dates
-        items = items.map((item) => ({
-          ...item,
-          createdAt: item.date?.toDate
+        items = items.map((item) => {
+          const date = item.date?.toDate
             ? item.date.toDate()
             : item.createdAt?.toDate
             ? item.createdAt.toDate()
@@ -77,8 +86,9 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
             ? item.date
             : item.createdAt instanceof Date
             ? item.createdAt
-            : new Date(),
-        }));
+            : new Date();
+          return { ...item, createdAt: date };
+        });
 
         // Apply date filtering
         if (startDate && endDate) {
@@ -114,8 +124,10 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
 
         setData(items);
         setTotals(calculatedTotals);
+        setError(null);
       } catch (err) {
-        console.error("Error processing data:", err);
+        console.error(`Error processing ${reportType} data:`, err);
+        setError(`Failed to process ${reportType} data. Please try again.`);
         setData([]);
         setTotals({ total: 0, count: 0, paid: 0, pending: 0 });
       }
@@ -252,6 +264,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         }),
       ];
     }
+    return [];
   }, [reportType, products]);
 
   const table = useReactTable({
@@ -276,7 +289,7 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
           : item.amount || 0;
       acc[dateKey].amount += amount;
       acc[dateKey].count += 1;
-      
+
       // Generate remarks based on amount thresholds
       if (amount > 1000000) {
         acc[dateKey].remarks.push("High-value transaction detected");
@@ -289,7 +302,6 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
       return acc;
     }, {});
     
-    // Sort and limit to recent 7 days for cleaner visualization
     return Object.values(groupedData)
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(-7);
@@ -320,9 +332,14 @@ const ReportsPage = ({ userId, sales, debts, expenses, bankDeposits, depositors 
         endDate={endDate}
         setEndDate={setEndDate}
       />
+      {error && (
+        <div className="text-center py-4 text-red-500 bg-white rounded-lg shadow">
+          {error}
+        </div>
+      )}
       <ReportChart chartData={chartData} reportType={reportType} />
       <ReportTable table={table} reportType={reportType} />
-      {data.length === 0 && (
+      {data.length === 0 && !error && (
         <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
           No {reportType} found for the selected period
         </div>
