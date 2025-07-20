@@ -1,21 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import { Download, Calendar } from "lucide-react";
-import { format } from "date-fns";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  createColumnHelper,
-} from "@tanstack/react-table";
 import ReportHeader from "./ReportHeader";
 import DateRangeSelector from "./DateRangeSelector";
-import ReportTable from "./ReportTable";
-import ReportSummary from "./ReportSummary";
 import ReportTypeSelector from "./ReportTypeSelector";
 import ReportPDF from "./ReportPDF";
-import ReportChart from "./ReportChart";
 
 const ReportsPage = ({ userId }) => {
   const [reportType, setReportType] = useState("sales");
@@ -26,10 +15,15 @@ const ReportsPage = ({ userId }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [sorting, setSorting] = useState([]);
 
   // Fetch products for sales reports
   useEffect(() => {
+    if (reportType !== "sales") {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchProducts = async () => {
       try {
         const productsQuery = query(collection(db, `users/${userId}/products`));
@@ -57,7 +51,7 @@ const ReportsPage = ({ userId }) => {
       }
     };
     fetchProducts();
-  }, [userId]);
+  }, [userId, reportType]);
 
   // Fetch data based on report type
   useEffect(() => {
@@ -168,178 +162,6 @@ const ReportsPage = ({ userId }) => {
     return () => unsubscribe();
   }, [reportType, startDate, endDate, userId]);
 
-  // Table columns configuration
-  const columnHelper = createColumnHelper();
-  const columns = useMemo(() => {
-    const baseColumns = [
-      columnHelper.accessor("createdAt", {
-        header: "Date",
-        cell: (info) => format(info.getValue(), "MMM dd, yyyy HH:mm"),
-        minSize: 150,
-      }),
-    ];
-
-    if (reportType === "debts") {
-      return [
-        columnHelper.accessor("client", {
-          header: "Client",
-          cell: (info) => info.getValue() || "-",
-          minSize: 150,
-        }),
-        columnHelper.accessor("amount", {
-          header: "Amount (UGX)",
-          cell: (info) =>
-            (info.getValue() || 0).toLocaleString("en-UG", {
-              style: "currency",
-              currency: "UGX",
-            }),
-          minSize: 120,
-        }),
-        columnHelper.accessor("amount", {
-          header: "Status",
-          cell: (info) => (
-            <span
-              className={`px-2 py-1 rounded-full text-xs ${
-                info.getValue() === 0
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-            >
-              {info.getValue() === 0 ? "Paid" : "Pending"}
-            </span>
-          ),
-          minSize: 100,
-        }),
-        ...baseColumns,
-        columnHelper.accessor("notes", {
-          header: "Notes",
-          cell: (info) => info.getValue() || "-",
-          minSize: 200,
-        }),
-      ];
-    } else if (reportType === "sales") {
-      return [
-        columnHelper.accessor("client", {
-          header: "Client",
-          cell: (info) => info.getValue() || "-",
-          minSize: 150,
-        }),
-        columnHelper.accessor("product", {
-          header: "Product",
-          cell: (info) => {
-            const product = products.find(
-              (p) => p.id === info.getValue()?.productId
-            );
-            return product?.name || info.getValue()?.name || "-";
-          },
-          minSize: 150,
-        }),
-        columnHelper.accessor("product.quantity", {
-          header: "Quantity",
-          cell: (info) => info.getValue() || 0,
-          minSize: 100,
-        }),
-        columnHelper.accessor("totalAmount", {
-          header: "Amount (UGX)",
-          cell: (info) =>
-            (info.getValue() || 0).toLocaleString("en-UG", {
-              style: "currency",
-              currency: "UGX",
-            }),
-          minSize: 120,
-        }),
-        ...baseColumns,
-      ];
-    } else if (reportType === "expenses") {
-      return [
-        columnHelper.accessor("category", {
-          header: "Category",
-          cell: (info) => info.getValue() || "-",
-          minSize: 150,
-        }),
-        columnHelper.accessor("amount", {
-          header: "Amount (UGX)",
-          cell: (info) =>
-            (info.getValue() || 0).toLocaleString("en-UG", {
-              style: "currency",
-              currency: "UGX",
-            }),
-          minSize: 120,
-        }),
-        ...baseColumns,
-        columnHelper.accessor("notes", {
-          header: "Notes",
-          cell: (info) => info.getValue() || "-",
-          minSize: 200,
-        }),
-      ];
-    } else if (reportType === "bank") {
-      return [
-        columnHelper.accessor("depositor", {
-          header: "Depositor",
-          cell: (info) => info.getValue() || "-",
-          minSize: 150,
-        }),
-        columnHelper.accessor("amount", {
-          header: "Amount (UGX)",
-          cell: (info) =>
-            (info.getValue() || 0).toLocaleString("en-UG", {
-              style: "currency",
-              currency: "UGX",
-            }),
-          minSize: 120,
-        }),
-        ...baseColumns,
-        columnHelper.accessor("description", {
-          header: "Description",
-          cell: (info) => info.getValue() || "-",
-          minSize: 200,
-        }),
-      ];
-    }
-    return [];
-  }, [reportType, products]);
-
-  const table = useReactTable({
-    data,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
-  // Modern chart data preparation with remarks
-  const chartData = useMemo(() => {
-    const groupedData = data.reduce((acc, item) => {
-      const dateKey = format(item.createdAt, "MMM dd");
-      if (!acc[dateKey]) {
-        acc[dateKey] = { date: dateKey, amount: 0, count: 0, remarks: [] };
-      }
-      const amount =
-        reportType === "sales"
-          ? item.totalAmount || 0
-          : item.amount || 0;
-      acc[dateKey].amount += amount;
-      acc[dateKey].count += 1;
-
-      // Generate remarks based on amount thresholds
-      if (amount > 1000000) {
-        acc[dateKey].remarks.push("High-value transaction detected");
-      } else if (amount < 10000) {
-        acc[dateKey].remarks.push("Low-value transaction recorded");
-      }
-      if (reportType === "sales" && item.product?.quantity > 50) {
-        acc[dateKey].remarks.push("Large quantity sale");
-      }
-      return acc;
-    }, {});
-    
-    return Object.values(groupedData)
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(-7);
-  }, [data, reportType]);
-
   return (
     <div className="space-y-6 p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       <ReportHeader title="Financial Reports" />
@@ -356,7 +178,6 @@ const ReportsPage = ({ userId }) => {
           products={products}
           startDate={startDate}
           endDate={endDate}
-          chartData={chartData}
         />
       </div>
       <DateRangeSelector
@@ -375,17 +196,10 @@ const ReportsPage = ({ userId }) => {
           {error}
         </div>
       )}
-      {!loading && !error && (
-        <>
-          <ReportChart chartData={chartData} reportType={reportType} />
-          <ReportTable table={table} reportType={reportType} />
-          {data.length === 0 && (
-            <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
-              No {reportType} found for the selected period
-            </div>
-          )}
-          <ReportSummary totals={totals} reportType={reportType} />
-        </>
+      {!loading && !error && data.length === 0 && (
+        <div className="text-center py-8 text-neutral-500 bg-white rounded-lg shadow">
+          No {reportType} found for the selected period
+        </div>
       )}
     </div>
   );
