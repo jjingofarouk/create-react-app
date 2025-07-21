@@ -1,17 +1,66 @@
 import React, { useState, useEffect } from "react";
-import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
 
-const DebtsPage = ({ debts, clients, userId }) => {
+const DebtsPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
   const [filter, setFilter] = useState("");
-  const [filteredDebts, setFilteredDebts] = useState(debts);
+  const [debts, setDebts] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
+      const unsubscribeDebts = onSnapshot(
+        debtsQuery,
+        (snapshot) => {
+          const debtsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setDebts(debtsData);
+        },
+        (err) => {
+          console.error("Error fetching debts:", err);
+        }
+      );
+
+      const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
+      const unsubscribeClients = onSnapshot(
+        clientsQuery,
+        (snapshot) => {
+          const clientsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setClients(clientsData);
+        },
+        (err) => {
+          console.error("Error fetching clients:", err);
+        }
+      );
+
+      return () => {
+        unsubscribeDebts();
+        unsubscribeClients();
+      };
+    }
+  }, [user]);
 
   useEffect(() => {
     const filtered = debts.filter(debt => {
@@ -20,6 +69,8 @@ const DebtsPage = ({ debts, clients, userId }) => {
     });
     setFilteredDebts(filtered);
   }, [filter, debts]);
+
+  const [filteredDebts, setFilteredDebts] = useState(debts);
 
   const columns = [
     {
@@ -85,7 +136,7 @@ const DebtsPage = ({ debts, clients, userId }) => {
   const handleDeleteDebt = async (id) => {
     if (window.confirm("Are you sure you want to delete this debt?")) {
       try {
-        await deleteDoc(doc(db, `users/${userId}/debts`, id));
+        await deleteDoc(doc(db, `users/${user.uid}/debts`, id));
       } catch (err) {
         console.error("Error deleting debt:", err);
       }
@@ -170,8 +221,6 @@ const DebtsPage = ({ debts, clients, userId }) => {
       {showForm && (
         <DebtForm
           debt={editingDebt}
-          clients={clients}
-          userId={userId}
           onClose={() => {
             setShowForm(false);
             setEditingDebt(null);
