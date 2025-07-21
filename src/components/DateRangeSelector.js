@@ -6,7 +6,6 @@ const DateRangeSelector = ({ dateFilter, setDateFilter }) => {
   const [showCustomInputs, setShowCustomInputs] = useState(dateFilter.type === "custom");
   const [error, setError] = useState("");
 
-  // Handle predefined date range selection
   const handlePresetChange = (type) => {
     const today = new Date();
     let newFilter = { type, startDate: "", endDate: "" };
@@ -66,7 +65,6 @@ const DateRangeSelector = ({ dateFilter, setDateFilter }) => {
     setError("");
   };
 
-  // Validate custom date range
   const validateDateRange = (startDate, endDate) => {
     if (!startDate || !endDate) {
       setError("Please select both start and end dates.");
@@ -81,7 +79,6 @@ const DateRangeSelector = ({ dateFilter, setDateFilter }) => {
     return true;
   };
 
-  // Handle custom date input changes
   const handleCustomDateChange = (field, value) => {
     const newFilter = { ...dateFilter, [field]: value };
     setDateFilter(newFilter);
@@ -90,14 +87,12 @@ const DateRangeSelector = ({ dateFilter, setDateFilter }) => {
     }
   };
 
-  // Reset to "All Time"
   const handleReset = () => {
     setDateFilter({ type: "all", startDate: "", endDate: "" });
     setShowCustomInputs(false);
     setError("");
   };
 
-  // Update custom inputs visibility when type changes
   useEffect(() => {
     setShowCustomInputs(dateFilter.type === "custom");
   }, [dateFilter.type]);
