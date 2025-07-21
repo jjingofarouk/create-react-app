@@ -3,12 +3,90 @@ import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestor
 import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Link, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Calendar, Users, DollarSign, Clock } from "lucide-react";
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from "@tanstack/react-table";
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays, format, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
 import SalesForm from "./SalesForm";
+
+const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
+  const handleDateFilterChange = (type) => {
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (type) {
+      case 'today':
+        startDate = today;
+        endDate = today;
+        break;
+      case 'week':
+        startDate = subDays(today, 7);
+        endDate = today;
+        break;
+      case 'month':
+        startDate = startOfMonth(today);
+        endDate = endOfMonth(today);
+        break;
+      case '6months':
+        startDate = subMonths(today, 6);
+        endDate = today;
+        break;
+      case 'all':
+        startDate = null;
+        endDate = null;
+        break;
+      default:
+        startDate = null;
+        endDate = null;
+    }
+
+    setDateFilter({
+      type,
+      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
+      endDate: endDate ? endDate.toISOString().split("T")[0] : null
+    });
+    setShowDateFilter(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowDateFilter(!showDateFilter)}
+        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+      >
+        <Calendar className="w-5 h-5" />
+        <span className="font-medium">Filter Dates</span>
+      </button>
+
+      {showDateFilter && (
+        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
+          <div className="flex flex-col gap-2">
+            {[
+              { type: 'today', label: 'Today' },
+              { type: 'week', label: 'Last 7 Days' },
+              { type: 'month', label: 'This Month' },
+              { type: '6months', label: 'Last 6 Months' },
+              { type: 'all', label: 'All Time' }
+            ].map(({ type, label }) => (
+              <button
+                key={type}
+                onClick={() => handleDateFilterChange(type)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  dateFilter.type === type
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DebtsPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +101,12 @@ const DebtsPage = () => {
   const [user, setUser] = useState(null);
   const [sorting, setSorting] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    type: 'all',
+    startDate: null,
+    endDate: null
+  });
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -127,18 +211,31 @@ const DebtsPage = () => {
 
   useEffect(() => {
     const filtered = debts.filter(debt => {
-      const matchesDebtor = debt.client?.toLowerCase().includes(filter.toLowerCase());
-      return matchesDebtor;
+      if (!debt) return false;
+
+      // Text filter
+      const matchesDebtor = debt.client?.toLowerCase().includes(filter.toLowerCase()) || false;
+
+      // Date filter
+      let dateMatch = true;
+      if (dateFilter.startDate && dateFilter.endDate && debt.createdAt) {
+        const debtDate = debt.createdAt.toDate ? debt.createdAt.toDate() : new Date(debt.createdAt);
+        const startDate = new Date(dateFilter.startDate);
+        const endDate = new Date(dateFilter.endDate);
+        dateMatch = debtDate >= startDate && debtDate <= endDate;
+      }
+
+      return matchesDebtor && dateMatch;
     });
     setFilteredDebts(filtered);
-  }, [filter, debts]);
+  }, [filter, debts, dateFilter]);
 
   // Calculate summary metrics
   const summaryMetrics = React.useMemo(() => {
-    const activeDebts = debts.filter(debt => debt.amount > 0);
-    const paidDebts = debts.filter(debt => debt.amount === 0);
+    const activeDebts = filteredDebts.filter(debt => debt.amount > 0);
+    const paidDebts = filteredDebts.filter(debt => debt.amount === 0);
     
-    const totalDebts = debts.length;
+    const totalDebts = filteredDebts.length;
     const totalAmountOwed = activeDebts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
     
     // Highest debt
@@ -186,7 +283,7 @@ const DebtsPage = () => {
       daysSinceOldest,
       averageDebtAmount: activeDebts.length > 0 ? totalAmountOwed / activeDebts.length : 0
     };
-  }, [debts]);
+  }, [filteredDebts]);
 
   // Custom sort function for different data types
   const getSortValue = (row, columnId) => {
@@ -370,10 +467,10 @@ const DebtsPage = () => {
             <div className="p-3 bg-blue-100 rounded-lg">
               <Users className="w-6 h-6 text-blue-600" />
             </div>
-            <span className="text-sm font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded">Total</span>
+            <span className="text-sm font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded">{dateFilter.type === 'all' ? 'Total' : dateFilter.type.charAt(0).toUpperCase() + dateFilter.type.slice(1)}</span>
           </div>
           <div className="text-2xl font-bold text-neutral-800 mb-1">{summaryMetrics.totalDebts}</div>
-          <p className="text-sm text-neutral-600">Total Debts</p>
+          <p className="text-sm text-neutral-600">{dateFilter.type === 'all' ? 'Total Debts' : `Debts for ${dateFilter.type}`}</p>
         </div>
 
         {/* Active Debts */}
@@ -399,7 +496,7 @@ const DebtsPage = () => {
           <div className="text-2xl font-bold text-neutral-800 mb-1">
             {summaryMetrics.totalAmountOwed.toLocaleString()} UGX
           </div>
-          <p className="text-sm text-neutral-600">Total Amount Owed</p>
+          <p className="text-sm text-neutral-600">{dateFilter.type === 'all' ? 'Total Amount Owed' : `Amount Owed for ${dateFilter.type}`}</p>
         </div>
 
         {/* Paid Debts */}
@@ -497,6 +594,13 @@ const DebtsPage = () => {
         </div>
       </div>
 
+      <DateFilter
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        showDateFilter={showDateFilter}
+        setShowDateFilter={setShowDateFilter}
+      />
+
       {/* Summary Cards */}
       <SummaryCards />
 
@@ -584,13 +688,11 @@ const DebtsPage = () => {
         {!loading && filteredDebts.length === 0 && (
           <div className="text-center py-12 text-neutral-500 bg-neutral-25">
             <div className="text-lg font-medium mb-2">
-              {filter ? "No matching debts found" : "No debts recorded yet"}
+              {filter || dateFilter.type !== 'all' ? "No matching debts found" : "No debts recorded yet"}
             </div>
-            {filter && (
-              <div className="text-sm">
-                Try adjusting your search criteria
-              </div>
-            )}
+            <div className="text-sm">
+              {filter ? "Try adjusting your search criteria" : dateFilter.type !== 'all' ? "Try adjusting your date filter" : "Add a debt to get started"}
+            </div>
           </div>
         )}
       </div>
