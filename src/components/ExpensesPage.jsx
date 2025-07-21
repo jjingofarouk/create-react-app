@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, Tag } from "lucide-react";
-import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
+import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
+// Using native JavaScript Date methods instead of date-fns
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
 
@@ -21,6 +23,64 @@ const ExpensesPage = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sorting, setSorting] = useState([]);
+
+  // Key metrics calculations
+  const keyMetrics = useMemo(() => {
+    if (!expenses || expenses.length === 0) {
+      return {
+        totalExpenses: 0,
+        thisMonthTotal: 0,
+        highestExpense: { amount: 0, description: "N/A" },
+        topCategory: { name: "N/A", total: 0 },
+        avgExpense: 0,
+        expenseCount: 0
+      };
+    }
+
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+    
+    const thisMonthExpenses = expenses.filter(expense => {
+      if (!expense.createdAt) return false;
+      const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
+      return expenseDate >= monthStart && expenseDate <= monthEnd;
+    });
+    
+    const thisMonthTotal = thisMonthExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+    
+    const highestExpense = expenses.reduce((max, expense) => {
+      const amount = parseFloat(expense.amount) || 0;
+      return amount > max.amount ? { amount, description: expense.description || "N/A" } : max;
+    }, { amount: 0, description: "N/A" });
+
+    // Category analysis
+    const categoryTotals = expenses.reduce((acc, expense) => {
+      const category = expense.category || "Uncategorized";
+      const amount = parseFloat(expense.amount) || 0;
+      acc[category] = (acc[category] || 0) + amount;
+      return acc;
+    }, {});
+
+    const topCategory = Object.entries(categoryTotals).reduce(
+      (max, [name, total]) => total > max.total ? { name, total } : max,
+      { name: "N/A", total: 0 }
+    );
+
+    const avgExpense = expenses.length > 0 ? totalExpenses / expenses.length : 0;
+
+    return {
+      totalExpenses,
+      thisMonthTotal,
+      highestExpense,
+      topCategory,
+      avgExpense,
+      expenseCount: expenses.length
+    };
+  }, [expenses]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -97,25 +157,42 @@ const ExpensesPage = () => {
     {
       header: "Category",
       accessorKey: "category",
-      cell: info => info.getValue() || "-",
+      cell: info => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {info.getValue() || "Uncategorized"}
+        </span>
+      ),
     },
     {
       header: "Amount (UGX)",
       accessorKey: "amount",
       cell: info => {
         const amount = info.getValue();
-        return (typeof amount === 'number' ? amount : parseFloat(amount) || 0).toLocaleString();
+        const numAmount = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+        return (
+          <span className="font-semibold text-green-700">
+            {numAmount.toLocaleString()}
+          </span>
+        );
       },
     },
     {
       header: "Description",
       accessorKey: "description",
-      cell: info => info.getValue() || "-",
+      cell: info => (
+        <span className="text-gray-900 font-medium">
+          {info.getValue() || "-"}
+        </span>
+      ),
     },
     {
       header: "Payee",
       accessorKey: "payee",
-      cell: info => info.getValue() || "-",
+      cell: info => (
+        <span className="text-gray-600">
+          {info.getValue() || "-"}
+        </span>
+      ),
     },
     {
       header: "Date",
@@ -126,7 +203,11 @@ const ExpensesPage = () => {
         
         try {
           const dateObj = date.toDate ? date.toDate() : new Date(date);
-          return format(dateObj, 'MMM dd, yyyy');
+          return (
+            <span className="text-gray-500 text-sm">
+              {format(dateObj, 'MMM dd, yyyy')}
+            </span>
+          );
         } catch (err) {
           console.error('Date formatting error:', err);
           return '-';
@@ -136,19 +217,19 @@ const ExpensesPage = () => {
     {
       header: "Actions",
       cell: info => (
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <button
             onClick={() => {
               setEditingExpense(info.row.original);
               setShowForm(true);
             }}
-            className="p-1 text-neutral-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDeleteExpense(info.row.original.id)}
-            className="p-1 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -161,6 +242,11 @@ const ExpensesPage = () => {
     columns,
     data: filteredExpenses,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
   });
 
   const handleDeleteExpense = async (id) => {
@@ -220,75 +306,193 @@ const ExpensesPage = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-center items-center py-12">
-          <div className="w-8 h-8 border-4 border-neutral-200 border-t-blue-600 rounded-full animate-spin"></div>
-          <span className="ml-3 text-neutral-600">Loading expenses...</span>
+      <div className="space-y-8">
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <Skeleton height={32} width={200} />
+          <div className="flex gap-3">
+            <Skeleton height={40} width={120} />
+            <Skeleton height={40} width={150} />
+          </div>
+        </div>
+
+        {/* Metrics Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white p-6 rounded-xl border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <Skeleton circle height={48} width={48} />
+                <Skeleton height={20} width={60} />
+              </div>
+              <Skeleton height={32} width={100} className="mb-2" />
+              <Skeleton height={16} width={80} />
+            </div>
+          ))}
+        </div>
+
+        {/* Table Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <div className="mb-6">
+            <Skeleton height={40} width={300} />
+          </div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton height={20} width={100} />
+                <Skeleton height={20} width={80} />
+                <Skeleton height={20} width={150} />
+                <Skeleton height={20} width={100} />
+                <Skeleton height={20} width={80} />
+                <Skeleton height={20} width={60} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-neutral-800">Expenses Tracking</h2>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            Expense Tracker
+          </h1>
+          <p className="text-gray-600 mt-1">Manage and analyze your spending</p>
+        </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <button
             onClick={() => {
               setEditingExpense(null);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
           >
             <Plus className="w-5 h-5" />
-            <span>Add Expense</span>
+            <span className="font-medium">Add Expense</span>
           </button>
           <button
             onClick={() => setShowCategoryModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Tag className="w-5 h-5" />
-            <span>Manage Categories</span>
+            <span className="font-medium">Categories</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center gap-2">
+          <X className="w-5 h-5" />
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search expenses..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:border-blue-600 focus:ring-2 focus:ring-blue-600 outline-none transition-all"
-            />
-            {filter && (
-              <X
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400 cursor-pointer"
-                onClick={() => setFilter("")}
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-blue-100 rounded-xl">
+              <DollarSign className="w-6 h-6 text-blue-600" />
+            </div>
+            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              TOTAL
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            UGX {keyMetrics.totalExpenses.toLocaleString()}
+          </h3>
+          <p className="text-gray-500 text-sm">All time expenses</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-green-100 rounded-xl">
+              <Calendar className="w-6 h-6 text-green-600" />
+            </div>
+            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
+              THIS MONTH
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            UGX {keyMetrics.thisMonthTotal.toLocaleString()}
+          </h3>
+          <p className="text-gray-500 text-sm">{format(new Date(), 'MMMM yyyy')}</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-purple-100 rounded-xl">
+              <TrendingUp className="w-6 h-6 text-purple-600" />
+            </div>
+            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+              HIGHEST
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            UGX {keyMetrics.highestExpense.amount.toLocaleString()}
+          </h3>
+          <p className="text-gray-500 text-sm truncate">
+            {keyMetrics.highestExpense.description}
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-orange-100 rounded-xl">
+              <BarChart3 className="w-6 h-6 text-orange-600" />
+            </div>
+            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+              TOP CATEGORY
+            </span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            UGX {keyMetrics.topCategory.total.toLocaleString()}
+          </h3>
+          <p className="text-gray-500 text-sm">
+            {keyMetrics.topCategory.name}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Recent Expenses</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                {keyMetrics.expenseCount} total expenses • Average: UGX {keyMetrics.avgExpense.toLocaleString()}
+              </p>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search expenses..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200"
               />
-            )}
+              {filter && (
+                <X
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+                  onClick={() => setFilter("")}
+                />
+              )}
+            </div>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-neutral-200">
-            <thead className="bg-neutral-50">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50/50">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
@@ -296,11 +500,11 @@ const ExpensesPage = () => {
                 </tr>
               ))}
             </thead>
-            <tbody className="bg-white divide-y divide-neutral-200">
+            <tbody className="bg-white divide-y divide-gray-50">
               {table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="hover:bg-neutral-50">
+                <tr key={row.id} className="hover:bg-gray-50/50 transition-colors duration-150">
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -311,8 +515,16 @@ const ExpensesPage = () => {
         </div>
 
         {filteredExpenses.length === 0 && (
-          <div className="text-center py-8 text-neutral-500">
-            {filter ? "No matching expenses found" : "No expenses recorded yet"}
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {filter ? "No matching expenses found" : "No expenses recorded yet"}
+            </h3>
+            <p className="text-gray-500">
+              {filter ? "Try adjusting your search terms" : "Add your first expense to get started"}
+            </p>
           </div>
         )}
       </div>
@@ -328,10 +540,10 @@ const ExpensesPage = () => {
       )}
 
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-neutral-800">Manage Categories</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Manage Categories</h3>
               <button
                 onClick={() => {
                   setShowCategoryModal(false);
@@ -339,7 +551,7 @@ const ExpensesPage = () => {
                   setCategoryName("");
                   setCategoryError("");
                 }}
-                className="text-neutral-400 hover:text-neutral-600"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -352,11 +564,11 @@ const ExpensesPage = () => {
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="Enter category name"
-                  className="flex-1 px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                  className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
                 >
                   {editingCategory ? "Update" : "Add"}
                 </button>
@@ -368,29 +580,32 @@ const ExpensesPage = () => {
 
             <div className="space-y-2 max-h-60 overflow-auto">
               {categories.length === 0 ? (
-                <div className="text-center py-4 text-neutral-500 text-sm">
-                  No categories yet
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Tag className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500 text-sm">No categories yet</p>
                 </div>
               ) : (
                 categories.map(category => (
                   <div
                     key={category.id}
-                    className="flex justify-between items-center p-2 bg-neutral-50 rounded-md"
+                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <span className="text-sm text-neutral-800">{category.name}</span>
-                    <div className="flex gap-2">
+                    <span className="text-sm font-medium text-gray-900">{category.name}</span>
+                    <div className="flex gap-1">
                       <button
                         onClick={() => {
                           setEditingCategory(category);
                           setCategoryName(category.name);
                         }}
-                        className="p-1 text-neutral-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteCategory(category.id)}
-                        className="p-1 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded"
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
