@@ -287,7 +287,7 @@ const BankPage = () => {
                       >
                         <div className="flex items-center gap-2">
                           {flexRender(
-                            header.column:columnDef.header,
+                            header.column.columnDef.header,
                             header.getContext()
                           )}
                           {header.column.getCanSort() && (
