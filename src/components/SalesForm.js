@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { collection, addDoc, updateDoc, doc, query, where, getDocs, deleteDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { collection, addDoc, updateDoc, doc, query, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import { X, Package, User, Calculator, CheckCircle2 } from "lucide-react";
 import AutocompleteInput from "./AutocompleteInput";
 
-const SalesForm = ({ sale, clients, products, userId, onClose }) => {
+const SalesForm = ({ sale, onClose }) => {
   const [formData, setFormData] = useState({
     client: sale?.client || "",
     productId: sale?.product?.productId || "",
@@ -17,21 +17,68 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [isFullyPaid, setIsFullyPaid] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [user, setUser] = useState(null);
 
-  // Auto-calculation values
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
+      const unsubscribeClients = onSnapshot(
+        clientsQuery,
+        (snapshot) => {
+          const clientsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setClients(clientsData);
+        },
+        (err) => {
+          console.error("Error fetching clients:", err);
+        }
+      );
+
+      const productsQuery = query(collection(db, `users/${user.uid}/products`));
+      const unsubscribeProducts = onSnapshot(
+        productsQuery,
+        (snapshot) => {
+          const productsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setProducts(productsData);
+        },
+        (err) => {
+          console.error("Error fetching products:", err);
+        }
+      );
+
+      return () => {
+        unsubscribeClients();
+        unsubscribeProducts();
+      };
+    }
+  }, [user]);
+
   const subtotal = (parseFloat(formData.quantity) || 0) * (parseFloat(formData.unitPrice) || 0);
   const totalAmount = subtotal - (parseFloat(formData.discount) || 0);
   const remainingBalance = totalAmount - (parseFloat(formData.amountPaid) || 0);
   const paymentStatus = formData.amountPaid >= totalAmount ? "paid" : formData.amountPaid > 0 ? "partial" : "unpaid";
 
-  // Update amount paid when "Fully Paid" is toggled
   useEffect(() => {
     if (isFullyPaid && totalAmount > 0) {
       setFormData(prev => ({ ...prev, amountPaid: totalAmount }));
     }
   }, [isFullyPaid, totalAmount]);
 
-  // Check if current amount equals total (for initial state)
   useEffect(() => {
     if (totalAmount > 0 && parseFloat(formData.amountPaid) === totalAmount) {
       setIsFullyPaid(true);
@@ -44,6 +91,12 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError("");
+
+    if (!user) {
+      setError("User not authenticated");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const saleData = {
@@ -63,9 +116,9 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
       };
 
       if (sale) {
-        await updateDoc(doc(db, `users/${userId}/sales`, sale.id), saleData);
+        await updateDoc(doc(db, `users/${user.uid}/sales`, sale.id), saleData);
         const existingDebtQuery = query(
-          collection(db, `users/${userId}/debts`),
+          collection(db, `users/${user.uid}/debts`),
           where("saleId", "==", sale.id)
         );
         const querySnapshot = await getDocs(existingDebtQuery);
@@ -73,9 +126,9 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
           await deleteDoc(doc.ref);
         });
       } else {
-        const saleRef = await addDoc(collection(db, `users/${userId}/sales`), saleData);
+        const saleRef = await addDoc(collection(db, `users/${user.uid}/sales`), saleData);
         if (totalAmount > formData.amountPaid && formData.amountPaid < totalAmount) {
-          await addDoc(collection(db, `users/${userId}/debts`), {
+          await addDoc(collection(db, `users/${user.uid}/debts`), {
             client: formData.client,
             amount: totalAmount - formData.amountPaid,
             saleId: saleRef.id,
@@ -136,7 +189,6 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg min-h-0 my-2 sm:my-4 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-        {/* Fixed Header */}
         <div className="flex-shrink-0 flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200">
           <h3 className="text-lg font-semibold text-neutral-800">{sale ? "Edit Sale" : "Add New Sale"}</h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 transition-colors">
@@ -144,7 +196,6 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
           </button>
         </div>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="p-4 sm:p-6 space-y-4">
             <div>
@@ -212,7 +263,6 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
               />
             </div>
 
-            {/* Auto-calculation summary */}
             {(formData.quantity && formData.unitPrice) && (
               <div className="bg-neutral-50 rounded-lg p-4 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-3">
@@ -270,7 +320,6 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
               />
             </div>
 
-            {/* Payment status and remaining balance */}
             {totalAmount > 0 && (
               <div className="bg-white border rounded-lg p-3 space-y-2">
                 <div className="flex justify-between items-center">
@@ -313,7 +362,6 @@ const SalesForm = ({ sale, clients, products, userId, onClose }) => {
           </div>
         </div>
 
-        {/* Fixed Footer */}
         <div className="flex-shrink-0 flex justify-end gap-3 p-4 sm:p-6 border-t border-neutral-200 bg-white">
           <button
             type="button"
