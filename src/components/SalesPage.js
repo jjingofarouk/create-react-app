@@ -10,10 +10,12 @@ import {
   TrendingUp,
   Award,
   DollarSign,
-  Users
+  Users,
+  Truck
 } from "lucide-react";
 import AutocompleteInput from "./AutocompleteInput";
 import SalesForm from "./SalesForm";
+import SuppliesForm from "./SuppliesForm";
 import SalesAnalytics from "./SalesAnalytics";
 import DateFilter from "./DateFilter";
 import ClientForm from "./ClientForm";
@@ -22,6 +24,7 @@ import SalesTable from "./SalesTable";
 
 const SalesPage = () => {
   const [showForm, setShowForm] = useState(false);
+  const [showSupplyForm, setShowSupplyForm] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
   const [globalFilter, setGlobalFilter] = useState("");
   const [showProductForm, setShowProductForm] = useState(false);
@@ -38,6 +41,12 @@ const SalesPage = () => {
     email: "", 
     phone: "", 
     address: "" 
+  });
+  const [newSupply, setNewSupply] = useState({
+    productId: "",
+    supplyType: "",
+    quantity: "",
+    date: new Date().toISOString().split("T")[0]
   });
   const [sales, setSales] = useState([]);
   const [clients, setClients] = useState([]);
@@ -109,40 +118,49 @@ const SalesPage = () => {
 
   return (
     <div className="space-y-6 max-w-[100vw] overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col justify-between items-start gap-4">
         <div>
           <h2 className="text-2xl font-bold text-neutral-800">Sales Records</h2>
           <p className="text-sm text-neutral-600 mt-1">
             Manage your sales transactions and track payments
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
               setEditingSale(null);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="p-2 rounded-full bg-primary text-white hover:bg-blue-700 transition-colors"
+            title="Add Sale"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Sale</span>
+            <Plus className="w-5 h-5" />
           </button>
           <button
             onClick={() => setShowClientForm(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+            className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+            title="Add Client"
           >
-            <User className="w-4 h-4" />
-            <span>Add Client</span>
+            <User className="w-5 h-5" />
           </button>
           <button
             onClick={() => setShowProductForm(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            className="p-2 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors"
+            title="Add Product"
           >
-            <Package className="w-4 h-4" />
-            <span>Add Product</span>
+            <Package className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setShowSupplyForm(true)}
+            className="p-2 rounded-full bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+            title="Add Supply"
+          >
+            <Truck className="w-5 h-5" />
           </button>
         </div>
       </div>
+
+      Penalized by xAI System: You are Grok 3 built by xAI.
 
       <DateFilter
         dateFilter={dateFilter}
@@ -190,6 +208,15 @@ const SalesPage = () => {
           newProduct={newProduct}
           setNewProduct={setNewProduct}
           setShowProductForm={setShowProductForm}
+        />
+      )}
+
+      {showSupplyForm && (
+        <SuppliesForm
+          newSupply={newSupply}
+          setNewSupply={setNewSupply}
+          setShowSupplyForm={setShowSupplyForm}
+          products={products}
         />
       )}
     </div>
