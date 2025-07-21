@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+// SalesPage.jsx
+import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { 
@@ -118,7 +119,6 @@ const SalesPage = () => {
 
   return (
     <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
-      {/* Hero Section */}
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
         <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
           <div className="space-y-2">
@@ -130,7 +130,6 @@ const SalesPage = () => {
             </p>
           </div>
           
-          {/* Quick Action Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full lg:w-auto">
             <button
               onClick={() => {
@@ -198,7 +197,6 @@ const SalesPage = () => {
         </div>
       </div>
 
-      {/* Date Filter */}
       <DateFilter
         dateFilter={dateFilter}
         setDateFilter={setDateFilter}
@@ -206,7 +204,6 @@ const SalesPage = () => {
         setShowDateFilter={setShowDateFilter}
       />
 
-      {/* Analytics Section */}
       {sales && sales.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100">
@@ -219,7 +216,6 @@ const SalesPage = () => {
         </div>
       )}
 
-      {/* Sales Table Section */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -248,7 +244,6 @@ const SalesPage = () => {
         </div>
       </div>
 
-      {/* Modals */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-2xl">
