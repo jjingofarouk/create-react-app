@@ -1,18 +1,17 @@
-// SalesPage.jsx
 import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { 
-  Plus, 
-  User, 
-  Package, 
+import {
+  Plus,
+  User,
+  Package,
   Calendar,
   CalendarDays,
   TrendingUp,
   Award,
   DollarSign,
   Users,
-  Truck
+  Truck,
 } from "lucide-react";
 import AutocompleteInput from "./AutocompleteInput";
 import SalesForm from "./SalesForm";
@@ -34,20 +33,20 @@ const SalesPage = () => {
   const [dateFilter, setDateFilter] = useState({
     type: 'today',
     startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date().toISOString().split("T")[0]
+    endDate: new Date().toISOString().split("T")[0],
   });
   const [newProduct, setNewProduct] = useState({ name: "", price: "" });
-  const [newClient, setNewClient] = useState({ 
-    name: "", 
-    email: "", 
-    phone: "", 
-    address: "" 
+  const [newClient, setNewClient] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
   });
   const [newSupply, setNewSupply] = useState({
     productId: "",
     supplyType: "",
     quantity: "",
-    date: new Date().toISOString().split("T")[0]
+    date: new Date().toISOString().split("T")[0],
   });
   const [sales, setSales] = useState([]);
   const [clients, setClients] = useState([]);
@@ -58,7 +57,6 @@ const SalesPage = () => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -118,7 +116,7 @@ const SalesPage = () => {
   }, [user]);
 
   return (
-    <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
+    <div className="space-y-8 max-w-[100vw] overflow-x-auto bg-white">
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
         <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
           <div className="space-y-2">
@@ -129,7 +127,7 @@ const SalesPage = () => {
               Monitor your sales performance, manage transactions, and track your business growth with our comprehensive analytics platform.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full lg:w-auto">
             <button
               onClick={() => {
@@ -148,7 +146,7 @@ const SalesPage = () => {
                 </div>
               </div>
             </button>
-            
+
             <button
               onClick={() => setShowClientForm(true)}
               className="group bg-white hover:bg-emerald-50 border-2 border-slate-200 hover:border-emerald-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-100/50 hover:-translate-y-1"
@@ -163,7 +161,7 @@ const SalesPage = () => {
                 </div>
               </div>
             </button>
-            
+
             <button
               onClick={() => setShowProductForm(true)}
               className="group bg-white hover:bg-purple-50 border-2 border-slate-200 hover:border-purple-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-purple-100/50 hover:-translate-y-1"
@@ -178,7 +176,7 @@ const SalesPage = () => {
                 </div>
               </div>
             </button>
-            
+
             <button
               onClick={() => setShowSupplyForm(true)}
               className="group bg-white hover:bg-orange-50 border-2 border-slate-200 hover:border-orange-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-orange-100/50 hover:-translate-y-1"
@@ -245,8 +243,8 @@ const SalesPage = () => {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-x-auto">
+          <div className="w-full max-w-lg">
             <SalesForm
               sale={editingSale}
               clients={clients}
@@ -261,7 +259,7 @@ const SalesPage = () => {
       )}
 
       {showClientForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-x-auto">
           <div className="w-full max-w-lg">
             <ClientForm
               newClient={newClient}
@@ -273,7 +271,7 @@ const SalesPage = () => {
       )}
 
       {showProductForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-x-auto">
           <div className="w-full max-w-lg">
             <ProductForm
               newProduct={newProduct}
@@ -285,7 +283,7 @@ const SalesPage = () => {
       )}
 
       {showSupplyForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-x-auto">
           <div className="w-full max-w-lg">
             <SuppliesForm
               newSupply={newSupply}
