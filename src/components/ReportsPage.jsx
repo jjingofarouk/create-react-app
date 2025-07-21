@@ -1,4 +1,3 @@
-// Updated ReportsPage.jsx
 import React, { useState } from "react";
 import { format, startOfDay } from "date-fns";
 import DateRangeSelector from "./DateRangeSelector";
@@ -10,18 +9,6 @@ const ReportsPage = ({ sales, debts, expenses, clients, products, categories, ba
     type: "today",
     startDate: today,
     endDate: today,
-  });
-
-  console.log("ReportsPage props:", {
-    sales: sales?.length || 0,
-    debts: debts?.length || 0,
-    expenses: expenses?.length || 0,
-    bankDeposits: bankDeposits?.length || 0,
-    clients: clients?.length || 0,
-    products: products?.length || 0,
-    categories: categories?.length || 0,
-    depositors: depositors?.length || 0,
-    userId,
   });
 
   const safeData = {
