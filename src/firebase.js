@@ -1,6 +1,6 @@
 // firebase.js
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, query, where, onSnapshot, addDoc, deleteDoc, setDoc, doc } from "firebase/firestore";
+import { getFirestore, collection, query, where, onSnapshot, addDoc, deleteDoc, setDoc, doc, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 const firebaseConfig = {
@@ -16,5 +16,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Enable offline persistence
+enableIndexedDbPersistence(db)
+  .then(() => console.log("Firestore offline persistence enabled"))
+  .catch((error) => {
+    if (error.code === 'failed-precondition') {
+      console.error("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+    } else if (error.code === 'unimplemented') {
+      console.error("The current browser does not support offline persistence.");
+    }
+  });
 
 export { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, collection, query, where, onSnapshot, addDoc, deleteDoc, setDoc, doc };
