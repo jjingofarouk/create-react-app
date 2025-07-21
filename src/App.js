@@ -25,11 +25,7 @@ const App = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const currentScrollY = window.scrollY;
-          if (currentScrollY > lastScrollY && currentScrollY > 100) {
-            setShowHeader(false);
-          } else {
-            setShowHeader(true);
-          }
+          setShowHeader(currentScrollY <= lastScrollY || currentScrollY < 100);
           lastScrollY = currentScrollY;
           ticking = false;
         });
@@ -125,7 +121,7 @@ const App = () => {
     };
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] gap-4 px-4">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 sm:w-20 sm:h-20 text-red-500 mx-auto mb-4" />
           
@@ -157,7 +153,7 @@ const App = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+      <div className="h-screen bg-neutral-50 flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -165,9 +161,9 @@ const App = () => {
 
   return (
     <Router>
-      <div className="min-h-screen bg-neutral-50 flex flex-col">
+      <div className="h-screen bg-neutral-50 flex flex-col">
         <Header />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pt-[80px] sm:pt-[90px]">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pt-[80px] sm:pt-[90px] overflow-y-auto">
           <Routes>
             {user ? (
               <>
