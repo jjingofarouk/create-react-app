@@ -1,7 +1,8 @@
+// DebtsPage.jsx
 import React, { useState, useEffect } from "react";
-import { collection, addDoc, updateDoc, doc, query, where, deleteDoc, getDocs, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X, Link } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
@@ -98,6 +99,16 @@ const DebtsPage = () => {
       header: "Date",
       accessorKey: "createdAt",
       cell: info => info.getValue() ? format(info.getValue().toDate(), 'MMM dd, yyyy') : '-',
+    },
+    {
+      header: "Linked Sale",
+      accessorKey: "saleId",
+      cell: info => info.getValue() ? (
+        <span className="flex items-center gap-1 text-blue-600">
+          <Link className="w-4 h-4" />
+          Sale #{info.getValue().slice(0, 8)}
+        </span>
+      ) : '-',
     },
     {
       header: "Actions",
