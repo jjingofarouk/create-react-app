@@ -369,7 +369,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           { header: "DATE", dataKey: "date" },
         ],
         depositsData.map((item) => ({
-          depositor: item depositor,
+          depositor: item.depositor,
           amount: item.amount.toLocaleString(),
           description: item.description,
           date: item.date,
