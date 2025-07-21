@@ -22,7 +22,6 @@ const DebtForm = ({ debt, onClose }) => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -42,13 +41,12 @@ const DebtForm = ({ debt, onClose }) => {
           console.error("Error fetching clients:", err);
         }
       );
-
       return () => unsubscribeClients();
     }
   }, [user]);
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [field]: field === "amount" ? parseFloat(value) || 0 : value,
     }));
@@ -78,13 +76,15 @@ const DebtForm = ({ debt, onClose }) => {
       };
 
       const batch = writeBatch(db);
-      const debtRef = debt
-        ? doc(db, `users/${user.uid}/debts`, debt.id)
-        : collection(db, `users/${user.uid}/debts`);
+      let debtRef;
 
       if (debt) {
+        // Updating an existing debt
+        debtRef = doc(db, `users/${user.uid}/debts`, debt.id);
         batch.update(debtRef, debtData);
       } else {
+        // Adding a new debt
+        debtRef = doc(collection(db, `users/${user.uid}/debts`)); // Create a new document reference
         batch.set(debtRef, debtData);
       }
 
@@ -95,8 +95,11 @@ const DebtForm = ({ debt, onClose }) => {
           const saleData = saleSnap.data();
           const newAmountPaid = saleData.totalAmount - formData.amount;
           const newPaymentStatus =
-            newAmountPaid >= saleData.totalAmount ? "paid" :
-            newAmountPaid > 0 ? "partial" : "unpaid";
+            newAmountPaid >= saleData.totalAmount
+              ? "paid"
+              : newAmountPaid > 0
+              ? "partial"
+              : "unpaid";
 
           batch.update(saleRef, {
             amountPaid: newAmountPaid,
@@ -151,7 +154,7 @@ const DebtForm = ({ debt, onClose }) => {
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
             <AutocompleteInput
-              options={clients.map(c => ({ id: c.id, name: c.name }))}
+              options={clients.map((c) => ({ id: c.id, name: c.name }))}
               value={formData.client}
               onChange={(value) => handleChange("client", value)}
               placeholder="Select or type client name"
@@ -205,7 +208,7 @@ const DebtForm = ({ debt, onClose }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Saving..." : debt ? "Update Debt" : "Save Debt"}
             </button>
