@@ -3,6 +3,85 @@ import { db, addDoc, collection, deleteDoc, doc, query, onSnapshot } from '../fi
 import { Plus, Trash2, Users, Building2, TrendingUp, Wallet, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { auth } from '../firebase';
+import { startOfMonth, endOfMonth, format, subDays, subMonths } from 'date-fns';
+
+const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
+  const handleDateFilterChange = (type) => {
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (type) {
+      case 'today':
+        startDate = today;
+        endDate = today;
+        break;
+      case 'week':
+        startDate = subDays(today, 7);
+        endDate = today;
+        break;
+      case 'month':
+        startDate = startOfMonth(today);
+        endDate = endOfMonth(today);
+        break;
+      case '6months':
+        startDate = subMonths(today, 6);
+        endDate = today;
+        break;
+      case 'all':
+        startDate = null;
+        endDate = null;
+        break;
+      default:
+        startDate = today;
+        endDate = today;
+    }
+
+    setDateFilter({
+      type,
+      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
+      endDate: endDate ? endDate.toISOString().split("T")[0] : null
+    });
+    setShowDateFilter(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowDateFilter(!showDateFilter)}
+        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+      >
+        <Calendar className="w-5 h-5" />
+        <span className="font-medium">Filter Dates</span>
+      </button>
+
+      {showDateFilter && (
+        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
+          <div className="flex flex-col gap-2">
+            {[
+              { type: 'today', label: 'Today' },
+              { type: 'week', label: 'Last 7 Days' },
+              { type: 'month', label: 'This Month' },
+              { type: '6months', label: 'Last 6 Months' },
+              { type: 'all', label: 'All Time' }
+            ].map(({ type, label }) => (
+              <button
+                key={type}
+                onClick={() => handleDateFilterChange(type)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  dateFilter.type === type
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const BankPage = () => {
   const [amount, setAmount] = useState('');
@@ -17,6 +96,12 @@ const BankPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    type: 'today',
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0]
+  });
   const itemsPerPage = 8;
 
   // Top 10 banks in Uganda
@@ -98,9 +183,24 @@ const BankPage = () => {
     }));
   }, [depositors]);
 
+  // Filtered deposits based on date range
+  const filteredDeposits = useMemo(() => {
+    return (bankDeposits || []).filter(deposit => {
+      if (!deposit || deposit.isDepositorOnly) return false;
+      
+      if (!dateFilter.startDate || !dateFilter.endDate) return true;
+      
+      const depositDate = new Date(deposit.date);
+      const startDate = new Date(dateFilter.startDate);
+      const endDate = new Date(dateFilter.endDate);
+      
+      return depositDate >= startDate && depositDate <= endDate;
+    });
+  }, [bankDeposits, dateFilter]);
+
   // Calculate metrics
   const metrics = useMemo(() => {
-    const validDeposits = (bankDeposits || []).filter(deposit => !deposit.isDepositorOnly);
+    const validDeposits = filteredDeposits;
     const totalAmount = validDeposits.reduce((sum, deposit) => sum + (deposit.amount || 0), 0);
     const totalDeposits = validDeposits.length;
     const uniqueDepositors = new Set(validDeposits.map(d => d.depositor).filter(Boolean)).size;
@@ -121,12 +221,11 @@ const BankPage = () => {
       thisMonthAmount,
       thisMonthDeposits: thisMonthDeposits.length
     };
-  }, [bankDeposits]);
+  }, [filteredDeposits]);
 
   // Sorted and filtered deposits
   const sortedDeposits = useMemo(() => {
-    const validDeposits = (bankDeposits || []).filter(deposit => !deposit.isDepositorOnly);
-    return [...validDeposits].sort((a, b) => {
+    return [...filteredDeposits].sort((a, b) => {
       let aValue = a[sortBy];
       let bValue = b[sortBy];
       
@@ -141,7 +240,7 @@ const BankPage = () => {
         return aValue < bValue ? 1 : -1;
       }
     });
-  }, [bankDeposits, sortBy, sortOrder]);
+  }, [filteredDeposits, sortBy, sortOrder]);
 
   // Paginated deposits
   const paginatedDeposits = useMemo(() => {
@@ -230,6 +329,13 @@ const BankPage = () => {
         </div>
       </div>
 
+      <DateFilter
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        showDateFilter={showDateFilter}
+        setShowDateFilter={setShowDateFilter}
+      />
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
@@ -238,7 +344,7 @@ const BankPage = () => {
               <Wallet className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-neutral-600">Total Amount</p>
+              <p className="text-sm text-neutral-600">{dateFilter.type === 'all' ? 'Total Amount' : `Amount for ${dateFilter.type}`}</p>
               <p className="text-2xl font-bold text-neutral-900">{formatCurrency(metrics.totalAmount)}</p>
             </div>
           </div>
@@ -414,8 +520,12 @@ const BankPage = () => {
               <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Wallet className="w-8 h-8 text-neutral-400" />
               </div>
-              <p className="text-neutral-500 text-lg mb-2">No deposits found</p>
-              <p className="text-neutral-400">Add your first deposit above to get started</p>
+              <p className="text-neutral-500 text-lg mb-2">
+                {dateFilter.type !== 'all' ? "No deposits found for selected period" : "No deposits found"}
+              </p>
+              <p className="text-neutral-400">
+                {dateFilter.type !== 'all' ? "Try adjusting your date filter" : "Add your first deposit above to get started"}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
