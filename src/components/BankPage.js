@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -6,11 +6,12 @@ import {
   createColumnHelper,
   flexRender,
 } from '@tanstack/react-table';
-import { db, addDoc, collection, deleteDoc, doc } from '../firebase';
+import { db, addDoc, collection, deleteDoc, doc, query, onSnapshot } from '../firebase';
 import { Plus, Trash2, ChevronUp, ChevronDown, Users } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
+import { auth } from '../firebase';
 
-const BankPage = ({ bankDeposits, depositors, userId }) => {
+const BankPage = () => {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
@@ -18,11 +19,43 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
   const [showAddDepositorModal, setShowAddDepositorModal] = useState(false);
   const [newDepositorName, setNewDepositorName] = useState('');
   const [sorting, setSorting] = useState([]);
+  const [bankDeposits, setBankDeposits] = useState([]);
+  const [depositors, setDepositors] = useState([]);
+  const [user, setUser] = useState(null);
 
-  // Create depositor options for autocomplete
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const bankQuery = query(collection(db, `users/${user.uid}/bankDeposits`));
+      const unsubscribeBank = onSnapshot(
+        bankQuery,
+        (snapshot) => {
+          const bankData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setBankDeposits(bankData);
+          setDepositors([...new Set(bankData.map((d) => d.depositor).filter(Boolean))]);
+        },
+        (err) => {
+          console.error("Error fetching bank deposits:", err);
+        }
+      );
+
+      return () => unsubscribeBank();
+    }
+  }, [user]);
+
   const depositorOptions = useMemo(() => {
     if (!depositors || !Array.isArray(depositors)) return [];
-    return depositors.map((depositorName, index) => ({
+    return depositors.map((depositorName) => ({
       id: depositorName,
       name: depositorName
     }));
@@ -30,10 +63,10 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
 
   const handleAddDeposit = async (e) => {
     e.preventDefault();
-    if (!amount || !date) return;
+    if (!amount || !date || !user) return;
 
     try {
-      await addDoc(collection(db, `users/${userId}/bankDeposits`), {
+      await addDoc(collection(db, `users/${user.uid}/bankDeposits`), {
         amount: parseFloat(amount),
         date,
         description,
@@ -51,25 +84,23 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
 
   const handleDeleteDeposit = async (id) => {
     try {
-      await deleteDoc(doc(db, `users/${userId}/bankDeposits`, id));
+      await deleteDoc(doc(db, `users/${user.uid}/bankDeposits`, id));
     } catch (error) {
       console.error('Error deleting deposit:', error);
     }
   };
 
   const handleAddNewDepositor = async () => {
-    if (!newDepositorName.trim()) return;
+    if (!newDepositorName.trim() || !user) return;
 
     try {
-      // Add a dummy deposit with the new depositor to create the depositor entry
-      // This will be picked up by the listener and added to the depositors array
-      await addDoc(collection(db, `users/${userId}/bankDeposits`), {
+      await addDoc(collection(db, `users/${user.uid}/bankDeposits`), {
         amount: 0,
         date: new Date().toISOString().split('T')[0],
         description: 'Depositor registration',
         depositor: newDepositorName.trim(),
         createdAt: new Date().toISOString(),
-        isDepositorOnly: true, // Flag to identify this as just a depositor registration
+        isDepositorOnly: true,
       });
       
       setDepositor(newDepositorName.trim());
@@ -122,7 +153,6 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
     [handleDeleteDeposit]
   );
 
-  // Filter out depositor-only entries from the table display
   const displayDeposits = useMemo(() => {
     return (bankDeposits || []).filter(deposit => !deposit.isDepositorOnly);
   }, [bankDeposits]);
@@ -142,7 +172,6 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-neutral-800">Bank Deposits</h2>
       
-      {/* Add New Deposit Form */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
         <h3 className="text-lg font-semibold mb-4">Add New Deposit</h3>
         <form onSubmit={handleAddDeposit} className="space-y-4">
@@ -199,7 +228,6 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
         </form>
       </div>
 
-      {/* Add Depositor Modal */}
       {showAddDepositorModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
@@ -236,7 +264,6 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
         </div>
       )}
 
-      {/* Table Container with Fixed Height and Horizontal Scroll */}
       <div className="bg-white rounded-lg shadow-sm border border-neutral-200">
         <div className="p-6 border-b border-neutral-200">
           <h3 className="text-lg font-semibold">Deposits History</h3>
@@ -245,7 +272,6 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
           </p>
         </div>
         
-        {/* Fixed container with horizontal scroll */}
         <div className="overflow-x-auto max-w-full">
           <div className="min-w-full inline-block align-middle">
             <table className="min-w-full divide-y divide-neutral-200">
@@ -261,7 +287,7 @@ const BankPage = ({ bankDeposits, depositors, userId }) => {
                       >
                         <div className="flex items-center gap-2">
                           {flexRender(
-                            header.column.columnDef.header,
+                            header.column:columnDef.header,
                             header.getContext()
                           )}
                           {header.column.getCanSort() && (
