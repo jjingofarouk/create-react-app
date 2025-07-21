@@ -1,11 +1,11 @@
-import React, { useState } from "react";
-import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
-import { db } from "../firebase";
+import React, { useState, useEffect } from "react";
+import { addDoc, doc, updateDoc, collection, query, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
 import { X, Tag } from "lucide-react";
 import { format } from "date-fns";
 
-const ExpenseForm = ({ expense, categories, userId, onClose }) => {
+const ExpenseForm = ({ expense, onClose }) => {
   const [formData, setFormData] = useState({
     category: expense?.category || "",
     amount: expense?.amount || 0,
@@ -13,9 +13,39 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
     payee: expense?.payee || "",
     createdAt: expense?.createdAt ? expense.createdAt.toDate() : new Date(),
   });
-
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const categoriesQuery = query(collection(db, `users/${user.uid}/categories`));
+      const unsubscribeCategories = onSnapshot(
+        categoriesQuery,
+        (snapshot) => {
+          const categoriesList = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            name: doc.data().name,
+          }));
+          setCategories(categoriesList);
+        },
+        (err) => {
+          console.error("Error fetching categories:", err);
+        }
+      );
+
+      return () => unsubscribeCategories();
+    }
+  }, [user]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -34,7 +64,7 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm() || !user) return;
 
     setIsSubmitting(true);
     try {
@@ -48,13 +78,12 @@ const ExpenseForm = ({ expense, categories, userId, onClose }) => {
       };
 
       if (expense) {
-        await updateDoc(doc(db, `users/${userId}/expenses`, expense.id), expenseData);
+        await updateDoc(doc(db, `users/${user.uid}/expenses`, expense.id), expenseData);
       } else {
-        await addDoc(collection(db, `users/${userId}/expenses`), expenseData);
-        // Add new category to Firestore if it doesn't exist
+        await addDoc(collection(db, `users/${user.uid}/expenses`), expenseData);
         const existingCategory = categories.find(c => c.name.toLowerCase() === formData.category.toLowerCase());
         if (!existingCategory && formData.category) {
-          await addDoc(collection(db, `users/${userId}/categories`), {
+          await addDoc(collection(db, `users/${user.uid}/categories`), {
             name: formData.category,
             createdAt: new Date(),
             updatedAt: new Date(),
