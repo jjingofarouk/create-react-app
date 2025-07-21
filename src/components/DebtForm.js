@@ -1,5 +1,6 @@
+// DebtForm.jsx
 import React, { useState, useEffect } from "react";
-import { addDoc, doc, updateDoc, collection, query, onSnapshot } from "firebase/firestore";
+import { addDoc, doc, updateDoc, collection, query, onSnapshot, getDoc, writeBatch } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
 import { X, User } from "lucide-react";
@@ -56,7 +57,7 @@ const DebtForm = ({ debt, onClose }) => {
   const validateForm = () => {
     const newErrors = {};
     if (!formData.client) newErrors.client = "Client is required";
-    if (formData.amount <= 0) newErrors.amount = "Amount must be greater than 0";
+    if (formData.amount < 0) newErrors.amount = "Amount cannot be negative";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -76,11 +77,40 @@ const DebtForm = ({ debt, onClose }) => {
         saleId: debt?.saleId || null,
       };
 
+      const batch = writeBatch(db);
+      const debtRef = debt
+        ? doc(db, `users/${user.uid}/debts`, debt.id)
+        : collection(db, `users/${user.uid}/debts`);
+
       if (debt) {
-        await updateDoc(doc(db, `users/${user.uid}/debts`, debt.id), debtData);
+        batch.update(debtRef, debtData);
       } else {
-        await addDoc(collection(db, `users/${user.uid}/debts`), debtData);
+        batch.set(debtRef, debtData);
       }
+
+      if (debt?.saleId) {
+        const saleRef = doc(db, `users/${user.uid}/sales`, debt.saleId);
+        const saleSnap = await getDoc(saleRef);
+        if (saleSnap.exists()) {
+          const saleData = saleSnap.data();
+          const newAmountPaid = saleData.totalAmount - formData.amount;
+          const newPaymentStatus =
+            newAmountPaid >= saleData.totalAmount ? "paid" :
+            newAmountPaid > 0 ? "partial" : "unpaid";
+
+          batch.update(saleRef, {
+            amountPaid: newAmountPaid,
+            paymentStatus: newPaymentStatus,
+            updatedAt: new Date(),
+          });
+
+          if (formData.amount === 0) {
+            batch.delete(debtRef);
+          }
+        }
+      }
+
+      await batch.commit();
       onClose();
     } catch (err) {
       console.error("Error saving debt:", err);
@@ -108,6 +138,12 @@ const DebtForm = ({ debt, onClose }) => {
         {errors.submit && (
           <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
             {errors.submit}
+          </div>
+        )}
+
+        {debt?.saleId && (
+          <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
+            This debt is linked to a sale. Updating it will adjust the sale's payment status.
           </div>
         )}
 
