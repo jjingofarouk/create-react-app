@@ -3,7 +3,7 @@ import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapsh
 import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
-// Using native JavaScript Date methods instead of date-fns
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
