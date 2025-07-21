@@ -1,15 +1,25 @@
-import React from "react";
-import { X } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { X } from "lucide-react";
 
-const ClientForm = ({ newClient, setNewClient, setShowClientForm, userId }) => {
+const ClientForm = ({ newClient, setNewClient, setShowClientForm }) => {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const handleAddClient = async (e) => {
     e.preventDefault();
-    if (!newClient.name.trim()) return;
+    if (!newClient.name.trim() || !user) return;
     
     try {
-      await addDoc(collection(db, `users/${userId}/clients`), {
+      await addDoc(collection(db, `users/${user.uid}/clients`), {
         name: newClient.name.trim(),
         email: newClient.email.trim() || null,
         phone: newClient.phone.trim() || null,
