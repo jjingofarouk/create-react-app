@@ -8,6 +8,7 @@ const SalesForm = ({ sale, onClose }) => {
   const [formData, setFormData] = useState({
     client: sale?.client || "",
     productId: sale?.product?.productId || "",
+    supplyType: sale?.product?.supplyType || "",
     quantity: sale?.product?.quantity || 1,
     unitPrice: sale?.product?.unitPrice || "",
     discount: sale?.product?.discount || 0,
@@ -103,6 +104,7 @@ const SalesForm = ({ sale, onClose }) => {
         client: formData.client,
         product: {
           productId: formData.productId,
+          supplyType: formData.supplyType,
           quantity: parseInt(formData.quantity),
           unitPrice: parseFloat(formData.unitPrice),
           discount: parseFloat(formData.discount || 0),
@@ -223,6 +225,22 @@ const SalesForm = ({ sale, onClose }) => {
                 placeholder="Select product"
                 icon={<Package className="w-5 h-5 text-neutral-400" />}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">
+                Supply Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.supplyType}
+                onChange={(e) => handleChange("supplyType", e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="" disabled>Select supply type</option>
+                <option value="Kaveera">Kaveera (K)</option>
+                <option value="Box">Box (B)</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -373,7 +391,7 @@ const SalesForm = ({ sale, onClose }) => {
           <button
             type="submit"
             onClick={handleSubmit}
-            disabled={isSubmitting || !formData.client || !formData.productId || !formData.unitPrice || !formData.quantity}
+            disabled={isSubmitting || !formData.client || !formData.productId || !formData.supplyType || !formData.unitPrice || !formData.quantity}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? "Saving..." : sale ? "Update Sale" : "Add Sale"}
