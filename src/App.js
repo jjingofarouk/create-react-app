@@ -14,6 +14,7 @@ const App = () => {
   const [activeTab, setActiveTab] = useState("sales");
   const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
+  const [showHeader, setShowHeader] = useState(true);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -21,6 +22,19 @@ const App = () => {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      setShowHeader(currentScrollY <= lastScrollY || currentScrollY < 100);
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const Header = () => {
@@ -33,7 +47,7 @@ const App = () => {
     };
 
     return (
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
+      <header className={`bg-white border-b border-neutral-200 fixed top-0 left-0 right-0 z-50 shadow-sm transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-800">
@@ -166,7 +180,7 @@ const App = () => {
     <Router>
       <div className="min-h-screen bg-neutral-50 flex flex-col">
         <Header />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-20">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-[80px] sm:pb-[90px]">
           {user ? (
             <Routes>
               <Route path="/sales" element={<SalesPage />} />
