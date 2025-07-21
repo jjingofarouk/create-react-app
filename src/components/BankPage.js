@@ -3,85 +3,7 @@ import { db, addDoc, collection, deleteDoc, doc, query, onSnapshot } from '../fi
 import { Plus, Trash2, Users, Building2, TrendingUp, Wallet, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import AutocompleteInput from './AutocompleteInput';
 import { auth } from '../firebase';
-import { startOfMonth, endOfMonth, format, subDays, subMonths } from 'date-fns';
-
-const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
-  const handleDateFilterChange = (type) => {
-    const today = new Date();
-    let startDate, endDate;
-
-    switch (type) {
-      case 'today':
-        startDate = today;
-        endDate = today;
-        break;
-      case 'week':
-        startDate = subDays(today, 7);
-        endDate = today;
-        break;
-      case 'month':
-        startDate = startOfMonth(today);
-        endDate = endOfMonth(today);
-        break;
-      case '6months':
-        startDate = subMonths(today, 6);
-        endDate = today;
-        break;
-      case 'all':
-        startDate = null;
-        endDate = null;
-        break;
-      default:
-        startDate = today;
-        endDate = today;
-    }
-
-    setDateFilter({
-      type,
-      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
-      endDate: endDate ? endDate.toISOString().split("T")[0] : null
-    });
-    setShowDateFilter(false);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setShowDateFilter(!showDateFilter)}
-        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-      >
-        <Calendar className="w-5 h-5" />
-        <span className="font-medium">Filter Dates</span>
-      </button>
-
-      {showDateFilter && (
-        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
-          <div className="flex flex-col gap-2">
-            {[
-              { type: 'today', label: 'Today' },
-              { type: 'week', label: 'Last 7 Days' },
-              { type: 'month', label: 'This Month' },
-              { type: '6months', label: 'Last 6 Months' },
-              { type: 'all', label: 'All Time' }
-            ].map(({ type, label }) => (
-              <button
-                key={type}
-                onClick={() => handleDateFilterChange(type)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateFilter.type === type
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+import DateFilter from './DateFilter';
 
 const BankPage = () => {
   const [amount, setAmount] = useState('');
@@ -104,7 +26,6 @@ const BankPage = () => {
   });
   const itemsPerPage = 8;
 
-  // Top 10 banks in Uganda
   const ugandanBanks = [
     'Stanbic Bank Uganda',
     'Centenary Bank',
@@ -125,7 +46,6 @@ const BankPage = () => {
     }));
   }, []);
 
-  // Color mapping for depositors
   const depositorColors = useMemo(() => {
     const colors = [
       'bg-blue-100 border-blue-200 text-blue-800',
@@ -183,7 +103,6 @@ const BankPage = () => {
     }));
   }, [depositors]);
 
-  // Filtered deposits based on date range
   const filteredDeposits = useMemo(() => {
     return (bankDeposits || []).filter(deposit => {
       if (!deposit || deposit.isDepositorOnly) return false;
@@ -198,14 +117,12 @@ const BankPage = () => {
     });
   }, [bankDeposits, dateFilter]);
 
-  // Calculate metrics
   const metrics = useMemo(() => {
     const validDeposits = filteredDeposits;
     const totalAmount = validDeposits.reduce((sum, deposit) => sum + (deposit.amount || 0), 0);
     const totalDeposits = validDeposits.length;
     const uniqueDepositors = new Set(validDeposits.map(d => d.depositor).filter(Boolean)).size;
     
-    // Calculate this month's deposits
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const thisMonthDeposits = validDeposits.filter(deposit => {
@@ -223,7 +140,6 @@ const BankPage = () => {
     };
   }, [filteredDeposits]);
 
-  // Sorted and filtered deposits
   const sortedDeposits = useMemo(() => {
     return [...filteredDeposits].sort((a, b) => {
       let aValue = a[sortBy];
@@ -242,7 +158,6 @@ const BankPage = () => {
     });
   }, [filteredDeposits, sortBy, sortOrder]);
 
-  // Paginated deposits
   const paginatedDeposits = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return sortedDeposits.slice(startIndex, startIndex + itemsPerPage);
@@ -318,13 +233,16 @@ const BankPage = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-neutral-800">Bank Deposits</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-neutral-600">Live data</span>
+    <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
+      <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
+        <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
+              Bank Deposits
+            </h1>
+            <p className="text-slate-600 text-lg max-w-2xl leading-relaxed">
+              Monitor your bank deposits, manage transactions, and track financial activities with our comprehensive platform.
+            </p>
           </div>
         </div>
       </div>
@@ -336,67 +254,65 @@ const BankPage = () => {
         setShowDateFilter={setShowDateFilter}
       />
 
-      {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
+            <div className="p-3 bg-blue-100 rounded-xl">
               <Wallet className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-neutral-600">{dateFilter.type === 'all' ? 'Total Amount' : `Amount for ${dateFilter.type}`}</p>
-              <p className="text-2xl font-bold text-neutral-900">{formatCurrency(metrics.totalAmount)}</p>
+              <p className="text-sm text-slate-600">{dateFilter.type === 'all' ? 'Total Amount' : `Amount for ${dateFilter.type}`}</p>
+              <p className="text-2xl font-bold text-slate-800">{formatCurrency(metrics.totalAmount)}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-green-600" />
+            <div className="p-3 bg-emerald-100 rounded-xl">
+              <TrendingUp className="w-6 h-6 text-emerald-600" />
             </div>
             <div>
-              <p className="text-sm text-neutral-600">This Month</p>
-              <p className="text-2xl font-bold text-neutral-900">{formatCurrency(metrics.thisMonthAmount)}</p>
+              <p className="text-sm text-slate-600">This Month</p>
+              <p className="text-2xl font-bold text-slate-800">{formatCurrency(metrics.thisMonthAmount)}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-3 bg-purple-100 rounded-xl">
               <Calendar className="w-6 h-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-neutral-600">Total Deposits</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.totalDeposits}</p>
+              <p className="text-sm text-slate-600">Total Deposits</p>
+              <p className="text-2xl font-bold text-slate-800">{metrics.totalDeposits}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
+            <div className="p-3 bg-orange-100 rounded-xl">
               <Users className="w-6 h-6 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm text-neutral-600">Depositors</p>
-              <p className="text-2xl font-bold text-neutral-900">{metrics.uniqueDepositors}</p>
+              <p className="text-sm text-slate-600">Depositors</p>
+              <p className="text-2xl font-bold text-slate-800">{metrics.uniqueDepositors}</p>
             </div>
           </div>
         </div>
       </div>
       
-      {/* Add New Deposit Form */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
-        <h3 className="text-lg font-semibold mb-4">Add New Deposit</h3>
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <h3 className="text-2xl font-bold text-slate-800 mb-4">Add New Deposit</h3>
         <form onSubmit={handleAddDeposit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="p-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
             <input
@@ -405,7 +321,7 @@ const BankPage = () => {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Amount (UGX)"
-              className="p-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
             <div className="relative">
@@ -415,7 +331,7 @@ const BankPage = () => {
                 onChange={setDepositor}
                 placeholder="Select or type depositor"
                 allowNew={true}
-                icon={<Users className="w-5 h-5 text-neutral-400" />}
+                icon={<Users className="w-5 h-5 text-slate-400" />}
               />
               <button
                 type="button"
@@ -432,13 +348,13 @@ const BankPage = () => {
               onChange={setBank}
               placeholder="Select bank"
               allowNew={false}
-              icon={<Building2 className="w-5 h-5 text-neutral-400" />}
+              icon={<Building2 className="w-5 h-5 text-slate-400" />}
             />
           </div>
           <button
             type="submit"
             disabled={!amount || !date || !depositor || !bank}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5" />
             Add Deposit
@@ -446,18 +362,17 @@ const BankPage = () => {
         </form>
       </div>
 
-      {/* Add Depositor Modal */}
       {showAddDepositorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Add New Depositor</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-2xl font-bold text-slate-800 mb-4">Add New Depositor</h3>
             <div className="space-y-4">
               <input
                 type="text"
                 value={newDepositorName}
                 onChange={(e) => setNewDepositorName(e.target.value)}
                 placeholder="Depositor name"
-                className="w-full p-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 autoFocus
               />
               <div className="flex gap-3 justify-end">
@@ -466,14 +381,14 @@ const BankPage = () => {
                     setShowAddDepositorModal(false);
                     setNewDepositorName('');
                   }}
-                  className="px-4 py-2 text-neutral-600 hover:text-neutral-800 transition-colors"
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddNewDepositor}
                   disabled={!newDepositorName.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Add Depositor
                 </button>
@@ -483,13 +398,12 @@ const BankPage = () => {
         </div>
       )}
 
-      {/* Deposits Cards */}
-      <div className="bg-white rounded-lg shadow-sm border border-neutral-200">
-        <div className="p-6 border-b border-neutral-200">
-          <div className="flex justify-between items-center">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h3 className="text-lg font-semibold">Deposits History</h3>
-              <p className="text-sm text-neutral-600 mt-1">
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">Deposits History</h3>
+              <p className="text-slate-600">
                 Showing {paginatedDeposits.length} of {sortedDeposits.length} deposits
               </p>
             </div>
@@ -497,7 +411,7 @@ const BankPage = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="date">Sort by Date</option>
                 <option value="amount">Sort by Amount</option>
@@ -506,7 +420,7 @@ const BankPage = () => {
               </select>
               <button
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm hover:bg-neutral-50"
+                className="px-3 py-2 border border-slate-300 rounded-xl text-sm hover:bg-slate-50"
               >
                 {sortOrder === 'asc' ? '↑' : '↓'}
               </button>
@@ -517,13 +431,13 @@ const BankPage = () => {
         <div className="p-6">
           {paginatedDeposits.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Wallet className="w-8 h-8 text-neutral-400" />
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wallet className="w-8 h-8 text-slate-400" />
               </div>
-              <p className="text-neutral-500 text-lg mb-2">
+              <p className="text-slate-500 text-lg mb-2">
                 {dateFilter.type !== 'all' ? "No deposits found for selected period" : "No deposits found"}
               </p>
-              <p className="text-neutral-400">
+              <p className="text-slate-400">
                 {dateFilter.type !== 'all' ? "Try adjusting your date filter" : "Add your first deposit above to get started"}
               </p>
             </div>
@@ -532,7 +446,7 @@ const BankPage = () => {
               {paginatedDeposits.map((deposit) => (
                 <div
                   key={deposit.id}
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md ${
+                  className={`p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${
                     depositorColors[deposit.depositor] || 'bg-gray-100 border-gray-200 text-gray-800'
                   }`}
                 >
@@ -554,7 +468,7 @@ const BankPage = () => {
                     </div>
                     <button
                       onClick={() => handleDeleteDeposit(deposit.id)}
-                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors duration-200"
                       title="Delete deposit"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -565,24 +479,23 @@ const BankPage = () => {
             </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-6 border-t border-neutral-200">
-              <div className="text-sm text-neutral-600">
+            <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-200">
+              <div className="text-sm text-slate-600">
                 Page {currentPage} of {totalPages}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="p-2 border border-neutral-300 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 border border-slate-300 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-2 border border-neutral-300 rounded-lg hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 border border-slate-300 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
