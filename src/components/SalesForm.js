@@ -378,7 +378,7 @@ const SalesForm = ({ sale, onClose, clients, products }) => {
             type="submit"
             onClick={handleSubmit}
             disabled={isSubmitting || !formData.client || !formData.productId || !formData.supplyType || !formData.unitPrice || !formData.quantity}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? "Saving..." : sale ? "Update Sale" : "Add Sale"}
           </button>
