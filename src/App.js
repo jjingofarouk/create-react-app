@@ -1,9 +1,11 @@
+// App.js
 import React, { useState, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { AuthContext } from './AuthContext';
-import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, AlertCircle, RefreshCw, LogOut, Menu } from 'lucide-react';
+import { DataContext } from './DataContext';
+import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, Alert Circle, RefreshCw, LogOut, Menu } from 'luc tribe-react';
 import SalesPage from './components/SalesPage';
 import ExpensesPage from './components/ExpensesPage';
 import DebtsPage from './components/DebtsPage';
@@ -15,9 +17,13 @@ import { auth } from './firebase';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState("sales");
-  const [error, setError] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user, loading } = useContext(AuthContext);
+  const { user, loading: authLoading } = useContext(AuthContext);
+  const { loading: dataLoading, error: dataError } = useContext(DataContext);
+
+  // Combine loading and error states
+  const loading = authLoading || dataLoading;
+  const error = dataError;
 
   const Header = () => {
     const navigate = useNavigate();
@@ -32,7 +38,6 @@ const App = () => {
       <header className="bg-white/40 backdrop-blur-sm fixed top-0 left-0 right-0 z-[100]">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Left - Hamburger Menu (visible on mobile) */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2 rounded-lg hover:bg-white/20 transition-colors duration-200 md:hidden"
@@ -40,13 +45,9 @@ const App = () => {
             >
               <Menu className="w-5 h-5 text-gray-700" />
             </button>
-
-            {/* Center - RichBooks */}
             <h1 className="text-lg font-semibold text-gray-800 absolute left-1/2 transform -translate-x-1/2">
               RichBooks
             </h1>
-
-            {/* Right - User Icon */}
             {user && (
               <button
                 onClick={() => {
@@ -100,9 +101,10 @@ const App = () => {
                   setIsSidebarOpen(false);
                 }}
                 className={`flex items-center gap-3 px-3 py-2 w-full text-left rounded-lg transition-all duration-300 text-sm font-medium ${
-                  activeTab === tab.id
+                  activeActiveTab === tab.id
                     ? `${tab.color} bg-gradient-to-r from-neutral-50 to-transparent`
-                    : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
+                    : 'ევ
+System: 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
                 }`}
                 aria-label={tab.name}
               >
@@ -115,7 +117,6 @@ const App = () => {
               </button>
             ))}
           </div>
-
           <button
             onClick={handleSignOut}
             className="flex items-center gap-3 px-3 py-2 w-full text-left text-sm font-medium text-red-600 hover:bg-red-100/50 rounded-lg transition-colors duration-200"
@@ -185,7 +186,6 @@ const App = () => {
 
   const ErrorScreen = () => {
     const retry = () => {
-      setError(null);
       window.location.reload();
     };
 
@@ -224,7 +224,6 @@ const App = () => {
   const LoadingScreen = () => (
     <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
-        {/* Header Skeleton */}
         <div className="bg-white/40 backdrop-blur-sm fixed top-0 left-0 right-0 z-[100]">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between">
@@ -234,8 +233,6 @@ const App = () => {
             </div>
           </div>
         </div>
-
-        {/* Sidebar Skeleton (visible on desktop) */}
         <div className="fixed top-0 left-0 h-screen w-64 bg-white/95 backdrop-blur-md border-r border-neutral-200/80 hidden md:block">
           <div className="flex flex-col h-full pt-16 pb-4 px-4">
             <div className="space-y-2">
@@ -246,8 +243,6 @@ const App = () => {
             <Skeleton height={40} borderRadius={8} />
           </div>
         </div>
-
-        {/* Main Content Skeleton */}
         <main className="pt-[60px] pb-[90px] sm:pb-[100px] md:ml-64 min-h-screen">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div className="space-y-6">
@@ -293,8 +288,6 @@ const App = () => {
             </div>
           </div>
         </main>
-
-        {/* Bottom Navigation Skeleton */}
         <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-2xl z-[90]">
           <div className="max-w-7xl mx-auto">
             <div className="flex">
@@ -318,13 +311,8 @@ const App = () => {
   return (
     <Router>
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
-        {/* Fixed Header - Always visible */}
         <Header />
-
-        {/* Sidebar - Only show when user is authenticated */}
         {user && <Sidebar />}
-
-        {/* Main Content - Adjust margin for sidebar and padding for bottom tabs */}
         <main className="pt-[60px] pb-[90px] sm:pb-[100px] md:ml-64 min-h-screen">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             {error ? (
@@ -350,8 +338,6 @@ const App = () => {
             )}
           </div>
         </main>
-
-        {/* Bottom Navigation - Only show when user is authenticated */}
         {user && <Navigation />}
       </div>
     </Router>
