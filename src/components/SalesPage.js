@@ -1,18 +1,8 @@
-import React, { useState, useMemo } from "react";
-import { 
-  useReactTable, 
-  getCoreRowModel, 
-  getFilteredRowModel, 
-  getSortedRowModel,
-  flexRender 
-} from "@tanstack/react-table";
-import { format, startOfDay, endOfDay, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import React, { useState, useEffect, useMemo } from "react";
+import { collection, query, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import { 
   Plus, 
-  Trash2, 
-  Edit, 
-  Search, 
-  X, 
   User, 
   Package, 
   Calendar,
@@ -30,7 +20,7 @@ import ClientForm from "./ClientForm";
 import ProductForm from "./ProductForm";
 import SalesTable from "./SalesTable";
 
-const SalesPage = ({ sales, clients, products, userId }) => {
+const SalesPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -49,6 +39,73 @@ const SalesPage = ({ sales, clients, products, userId }) => {
     phone: "", 
     address: "" 
   });
+  const [sales, setSales] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const salesQuery = query(collection(db, `users/${user.uid}/sales`));
+      const unsubscribeSales = onSnapshot(
+        salesQuery,
+        (snapshot) => {
+          const salesData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setSales(salesData);
+        },
+        (err) => {
+          console.error("Error fetching sales:", err);
+        }
+      );
+
+      const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
+      const unsubscribeClients = onSnapshot(
+        clientsQuery,
+        (snapshot) => {
+          const clientsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setClients(clientsData);
+        },
+        (err) => {
+          console.error("Error fetching clients:", err);
+        }
+      );
+
+      const productsQuery = query(collection(db, `users/${user.uid}/products`));
+      const unsubscribeProducts = onSnapshot(
+        productsQuery,
+        (snapshot) => {
+          const productsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setProducts(productsData);
+        },
+        (err) => {
+          console.error("Error fetching products:", err);
+        }
+      );
+
+      return () => {
+        unsubscribeSales();
+        unsubscribeClients();
+        unsubscribeProducts();
+      };
+    }
+  }, [user]);
 
   return (
     <div className="space-y-6 max-w-[100vw] overflow-x-hidden">
@@ -104,7 +161,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
         globalFilter={globalFilter}
         setGlobalFilter={setGlobalFilter}
         dateFilter={dateFilter}
-        userId={userId}
         setEditingSale={setEditingSale}
         setShowForm={setShowForm}
       />
@@ -114,7 +170,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
           sale={editingSale}
           clients={clients}
           products={products}
-          userId={userId}
           onClose={() => {
             setShowForm(false);
             setEditingSale(null);
@@ -127,7 +182,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
           newClient={newClient}
           setNewClient={setNewClient}
           setShowClientForm={setShowClientForm}
-          userId={userId}
         />
       )}
 
@@ -136,7 +190,6 @@ const SalesPage = ({ sales, clients, products, userId }) => {
           newProduct={newProduct}
           setNewProduct={setNewProduct}
           setShowProductForm={setShowProductForm}
-          userId={userId}
         />
       )}
     </div>
