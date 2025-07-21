@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useContext } from "react";
 import { User, Mail, Lock, LogOut } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
+import { AuthContext } from "../AuthContext";
 import toast from "react-hot-toast";
 
-const ProfilePage = ({ user }) => {
+const ProfilePage = () => {
+  const { user } = useContext(AuthContext);
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -14,14 +17,35 @@ const ProfilePage = ({ user }) => {
     }
   };
 
+  // Show loading if user is not available yet
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-6 max-w-md w-full">
+          <div className="animate-pulse">
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-gray-300 mb-4"></div>
+              <div className="h-6 bg-gray-300 rounded w-48"></div>
+            </div>
+            <div className="space-y-4">
+              <div className="h-16 bg-gray-300 rounded-lg"></div>
+              <div className="h-16 bg-gray-300 rounded-lg"></div>
+              <div className="h-12 bg-gray-300 rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-6 max-w-md w-full">
         <h2 className="text-2xl font-bold text-neutral-800 mb-6 text-center">Profile</h2>
         
         <div className="flex flex-col items-center mb-6">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-            <User className="w-8 h-8 text-primary" />
+          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+            <User className="w-8 h-8 text-blue-600" />
           </div>
           <h3 className="text-lg font-semibold text-neutral-800">{user.email}</h3>
         </div>
@@ -45,7 +69,7 @@ const ProfilePage = ({ user }) => {
 
           <button 
             onClick={handleSignOut}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-200"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors duration-200"
           >
             <LogOut className="w-5 h-5" />
             <span>Sign Out</span>
