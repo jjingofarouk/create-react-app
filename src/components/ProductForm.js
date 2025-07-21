@@ -1,15 +1,25 @@
-import React from "react";
-import { X } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { X } from "lucide-react";
 
-const ProductForm = ({ newProduct, setNewProduct, setShowProductForm, userId }) => {
+const ProductForm = ({ newProduct, setNewProduct, setShowProductForm }) => {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (!newProduct.name.trim() || !newProduct.price) return;
+    if (!newProduct.name.trim() || !newProduct.price || !user) return;
     
     try {
-      await addDoc(collection(db, `users/${userId}/products`), {
+      await addDoc(collection(db, `users/${user.uid}/products`), {
         name: newProduct.name.trim(),
         price: parseFloat(newProduct.price),
         createdAt: new Date(),
