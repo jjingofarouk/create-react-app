@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
-import { auth } from './firebase';
+import { AuthContext } from './AuthContext';
 import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, AlertCircle, RefreshCw } from 'lucide-react';
 import SalesPage from './components/SalesPage';
 import ExpensesPage from './components/ExpensesPage';
@@ -9,20 +9,13 @@ import ProfilePage from './components/ProfilePage';
 import ReportsPage from './components/ReportsPage';
 import BankPage from './components/BankPage';
 import Auth from './components/Auth';
+import { auth } from './firebase';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState("sales");
-  const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
   const [showHeader, setShowHeader] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { user, loading } = useContext(AuthContext);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -176,26 +169,34 @@ const App = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <Router>
       <div className="min-h-screen bg-neutral-50 flex flex-col">
         <Header />
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-[80px] sm:pb-[90px]">
-          {user ? (
-            <Routes>
-              <Route path="/sales" element={<SalesPage />} />
-              <Route path="/debts" element={<DebtsPage />} />
-              <Route path="/expenses" element={<ExpensesPage />} />
-              <Route path="/bank" element={<BankPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="*" element={<ErrorScreen />} />
-            </Routes>
-          ) : (
-            <Routes>
+          <Routes>
+            {user ? (
+              <>
+                <Route path="/sales" element={<SalesPage />} />
+                <Route path="/debts" element={<DebtsPage />} />
+                <Route path="/expenses" element={<ExpensesPage />} />
+                <Route path="/bank" element={<BankPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="*" element={<ErrorScreen />} />
+              </>
+            ) : (
               <Route path="*" element={<Auth />} />
-            </Routes>
-          )}
+            )}
+          </Routes>
         </main>
         {user && <Navigation />}
       </div>
