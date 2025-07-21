@@ -19,14 +19,25 @@ const App = () => {
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
+    let ticking = false;
 
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      setShowHeader(currentScrollY <= lastScrollY || currentScrollY < 100);
-      lastScrollY = currentScrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            setShowHeader(false);
+          } else {
+            setShowHeader(true);
+          }
+          lastScrollY = currentScrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -39,6 +50,14 @@ const App = () => {
       navigate('/');
     };
 
+    const tabs = [
+      { id: "sales", name: "Sales", icon: ShoppingCart, path: '/sales' },
+      { id: "debts", name: "Debts", icon: CreditCard, path: '/debts' },
+      { id: "expenses", name: "Expenses", icon: TrendingDown, path: '/expenses' },
+      { id: "bank", name: "Bank", icon: Banknote, path: '/bank' },
+      { id: "reports", name: "Reports", icon: FileText, path: '/reports' },
+    ];
+
     return (
       <header className={`bg-white border-b border-neutral-200 fixed top-0 left-0 right-0 z-50 shadow-sm transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -50,12 +69,31 @@ const App = () => {
           
           {user && (
             <div className="flex items-center gap-2 sm:gap-4">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    navigate(tab.path);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm sm:text-base ${
+                    activeTab === tab.id
+                      ? "bg-blue-100 text-blue-600"
+                      : "hover:bg-neutral-100 text-neutral-600"
+                  }`}
+                  aria-label={tab.name}
+                >
+                  <tab.icon className="w-5 h-5" />
+                  <span className="hidden sm:inline">{tab.name}</span>
+                </button>
+              ))}
+              
               <button
                 onClick={() => {
                   setActiveTab("profile");
                   navigate('/profile');
                 }}
-                className={`p-2 rounded-full transition-all duration-200 ${
+                className={`p-2 rounded-lg transition-all duration-200 ${
                   activeTab === "profile" 
                     ? "bg-blue-100 text-blue-600" 
                     : "hover:bg-neutral-100 text-neutral-600"
@@ -77,58 +115,6 @@ const App = () => {
           )}
         </div>
       </header>
-    );
-  };
-
-  const Navigation = () => {
-    const navigate = useNavigate();
-    
-    const tabs = [
-      { id: "sales", name: "Sales", icon: ShoppingCart, path: '/sales' },
-      { id: "debts", name: "Debts", icon: CreditCard, path: '/debts' },
-      { id: "expenses", name: "Expenses", icon: TrendingDown, path: '/expenses' },
-      { id: "bank", name: "Bank", icon: Banknote, path: '/bank' },
-      { id: "reports", name: "Reports", icon: FileText, path: '/reports' },
-    ];
-
-    return (
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-neutral-200 shadow-lg z-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  navigate(tab.path);
-                }}
-                className={`flex-1 flex flex-col items-center justify-center py-2 sm:py-3 px-1 text-xs font-medium transition-all duration-200 relative min-h-[60px] sm:min-h-[70px] ${
-                  activeTab === tab.id
-                    ? "text-blue-600"
-                    : "text-neutral-500 hover:text-neutral-700"
-                }`}
-                aria-label={tab.name}
-              >
-                {activeTab === tab.id && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-blue-600 rounded-full"></div>
-                )}
-                
-                <tab.icon 
-                  className={`w-4 h-4 sm:w-5 sm:h-5 mb-1 ${
-                    activeTab === tab.id ? 'scale-110' : ''
-                  } transition-transform duration-200`} 
-                />
-                
-                <span className={`text-[10px] sm:text-xs leading-tight ${
-                  activeTab === tab.id ? 'font-semibold' : ''
-                }`}>
-                  {tab.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
     );
   };
 
@@ -181,7 +167,7 @@ const App = () => {
     <Router>
       <div className="min-h-screen bg-neutral-50 flex flex-col">
         <Header />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-[80px] sm:pb-[90px]">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pt-[80px] sm:pt-[90px]">
           <Routes>
             {user ? (
               <>
@@ -198,7 +184,6 @@ const App = () => {
             )}
           </Routes>
         </main>
-        {user && <Navigation />}
       </div>
     </Router>
   );
