@@ -1,10 +1,11 @@
-// DebtsPage.jsx
 import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, Link, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X, Link, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Calendar, Users, DollarSign, Clock } from "lucide-react";
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from "@tanstack/react-table";
-import { format } from "date-fns";
+// Using native JavaScript Date methods instead of date-fns
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
 import SalesForm from "./SalesForm";
@@ -21,10 +22,12 @@ const DebtsPage = () => {
   const [products, setProducts] = useState([]);
   const [user, setUser] = useState(null);
   const [sorting, setSorting] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
+      if (!currentUser) setLoading(false);
     });
 
     return () => unsubscribe();
@@ -32,6 +35,17 @@ const DebtsPage = () => {
 
   useEffect(() => {
     if (user) {
+      setLoading(true);
+      let loadedCount = 0;
+      const totalCollections = 4;
+
+      const checkAllLoaded = () => {
+        loadedCount++;
+        if (loadedCount === totalCollections) {
+          setLoading(false);
+        }
+      };
+
       const debtsQuery = query(collection(db, `users/${user.uid}/debts`));
       const unsubscribeDebts = onSnapshot(
         debtsQuery,
@@ -41,9 +55,11 @@ const DebtsPage = () => {
             ...doc.data(),
           }));
           setDebts(debtsData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching debts:", err);
+          checkAllLoaded();
         }
       );
 
@@ -56,9 +72,11 @@ const DebtsPage = () => {
             ...doc.data(),
           }));
           setClients(clientsData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching clients:", err);
+          checkAllLoaded();
         }
       );
 
@@ -71,9 +89,11 @@ const DebtsPage = () => {
             ...doc.data(),
           }));
           setSales(salesData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching sales:", err);
+          checkAllLoaded();
         }
       );
 
@@ -86,9 +106,11 @@ const DebtsPage = () => {
             ...doc.data(),
           }));
           setProducts(productsData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching products:", err);
+          checkAllLoaded();
         }
       );
 
@@ -110,6 +132,61 @@ const DebtsPage = () => {
     });
     setFilteredDebts(filtered);
   }, [filter, debts]);
+
+  // Calculate summary metrics
+  const summaryMetrics = React.useMemo(() => {
+    const activeDebts = debts.filter(debt => debt.amount > 0);
+    const paidDebts = debts.filter(debt => debt.amount === 0);
+    
+    const totalDebts = debts.length;
+    const totalAmountOwed = activeDebts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
+    
+    // Highest debt
+    const highestDebt = activeDebts.length > 0 
+      ? activeDebts.reduce((max, debt) => debt.amount > max.amount ? debt : max, activeDebts[0])
+      : null;
+    
+    // Lowest debt
+    const lowestDebt = activeDebts.length > 0 
+      ? activeDebts.reduce((min, debt) => debt.amount < min.amount ? debt : min, activeDebts[0])
+      : null;
+    
+    // Oldest debt
+    const oldestDebt = activeDebts.length > 0 
+      ? activeDebts.reduce((oldest, debt) => {
+          const debtDate = debt.createdAt?.toDate();
+          const oldestDate = oldest.createdAt?.toDate();
+          return debtDate && oldestDate && debtDate < oldestDate ? debt : oldest;
+        }, activeDebts[0])
+      : null;
+    
+    // Newest debt
+    const newestDebt = activeDebts.length > 0 
+      ? activeDebts.reduce((newest, debt) => {
+          const debtDate = debt.createdAt?.toDate();
+          const newestDate = newest.createdAt?.toDate();
+          return debtDate && newestDate && debtDate > newestDate ? debt : newest;
+        }, activeDebts[0])
+      : null;
+
+    // Days since oldest debt
+    const daysSinceOldest = oldestDebt?.createdAt 
+      ? differenceInDays(new Date(), oldestDebt.createdAt.toDate())
+      : 0;
+
+    return {
+      totalDebts,
+      activeDebts: activeDebts.length,
+      paidDebts: paidDebts.length,
+      totalAmountOwed,
+      highestDebt,
+      lowestDebt,
+      oldestDebt,
+      newestDebt,
+      daysSinceOldest,
+      averageDebtAmount: activeDebts.length > 0 ? totalAmountOwed / activeDebts.length : 0
+    };
+  }, [debts]);
 
   // Custom sort function for different data types
   const getSortValue = (row, columnId) => {
@@ -266,6 +343,142 @@ const DebtsPage = () => {
     );
   };
 
+  // Summary Cards Component
+  const SummaryCards = () => {
+    if (loading) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200">
+              <div className="flex items-center justify-between mb-4">
+                <Skeleton height={40} width={40} borderRadius={8} />
+                <Skeleton height={16} width={60} />
+              </div>
+              <Skeleton height={28} width="80%" className="mb-2" />
+              <Skeleton height={16} width="100%" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Debts */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <span className="text-sm font-medium text-neutral-500 bg-neutral-100 px-2 py-1 rounded">Total</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">{summaryMetrics.totalDebts}</div>
+          <p className="text-sm text-neutral-600">Total Debts</p>
+        </div>
+
+        {/* Active Debts */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-amber-100 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-amber-600" />
+            </div>
+            <span className="text-sm font-medium text-amber-600 bg-amber-100 px-2 py-1 rounded">Active</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">{summaryMetrics.activeDebts}</div>
+          <p className="text-sm text-neutral-600">Pending Debts</p>
+        </div>
+
+        {/* Total Amount Owed */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-red-100 rounded-lg">
+              <DollarSign className="w-6 h-6 text-red-600" />
+            </div>
+            <span className="text-sm font-medium text-red-600 bg-red-100 px-2 py-1 rounded">Amount</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">
+            {summaryMetrics.totalAmountOwed.toLocaleString()} UGX
+          </div>
+          <p className="text-sm text-neutral-600">Total Amount Owed</p>
+        </div>
+
+        {/* Paid Debts */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-emerald-100 rounded-lg">
+              <TrendingDown className="w-6 h-6 text-emerald-600" />
+            </div>
+            <span className="text-sm font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded">Paid</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">{summaryMetrics.paidDebts}</div>
+          <p className="text-sm text-neutral-600">Paid Debts</p>
+        </div>
+
+        {/* Highest Debt */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-purple-100 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-purple-600" />
+            </div>
+            <span className="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">Highest</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">
+            {summaryMetrics.highestDebt ? `${summaryMetrics.highestDebt.amount.toLocaleString()} UGX` : '0 UGX'}
+          </div>
+          <p className="text-sm text-neutral-600 truncate">
+            {summaryMetrics.highestDebt ? summaryMetrics.highestDebt.client || 'Unknown Client' : 'No debts'}
+          </p>
+        </div>
+
+        {/* Lowest Debt */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-indigo-100 rounded-lg">
+              <TrendingDown className="w-6 h-6 text-indigo-600" />
+            </div>
+            <span className="text-sm font-medium text-indigo-600 bg-indigo-100 px-2 py-1 rounded">Lowest</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">
+            {summaryMetrics.lowestDebt ? `${summaryMetrics.lowestDebt.amount.toLocaleString()} UGX` : '0 UGX'}
+          </div>
+          <p className="text-sm text-neutral-600 truncate">
+            {summaryMetrics.lowestDebt ? summaryMetrics.lowestDebt.client || 'Unknown Client' : 'No debts'}
+          </p>
+        </div>
+
+        {/* Oldest Debt */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <Clock className="w-6 h-6 text-orange-600" />
+            </div>
+            <span className="text-sm font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded">Oldest</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">
+            {summaryMetrics.daysSinceOldest} days
+          </div>
+          <p className="text-sm text-neutral-600 truncate">
+            {summaryMetrics.oldestDebt ? summaryMetrics.oldestDebt.client || 'Unknown Client' : 'No debts'}
+          </p>
+        </div>
+
+        {/* Average Debt */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-teal-100 rounded-lg">
+              <Calendar className="w-6 h-6 text-teal-600" />
+            </div>
+            <span className="text-sm font-medium text-teal-600 bg-teal-100 px-2 py-1 rounded">Average</span>
+          </div>
+          <div className="text-2xl font-bold text-neutral-800 mb-1">
+            {Math.round(summaryMetrics.averageDebtAmount).toLocaleString()} UGX
+          </div>
+          <p className="text-sm text-neutral-600">Average Debt Amount</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -283,6 +496,9 @@ const DebtsPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Summary Cards */}
+      <SummaryCards />
 
       <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
         <div className="p-6 border-b border-neutral-100">
@@ -314,49 +530,58 @@ const DebtsPage = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100">
-              {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
-                    <th
-                      key={header.id}
-                      className={`px-6 py-4 text-left text-xs font-semibold text-neutral-700 uppercase tracking-wider ${
-                        header.column.getCanSort() 
-                          ? 'cursor-pointer select-none hover:bg-neutral-100 transition-colors' 
-                          : ''
-                      }`}
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      <div className="flex items-center">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {renderSortIcon(header)}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
+          {loading ? (
+            <div className="p-6">
+              <Skeleton height={40} className="mb-4" />
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} height={60} className="mb-2" />
               ))}
-            </thead>
-            <tbody className="bg-white divide-y divide-neutral-100">
-              {table.getRowModel().rows.map((row, index) => (
-                <tr 
-                  key={row.id} 
-                  className={`hover:bg-neutral-50 transition-colors ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-neutral-25'
-                  }`}
-                >
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100">
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        className={`px-6 py-4 text-left text-xs font-semibold text-neutral-700 uppercase tracking-wider ${
+                          header.column.getCanSort() 
+                            ? 'cursor-pointer select-none hover:bg-neutral-100 transition-colors' 
+                            : ''
+                        }`}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <div className="flex items-center">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {renderSortIcon(header)}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="bg-white divide-y divide-neutral-100">
+                {table.getRowModel().rows.map((row, index) => (
+                  <tr 
+                    key={row.id} 
+                    className={`hover:bg-neutral-50 transition-colors ${
+                      index % 2 === 0 ? 'bg-white' : 'bg-neutral-25'
+                    }`}
+                  >
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-800">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {filteredDebts.length === 0 && (
+        {!loading && filteredDebts.length === 0 && (
           <div className="text-center py-12 text-neutral-500 bg-neutral-25">
             <div className="text-lg font-medium mb-2">
               {filter ? "No matching debts found" : "No debts recorded yet"}
@@ -371,18 +596,22 @@ const DebtsPage = () => {
       </div>
 
       {showForm && (
-        <DebtForm
-          debt={editingDebt}
-          onClose={() => {
-            setShowForm(false);
-            setEditingDebt(null);
-          }}
-        />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8">
+            <DebtForm
+              debt={editingDebt}
+              onClose={() => {
+                setShowForm(false);
+                setEditingDebt(null);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {showSalesForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8">
             <SalesForm
               sale={editingSale}
               clients={clients}
