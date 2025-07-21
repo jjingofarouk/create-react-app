@@ -3,11 +3,89 @@ import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapsh
 import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
-import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { startOfMonth, endOfMonth, format, subDays, subMonths } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
+
+const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
+  const handleDateFilterChange = (type) => {
+    const today = new Date();
+    let startDate, endDate;
+
+    switch (type) {
+      case 'today':
+        startDate = today;
+        endDate = today;
+        break;
+      case 'week':
+        startDate = subDays(today, 7);
+        endDate = today;
+        break;
+      case 'month':
+        startDate = startOfMonth(today);
+        endDate = endOfMonth(today);
+        break;
+      case '6months':
+        startDate = subMonths(today, 6);
+        endDate = today;
+        break;
+      case 'all':
+        startDate = null;
+        endDate = null;
+        break;
+      default:
+        startDate = today;
+        endDate = today;
+    }
+
+    setDateFilter({
+      type,
+      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
+      endDate: endDate ? endDate.toISOString().split("T")[0] : null
+    });
+    setShowDateFilter(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowDateFilter(!showDateFilter)}
+        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+      >
+        <Calendar className="w-5 h-5" />
+        <span className="font-medium">Filter Dates</span>
+      </button>
+
+      {showDateFilter && (
+        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
+          <div className="flex flex-col gap-2">
+            {[
+              { type: 'today', label: 'Today' },
+              { type: 'week', label: 'Last 7 Days' },
+              { type: 'month', label: 'This Month' },
+              { type: '6months', label: 'Last 6 Months' },
+              { type: 'all', label: 'All Time' }
+            ].map(({ type, label }) => (
+              <button
+                key={type}
+                onClick={() => handleDateFilterChange(type)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  dateFilter.type === type
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ExpensesPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -24,10 +102,16 @@ const ExpensesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sorting, setSorting] = useState([]);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    type: 'today',
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0]
+  });
 
   // Key metrics calculations
   const keyMetrics = useMemo(() => {
-    if (!expenses || expenses.length === 0) {
+    if (!filteredExpenses || filteredExpenses.length === 0) {
       return {
         totalExpenses: 0,
         thisMonthTotal: 0,
@@ -42,9 +126,9 @@ const ExpensesPage = () => {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
-    const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
     
-    const thisMonthExpenses = expenses.filter(expense => {
+    const thisMonthExpenses = filteredExpenses.filter(expense => {
       if (!expense.createdAt) return false;
       const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
       return expenseDate >= monthStart && expenseDate <= monthEnd;
@@ -52,13 +136,13 @@ const ExpensesPage = () => {
     
     const thisMonthTotal = thisMonthExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
     
-    const highestExpense = expenses.reduce((max, expense) => {
+    const highestExpense = filteredExpenses.reduce((max, expense) => {
       const amount = parseFloat(expense.amount) || 0;
       return amount > max.amount ? { amount, description: expense.description || "N/A" } : max;
     }, { amount: 0, description: "N/A" });
 
     // Category analysis
-    const categoryTotals = expenses.reduce((acc, expense) => {
+    const categoryTotals = filteredExpenses.reduce((acc, libido) => {
       const category = expense.category || "Uncategorized";
       const amount = parseFloat(expense.amount) || 0;
       acc[category] = (acc[category] || 0) + amount;
@@ -70,7 +154,7 @@ const ExpensesPage = () => {
       { name: "N/A", total: 0 }
     );
 
-    const avgExpense = expenses.length > 0 ? totalExpenses / expenses.length : 0;
+    const avgExpense = filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0;
 
     return {
       totalExpenses,
@@ -78,9 +162,9 @@ const ExpensesPage = () => {
       highestExpense,
       topCategory,
       avgExpense,
-      expenseCount: expenses.length
+      expenseCount: filteredExpenses.length
     };
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -142,16 +226,26 @@ const ExpensesPage = () => {
 
     const filtered = expenses.filter(expense => {
       if (!expense) return false;
-      
+
+      // Text filter
       const categoryMatch = expense.category?.toLowerCase().includes(filter.toLowerCase()) || false;
       const payeeMatch = expense.payee?.toLowerCase().includes(filter.toLowerCase()) || false;
       const descriptionMatch = expense.description?.toLowerCase().includes(filter.toLowerCase()) || false;
-      
-      return categoryMatch || payeeMatch || descriptionMatch || filter === "";
+
+      // Date filter
+      let dateMatch = true;
+      if (dateFilter.startDate && dateFilter.endDate && expense.createdAt) {
+        const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
+        const startDate = new Date(dateFilter.startDate);
+        const endDate = new Date(dateFilter.endDate);
+        dateMatch = expenseDate >= startDate && expenseDate <= endDate;
+      }
+
+      return (categoryMatch || payeeMatch || descriptionMatch || filter === "") && dateMatch;
     });
     
     setFilteredExpenses(filtered);
-  }, [filter, expenses]);
+  }, [filter, expenses, dateFilter]);
 
   const columns = [
     {
@@ -382,6 +476,13 @@ const ExpensesPage = () => {
         </div>
       </div>
 
+      <DateFilter
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        showDateFilter={showDateFilter}
+        setShowDateFilter={setShowDateFilter}
+      />
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center gap-2">
           <X className="w-5 h-5" />
@@ -403,7 +504,7 @@ const ExpensesPage = () => {
           <h3 className="text-2xl font-bold text-gray-900 mb-1">
             UGX {keyMetrics.totalExpenses.toLocaleString()}
           </h3>
-          <p className="text-gray-500 text-sm">All time expenses</p>
+          <p className="text-gray-500 text-sm">{dateFilter.type === 'all' ? 'All time expenses' : `Expenses for ${dateFilter.type}`}</p>
         </div>
 
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -520,10 +621,10 @@ const ExpensesPage = () => {
               <Search className="w-8 h-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {filter ? "No matching expenses found" : "No expenses recorded yet"}
+              {filter || dateFilter.type !== 'all' ? "No matching expenses found" : "No expenses recorded yet"}
             </h3>
             <p className="text-gray-500">
-              {filter ? "Try adjusting your search terms" : "Add your first expense to get started"}
+              {filter || dateFilter.type !== 'all' ? "Try adjusting your search terms or date filter" : "Add your first expense to get started"}
             </p>
           </div>
         )}
