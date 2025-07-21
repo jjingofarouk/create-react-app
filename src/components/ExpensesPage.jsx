@@ -3,89 +3,11 @@ import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapsh
 import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
-import { startOfMonth, endOfMonth, format, subDays, subMonths } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
-
-const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
-  const handleDateFilterChange = (type) => {
-    const today = new Date();
-    let startDate, endDate;
-
-    switch (type) {
-      case 'today':
-        startDate = today;
-        endDate = today;
-        break;
-      case 'week':
-        startDate = subDays(today, 7);
-        endDate = today;
-        break;
-      case 'month':
-        startDate = startOfMonth(today);
-        endDate = endOfMonth(today);
-        break;
-      case '6months':
-        startDate = subMonths(today, 6);
-        endDate = today;
-        break;
-      case 'all':
-        startDate = null;
-        endDate = null;
-        break;
-      default:
-        startDate = today;
-        endDate = today;
-    }
-
-    setDateFilter({
-      type,
-      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
-      endDate: endDate ? endDate.toISOString().split("T")[0] : null
-    });
-    setShowDateFilter(false);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setShowDateFilter(!showDateFilter)}
-        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-      >
-        <Calendar className="w-5 h-5" />
-        <span className="font-medium">Filter Dates</span>
-      </button>
-
-      {showDateFilter && (
-        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
-          <div className="flex flex-col gap-2">
-            {[
-              { type: 'today', label: 'Today' },
-              { type: 'week', label: 'Last 7 Days' },
-              { type: 'month', label: 'This Month' },
-              { type: '6months', label: 'Last 6 Months' },
-              { type: 'all', label: 'All Time' }
-            ].map(({ type, label }) => (
-              <button
-                key={type}
-                onClick={() => handleDateFilterChange(type)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateFilter.type === type
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+import DateFilter from "./DateFilter";
 
 const ExpensesPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -109,7 +31,6 @@ const ExpensesPage = () => {
     endDate: new Date().toISOString().split("T")[0]
   });
 
-  // Key metrics calculations
   const keyMetrics = useMemo(() => {
     if (!filteredExpenses || filteredExpenses.length === 0) {
       return {
@@ -141,13 +62,12 @@ const ExpensesPage = () => {
       return amount > max.amount ? { amount, description: expense.description || "N/A" } : max;
     }, { amount: 0, description: "N/A" });
 
-    // Category analysis
     const categoryTotals = filteredExpenses.reduce((acc, expense) => {
-  const category = expense.category || "Uncategorized";
-  const amount = parseFloat(expense.amount) || 0;
-  acc[category] = (acc[category] || 0) + amount;
-  return acc;
-}, {});
+      const category = expense.category || "Uncategorized";
+      const amount = parseFloat(expense.amount) || 0;
+      acc[category] = (acc[category] || 0) + amount;
+      return acc;
+    }, {});
 
     const topCategory = Object.entries(categoryTotals).reduce(
       (max, [name, total]) => total > max.total ? { name, total } : max,
@@ -227,12 +147,10 @@ const ExpensesPage = () => {
     const filtered = expenses.filter(expense => {
       if (!expense) return false;
 
-      // Text filter
       const categoryMatch = expense.category?.toLowerCase().includes(filter.toLowerCase()) || false;
       const payeeMatch = expense.payee?.toLowerCase().includes(filter.toLowerCase()) || false;
       const descriptionMatch = expense.description?.toLowerCase().includes(filter.toLowerCase()) || false;
 
-      // Date filter
       let dateMatch = true;
       if (dateFilter.startDate && dateFilter.endDate && expense.createdAt) {
         const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
@@ -401,7 +319,6 @@ const ExpensesPage = () => {
   if (loading) {
     return (
       <div className="space-y-8">
-        {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <Skeleton height={32} width={200} />
           <div className="flex gap-3">
@@ -410,7 +327,6 @@ const ExpensesPage = () => {
           </div>
         </div>
 
-        {/* Metrics Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-white p-6 rounded-xl border border-gray-100">
@@ -424,10 +340,9 @@ const ExpensesPage = () => {
           ))}
         </div>
 
-        {/* Table Skeleton */}
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <div className="mb-6">
-            <Skeleton height={40} width={300} />
+            <Skeleton thyself={40} width={300} />
           </div>
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -447,32 +362,50 @@ const ExpensesPage = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Expense Tracker
-          </h1>
-          <p className="text-gray-600 mt-1">Manage and analyze your spending</p>
-        </div>
-        <div className="flex gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => {
-              setEditingExpense(null);
-              setShowForm(true);
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">Add Expense</span>
-          </button>
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <Tag className="w-5 h-5" />
-            <span className="font-medium">Categories</span>
-          </button>
+    <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
+      <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-2">
+            <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
+              Expense Tracker
+            </h1>
+            <p className="text-slate-600 text-lg max-w-2xl leading-relaxed">
+              Manage and analyze your spending with our comprehensive expense tracking platform.
+            </p>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                setEditingExpense(null);
+                setShowForm(true);
+              }}
+              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow fathom-blue-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
+                  <Plus className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Add Expense</div>
+                  <div className="text-xs text-slate-500 mt-1">New Transaction</div>
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className="group bg-white hover:bg-gray-50 border-2 border-slate-200 hover:border-gray-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-gray-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-gray-200 transition-colors">
+                  <Tag className="w-6 h-6 text-gray-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Categories</div>
+                  <div className="text-xs text-slate-500 mt-1">Manage Categories</div>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -490,7 +423,6 @@ const ExpensesPage = () => {
         </div>
       )}
 
-      {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between mb-4">
