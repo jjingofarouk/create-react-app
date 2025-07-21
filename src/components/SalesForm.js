@@ -1,3 +1,4 @@
+// SalesForm.jsx
 import React, { useState, useEffect } from "react";
 import { collection, addDoc, updateDoc, doc, query, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
@@ -117,29 +118,38 @@ const SalesForm = ({ sale, onClose }) => {
         updatedAt: new Date(),
       };
 
+      const batch = db.batch();
+      let saleRef;
+
       if (sale) {
-        await updateDoc(doc(db, `users/${user.uid}/sales`, sale.id), saleData);
+        saleRef = doc(db, `users/${user.uid}/sales`, sale.id);
+        batch.update(saleRef, saleData);
+
         const existingDebtQuery = query(
           collection(db, `users/${user.uid}/debts`),
           where("saleId", "==", sale.id)
         );
         const querySnapshot = await getDocs(existingDebtQuery);
-        querySnapshot.forEach(async (doc) => {
-          await deleteDoc(doc.ref);
+        querySnapshot.forEach((doc) => {
+          batch.delete(doc.ref);
         });
       } else {
-        const saleRef = await addDoc(collection(db, `users/${user.uid}/sales`), saleData);
-        if (totalAmount > formData.amountPaid && formData.amountPaid < totalAmount) {
-          await addDoc(collection(db, `users/${user.uid}/debts`), {
-            client: formData.client,
-            amount: totalAmount - formData.amountPaid,
-            saleId: saleRef.id,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-        }
+        saleRef = collection(db, `users/${user.uid}/sales`);
+        saleRef = await addDoc(saleRef, saleData);
       }
 
+      if (totalAmount > formData.amountPaid && formData.amountPaid < totalAmount) {
+        const debtRef = collection(db, `users/${user.uid}/debts`);
+        batch.set(debtRef, {
+          client: formData.client,
+          amount: totalAmount - formData.amountPaid,
+          saleId: saleRef.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+
+      await batch.commit();
       onClose();
     } catch (err) {
       console.error("Error saving sale:", err);
