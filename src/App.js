@@ -1,11 +1,11 @@
 // App.js
 import React, { useState, useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { AuthContext } from './AuthContext';
 import { DataContext } from './DataContext';
-import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, Alert Circle, RefreshCw, LogOut, Menu } from 'luc tribe-react';
+import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, AlertCircle, RefreshCw, LogOut, Menu } from 'lucide-react';
 import SalesPage from './components/SalesPage';
 import ExpensesPage from './components/ExpensesPage';
 import DebtsPage from './components/DebtsPage';
@@ -49,16 +49,25 @@ const App = () => {
               RichBooks
             </h1>
             {user && (
-              <button
-                onClick={() => {
-                  setActiveTab("profile");
-                  navigate('/profile');
-                }}
-                className="p-2 rounded-lg hover:bg-white/20 transition-colors duration-200"
-                aria-label="Profile"
-              >
-                <User className="w-5 h-5 text-gray-700" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSignOut}
+                  className="p-2 rounded-lg bg-red-600 hover:bg-red-700 transition-colors duration-200"
+                  aria-label="Sign Out"
+                >
+                  <LogOut className="w-5 h-5 text-white" />
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("profile");
+                    navigate('/profile');
+                  }}
+                  className="p-2 rounded-lg hover:bg-white/20 transition-colors duration-200"
+                  aria-label="Profile"
+                >
+                  <User className="w-5 h-5 text-gray-700" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -101,10 +110,9 @@ const App = () => {
                   setIsSidebarOpen(false);
                 }}
                 className={`flex items-center gap-3 px-3 py-2 w-full text-left rounded-lg transition-all duration-300 text-sm font-medium ${
-                  activeActiveTab === tab.id
+                  activeTab === tab.id
                     ? `${tab.color} bg-gradient-to-r from-neutral-50 to-transparent`
-                    : 'ევ
-System: 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
+                    : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
                 }`}
                 aria-label={tab.name}
               >
@@ -141,7 +149,7 @@ System: 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
     ];
 
     return (
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-2xl z-[90]">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-2xl z-[90] md:hidden">
         <div className="max-w-7xl mx-auto">
           <div className="flex">
             {tabs.map((tab) => (
@@ -288,7 +296,7 @@ System: 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
             </div>
           </div>
         </main>
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-2xl z-[90]">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-2xl z-[90] md:hidden">
           <div className="max-w-7xl mx-auto">
             <div className="flex">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -322,16 +330,19 @@ System: 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50/50'
                 <Routes>
                   {user ? (
                     <>
+                      <Route path="/" element={<Navigate to="/sales" replace />} />
                       <Route path="/sales" element={<SalesPage />} />
                       <Route path="/debts" element={<DebtsPage />} />
                       <Route path="/expenses" element={<ExpensesPage />} />
                       <Route path="/bank" element={<BankPage />} />
                       <Route path="/reports" element={<ReportsPage />} />
                       <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="*" element={<ErrorScreen />} />
+                      <Route path="*" element={<Navigate to="/sales" replace />} />
                     </>
                   ) : (
-                    <Route path="*" element={<Auth />} />
+                    <>
+                      <Route path="*" element={<Auth />} />
+                    </>
                   )}
                 </Routes>
               </div>
