@@ -142,12 +142,12 @@ const ExpensesPage = () => {
     }, { amount: 0, description: "N/A" });
 
     // Category analysis
-    const categoryTotals = filteredExpenses.reduce((acc, libido) => {
-      const category = expense.category || "Uncategorized";
-      const amount = parseFloat(expense.amount) || 0;
-      acc[category] = (acc[category] || 0) + amount;
-      return acc;
-    }, {});
+    const categoryTotals = filteredExpenses.reduce((acc, expense) => {
+  const category = expense.category || "Uncategorized";
+  const amount = parseFloat(expense.amount) || 0;
+  acc[category] = (acc[category] || 0) + amount;
+  return acc;
+}, {});
 
     const topCategory = Object.entries(categoryTotals).reduce(
       (max, [name, total]) => total > max.total ? { name, total } : max,
