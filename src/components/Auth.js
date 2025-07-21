@@ -1,207 +1,211 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
-import { AuthContext } from './AuthContext';
-import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, AlertCircle, RefreshCw } from 'lucide-react';
-import SalesPage from './components/SalesPage';
-import ExpensesPage from './components/ExpensesPage';
-import DebtsPage from './components/DebtsPage';
-import ProfilePage from './components/ProfilePage';
-import ReportsPage from './components/ReportsPage';
-import BankPage from './components/BankPage';
-import Auth from './components/Auth';
-import { auth } from './firebase';
+import React, { useState, useContext } from "react";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { AuthContext } from "./AuthContext";
+import { auth } from "../firebase";
+import { Mail, Lock, LogIn, UserPlus, Eye, EyeOff, AlertCircle } from "lucide-react";
 
-const App = () => {
-  const [activeTab, setActiveTab] = useState("sales");
-  const [error, setError] = useState(null);
-  const [showHeader, setShowHeader] = useState(true);
-  const { user, loading } = useContext(AuthContext);
+const Auth = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useContext(AuthContext);
 
-  useEffect(() => {
-    let lastScrollY = window.scrollY;
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      setShowHeader(currentScrollY <= lastScrollY || currentScrollY < 100);
-      lastScrollY = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const Header = () => {
-    const navigate = useNavigate();
+  const validateForm = () => {
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return false;
+    }
     
-    const handleSignOut = () => {
-      setActiveTab("sales");
-      auth.signOut();
-      navigate('/');
-    };
-
-    return (
-      <header className={`bg-white border-b border-neutral-200 fixed top-0 left-0 right-0 z-50 shadow-sm transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-neutral-800">
-              RichBooks
-            </h1>
-          </div>
-          
-          {user && (
-            <div className="flex items-center gap-2 sm:gap-4">
-              <button
-                onClick={() => {
-                  setActiveTab("profile");
-                  navigate('/profile');
-                }}
-                className={`p-2 rounded-full transition-all duration-200 ${
-                  activeTab === "profile" 
-                    ? "bg-blue-100 text-blue-600" 
-                    : "hover:bg-neutral-100 text-neutral-600"
-                }`}
-                title="Profile"
-                aria-label="Profile"
-              >
-                <User className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
-              
-              <button
-                className="px-3 py-2 sm:px-4 sm:py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 hover:shadow-md transition-all duration-200 text-sm sm:text-base"
-                onClick={handleSignOut}
-              >
-                <span className="hidden sm:inline">Sign Out</span>
-                <span className="sm:hidden">Out</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-    );
-  };
-
-  const Navigation = () => {
-    const navigate = useNavigate();
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return false;
+    }
     
-    const tabs = [
-      { id: "sales", name: "Sales", icon: ShoppingCart, path: '/sales' },
-      { id: "debts", name: "Debts", icon: CreditCard, path: '/debts' },
-      { id: "expenses", name: "Expenses", icon: TrendingDown, path: '/expenses' },
-      { id: "bank", name: "Bank", icon: Banknote, path: '/bank' },
-      { id: "reports", name: "Reports", icon: FileText, path: '/reports' },
-    ];
-
-    return (
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-neutral-200 shadow-lg z-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  navigate(tab.path);
-                }}
-                className={`flex-1 flex flex-col items-center justify-center py-2 sm:py-3 px-1 text-xs font-medium transition-all duration-200 relative min-h-[60px] sm:min-h-[70px] ${
-                  activeTab === tab.id
-                    ? "text-blue-600"
-                    : "text-neutral-500 hover:text-neutral-700"
-                }`}
-                aria-label={tab.name}
-              >
-                {activeTab === tab.id && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-blue-600 rounded-full"></div>
-                )}
-                
-                <tab.icon 
-                  className={`w-4 h-4 sm:w-5 sm:h-5 mb-1 ${
-                    activeTab === tab.id ? 'scale-110' : ''
-                  } transition-transform duration-200`} 
-                />
-                
-                <span className={`text-[10px] sm:text-xs leading-tight ${
-                  activeTab === tab.id ? 'font-semibold' : ''
-                }`}>
-                  {tab.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-    );
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return false;
+    }
+    
+    return true;
   };
 
-  const ErrorScreen = () => {
-    const retry = () => {
-      setError(null);
-      window.location.reload();
-    };
-
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 sm:w-20 sm:h-20 text-red-500 mx-auto mb-4" />
-          
-          <h2 className="text-xl sm:text-2xl font-bold text-neutral-800 mb-2">
-            Oops! Something went wrong
-          </h2>
-          
-          <p className="text-neutral-600 text-center max-w-md text-sm sm:text-base mb-6">
-            {error || "An error occurred. Please try again."}
-          </p>
-          
-          <button
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 hover:shadow-md transition-all duration-200 text-sm sm:text-base"
-            onClick={retry}
-          >
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </button>
-        </div>
-        
-        <div className="mt-8 text-center">
-          <p className="text-xs sm:text-sm text-neutral-500">
-            If the problem persists, please check your internet connection
-          </p>
-        </div>
-      </div>
-    );
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setError("");
+    
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    
+    try {
+      if (isSignUp) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err) {
+      let errorMessage = "An error occurred. Please try again.";
+      
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = "This email is already registered. Try signing in instead.";
+          break;
+        case 'auth/weak-password':
+          errorMessage = "Password should be at least 6 characters long.";
+          break;
+        case 'auth/invalid-email':
+          errorMessage = "Please enter a valid email address.";
+          break;
+        case 'auth/user-not-found':
+          errorMessage = "No account found with this email. Try signing up instead.";
+          break;
+        case 'auth/wrong-password':
+          errorMessage = "Incorrect password. Please try again.";
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = "Too many failed attempts. Please try again later.";
+          break;
+        default:
+          if (err.message) errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+  const toggleAuthMode = () => {
+    setIsSignUp(!isSignUp);
+    setError("");
+    setEmail("");
+    setPassword("");
+  };
+
+  if (user) {
+    return null;
   }
 
   return (
-    <Router>
-      <div className="min-h-screen bg-neutral-50 flex flex-col">
-        <Header />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-[80px] sm:pb-[90px]">
-          <Routes>
-            {user ? (
-              <>
-                <Route path="/sales" element={<SalesPage />} />
-                <Route path="/debts" element={<DebtsPage />} />
-                <Route path="/expenses" element={<ExpensesPage />} />
-                <Route path="/bank" element={<BankPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="*" element={<ErrorScreen />} />
-              </>
-            ) : (
-              <Route path="*" element={<Auth />} />
-            )}
-          </Routes>
-        </main>
-        {user && <Navigation />}
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-blue-50 to-indigo-100 relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-blue-300/20 rounded-full blur-2xl animate-pulse"></div>
+        <div className="absolute bottom-32 right-20 w-40 h-40 bg-indigo-300/20 rounded-full blur-2xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute top-1/3 right-1/4 w-24 h-24 bg-blue-300/15 rounded-full blur-xl animate-pulse" style={{animationDelay: '4s'}}></div>
+        <div className="absolute bottom-1/4 left-1/3 w-36 h-36 bg-cyan-300/15 rounded-full blur-2xl animate-pulse" style={{animationDelay: '6s'}}></div>
       </div>
-    </Router>
+
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-neutral-100 overflow-hidden">
+            <div className="px-6 pt-6 pb-4 text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-primary rounded-lg mb-4">
+                {isSignUp ? (
+                  <UserPlus className="w-6 h-6 text-white" />
+                ) : (
+                  <LogIn className="w-6 h-6 text-white" />
+                )}
+              </div>
+              <h1 className="text-2xl font-bold text-neutral-800 mb-2">
+                {isSignUp ? "Create Account" : "Welcome Back"}
+              </h1>
+              <p className="text-neutral-600 text-sm">
+                {isSignUp ? "Join us to start managing your business" : "Sign in to continue managing your business"}
+              </p>
+            </div>
+
+            <div className="px-6 pb-6">
+              <form onSubmit={handleAuth} className="space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="w-5 h-5 text-neutral-400" />
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email address"
+                    required
+                    disabled={isLoading}
+                    className="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="w-5 h-5 text-neutral-400" />
+                  </div>
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
+                    required
+                    minLength="6"
+                    disabled={isLoading}
+                    className="w-full pl-10 pr-10 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading || !email || !password}
+                  className="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      {isSignUp ? <UserPlus className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
+                      {isSignUp ? "Create Account" : "Sign In"}
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center">
+                  <p className="text-neutral-600 text-sm">
+                    {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                    <button
+                      type="button"
+                      onClick={toggleAuthMode}
+                      disabled={isLoading}
+                      className="font-semibold text-primary hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSignUp ? "Sign In" : "Sign Up"}
+                    </button>
+                  </p>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default App;
+export default Auth;
