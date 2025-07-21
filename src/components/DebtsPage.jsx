@@ -3,90 +3,12 @@ import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestor
 import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Link, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Calendar, Users, DollarSign, Clock } from "lucide-react";
 import { useReactTable, getCoreRowModel, getSortedRowModel, flexRender } from "@tanstack/react-table";
-import { differenceInDays, format, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./DebtForm";
 import SalesForm from "./SalesForm";
-
-const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
-  const handleDateFilterChange = (type) => {
-    const today = new Date();
-    let startDate, endDate;
-
-    switch (type) {
-      case 'today':
-        startDate = today;
-        endDate = today;
-        break;
-      case 'week':
-        startDate = subDays(today, 7);
-        endDate = today;
-        break;
-      case 'month':
-        startDate = startOfMonth(today);
-        endDate = endOfMonth(today);
-        break;
-      case '6months':
-        startDate = subMonths(today, 6);
-        endDate = today;
-        break;
-      case 'all':
-        startDate = null;
-        endDate = null;
-        break;
-      default:
-        startDate = null;
-        endDate = null;
-    }
-
-    setDateFilter({
-      type,
-      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
-      endDate: endDate ? endDate.toISOString().split("T")[0] : null
-    });
-    setShowDateFilter(false);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setShowDateFilter(!showDateFilter)}
-        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-      >
-        <Calendar className="w-5 h-5" />
-        <span className="font-medium">Filter Dates</span>
-      </button>
-
-      {showDateFilter && (
-        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
-          <div className="flex flex-col gap-2">
-            {[
-              { type: 'today', label: 'Today' },
-              { type: 'week', label: 'Last 7 Days' },
-              { type: 'month', label: 'This Month' },
-              { type: '6months', label: 'Last 6 Months' },
-              { type: 'all', label: 'All Time' }
-            ].map(({ type, label }) => (
-              <button
-                key={type}
-                onClick={() => handleDateFilterChange(type)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateFilter.type === type
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+import DateFilter from "./DateFilter";
 
 const DebtsPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -213,10 +135,8 @@ const DebtsPage = () => {
     const filtered = debts.filter(debt => {
       if (!debt) return false;
 
-      // Text filter
       const matchesDebtor = debt.client?.toLowerCase().includes(filter.toLowerCase()) || false;
 
-      // Date filter
       let dateMatch = true;
       if (dateFilter.startDate && dateFilter.endDate && debt.createdAt) {
         const debtDate = debt.createdAt.toDate ? debt.createdAt.toDate() : new Date(debt.createdAt);
@@ -230,7 +150,6 @@ const DebtsPage = () => {
     setFilteredDebts(filtered);
   }, [filter, debts, dateFilter]);
 
-  // Calculate summary metrics
   const summaryMetrics = React.useMemo(() => {
     const activeDebts = filteredDebts.filter(debt => debt.amount > 0);
     const paidDebts = filteredDebts.filter(debt => debt.amount === 0);
@@ -238,17 +157,14 @@ const DebtsPage = () => {
     const totalDebts = filteredDebts.length;
     const totalAmountOwed = activeDebts.reduce((sum, debt) => sum + (debt.amount || 0), 0);
     
-    // Highest debt
     const highestDebt = activeDebts.length > 0 
       ? activeDebts.reduce((max, debt) => debt.amount > max.amount ? debt : max, activeDebts[0])
       : null;
     
-    // Lowest debt
     const lowestDebt = activeDebts.length > 0 
       ? activeDebts.reduce((min, debt) => debt.amount < min.amount ? debt : min, activeDebts[0])
       : null;
     
-    // Oldest debt
     const oldestDebt = activeDebts.length > 0 
       ? activeDebts.reduce((oldest, debt) => {
           const debtDate = debt.createdAt?.toDate();
@@ -257,7 +173,6 @@ const DebtsPage = () => {
         }, activeDebts[0])
       : null;
     
-    // Newest debt
     const newestDebt = activeDebts.length > 0 
       ? activeDebts.reduce((newest, debt) => {
           const debtDate = debt.createdAt?.toDate();
@@ -266,7 +181,6 @@ const DebtsPage = () => {
         }, activeDebts[0])
       : null;
 
-    // Days since oldest debt
     const daysSinceOldest = oldestDebt?.createdAt 
       ? differenceInDays(new Date(), oldestDebt.createdAt.toDate())
       : 0;
@@ -285,7 +199,6 @@ const DebtsPage = () => {
     };
   }, [filteredDebts]);
 
-  // Custom sort function for different data types
   const getSortValue = (row, columnId) => {
     const value = row.getValue(columnId);
     
@@ -297,7 +210,7 @@ const DebtsPage = () => {
       case 'createdAt':
         return value ? value.toDate().getTime() : 0;
       case 'status':
-        return Number(row.original.amount) === 0 ? 0 : 1; // Paid first, then pending
+        return Number(row.original.amount) === 0 ? 0 : 1;
       default:
         return value;
     }
@@ -425,7 +338,6 @@ const DebtsPage = () => {
     }
   };
 
-  // Helper function to render sort icon
   const renderSortIcon = (header) => {
     if (!header.column.getCanSort()) return null;
     
@@ -440,7 +352,6 @@ const DebtsPage = () => {
     );
   };
 
-  // Summary Cards Component
   const SummaryCards = () => {
     if (loading) {
       return (
@@ -461,7 +372,6 @@ const DebtsPage = () => {
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Debts */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -473,7 +383,6 @@ const DebtsPage = () => {
           <p className="text-sm text-neutral-600">{dateFilter.type === 'all' ? 'Total Debts' : `Debts for ${dateFilter.type}`}</p>
         </div>
 
-        {/* Active Debts */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-amber-100 rounded-lg">
@@ -485,7 +394,6 @@ const DebtsPage = () => {
           <p className="text-sm text-neutral-600">Pending Debts</p>
         </div>
 
-        {/* Total Amount Owed */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-red-100 rounded-lg">
@@ -499,7 +407,6 @@ const DebtsPage = () => {
           <p className="text-sm text-neutral-600">{dateFilter.type === 'all' ? 'Total Amount Owed' : `Amount Owed for ${dateFilter.type}`}</p>
         </div>
 
-        {/* Paid Debts */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-100 rounded-lg">
@@ -511,7 +418,6 @@ const DebtsPage = () => {
           <p className="text-sm text-neutral-600">Paid Debts</p>
         </div>
 
-        {/* Highest Debt */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-purple-100 rounded-lg">
@@ -527,7 +433,6 @@ const DebtsPage = () => {
           </p>
         </div>
 
-        {/* Lowest Debt */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-indigo-100 rounded-lg">
@@ -543,7 +448,6 @@ const DebtsPage = () => {
           </p>
         </div>
 
-        {/* Oldest Debt */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-orange-100 rounded-lg">
@@ -559,7 +463,6 @@ const DebtsPage = () => {
           </p>
         </div>
 
-        {/* Average Debt */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-neutral-200 hover:shadow-xl transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-teal-100 rounded-lg">
@@ -578,19 +481,35 @@ const DebtsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-neutral-800">Debts Management</h2>
-        <div className="flex gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => {
-              setEditingDebt(null);
-              setShowForm(true);
-            }}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 transform"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add Debt</span>
-          </button>
+      <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-2">
+            <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
+              Debts Management
+            </h1>
+            <p className="text-slate-600 text-lg max-w-2xl leading-relaxed">
+              Track and manage your debts efficiently with our comprehensive debt management platform.
+            </p>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                setEditingDebt(null);
+                setShowForm(true);
+              }}
+              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-blue-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
+                  <Plus className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Add Debt</div>
+                  <div className="text-xs text-slate-500 mt-1">New Debt Record</div>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -601,7 +520,6 @@ const DebtsPage = () => {
         setShowDateFilter={setShowDateFilter}
       />
 
-      {/* Summary Cards */}
       <SummaryCards />
 
       <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
