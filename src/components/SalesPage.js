@@ -1,170 +1,58 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapshot } from "firebase/firestore";
+// SalesPage.jsx
+import React, { useState, useEffect } from "react";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
-import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
-import { startOfMonth, endOfMonth, format, subDays, subMonths } from 'date-fns';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
+import { 
+  Plus, 
+  User, 
+  Package, 
+  Calendar,
+  CalendarDays,
+  TrendingUp,
+  Award,
+  DollarSign,
+  Users,
+  Truck
+} from "lucide-react";
 import AutocompleteInput from "./AutocompleteInput";
-import ExpenseForm from "./ExpenseForm";
+import SalesForm from "./SalesForm";
+import SuppliesForm from "./SuppliesForm";
+import SalesAnalytics from "./SalesAnalytics";
+import DateFilter from "./DateFilter";
+import ClientForm from "./ClientForm";
+import ProductForm from "./ProductForm";
+import SalesTable from "./SalesTable";
 
-const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
-  const handleDateFilterChange = (type) => {
-    const today = new Date();
-    let startDate, endDate;
-
-    switch (type) {
-      case 'today':
-        startDate = today;
-        endDate = today;
-        break;
-      case 'week':
-        startDate = subDays(today, 7);
-        endDate = today;
-        break;
-      case 'month':
-        startDate = startOfMonth(today);
-        endDate = endOfMonth(today);
-        break;
-      case '6months':
-        startDate = subMonths(today, 6);
-        endDate = today;
-        break;
-      case 'all':
-        startDate = null;
-        endDate = null;
-        break;
-      default:
-        startDate = today;
-        endDate = today;
-    }
-
-    setDateFilter({
-      type,
-      startDate: startDate ? startDate.toISOString().split("T")[0] : null,
-      endDate: endDate ? endDate.toISOString().split("T")[0] : null
-    });
-    setShowDateFilter(false);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setShowDateFilter(!showDateFilter)}
-        className="fixed right-4 bottom-4 z-40 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
-      >
-        <Calendar className="w-5 h-5" />
-        <span className="font-medium">Filter Dates</span>
-      </button>
-
-      {showDateFilter && (
-        <div className="absolute right-4 bottom-20 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-50">
-          <div className="flex flex-col gap-2">
-            {[
-              { type: 'today', label: 'Today' },
-              { type: 'week', label: 'Last 7 Days' },
-              { type: 'month', label: 'This Month' },
-              { type: '6months', label: 'Last 6 Months' },
-              { type: 'all', label: 'All Time' }
-            ].map(({ type, label }) => (
-              <button
-                key={type}
-                onClick={() => handleDateFilterChange(type)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateFilter.type === type
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const ExpensesPage = () => {
+const SalesPage = () => {
   const [showForm, setShowForm] = useState(false);
-  const [editingExpense, setEditingExpense] = useState(null);
-  const [filter, setFilter] = useState("");
-  const [filteredExpenses, setFilteredExpenses] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [categoryName, setCategoryName] = useState("");
-  const [categoryError, setCategoryError] = useState("");
-  const [expenses, setExpenses] = useState([]);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [sorting, setSorting] = useState([]);
+  const [showSupplyForm, setShowSupplyForm] = useState(false);
+  const [editingSale, setEditingSale] = useState(null);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [showClientForm, setShowClientForm] = useState(false);
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [dateFilter, setDateFilter] = useState({
     type: 'today',
     startDate: new Date().toISOString().split("T")[0],
     endDate: new Date().toISOString().split("T")[0]
   });
-
-  // Key metrics calculations
-  const keyMetrics = useMemo(() => {
-    if (!filteredExpenses || filteredExpenses.length === 0) {
-      return {
-        totalExpenses: 0,
-        thisMonthTotal: 0,
-        highestExpense: { amount: 0, description: "N/A" },
-        topCategory: { name: "N/A", total: 0 },
-        avgExpense: 0,
-        expenseCount: 0
-      };
-    }
-
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-
-    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-    
-    const thisMonthExpenses = filteredExpenses.filter(expense => {
-      if (!expense.createdAt) return false;
-      const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
-      return expenseDate >= monthStart && expenseDate <= monthEnd;
-    });
-    
-    const thisMonthTotal = thisMonthExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-    
-    const highestExpense = filteredExpenses.reduce((max, expense) => {
-      const amount = parseFloat(expense.amount) || 0;
-      return amount > max.amount ? { amount, description: expense.description || "N/A" } : max;
-    }, { amount: 0, description: "N/A" });
-
-    // Category analysis
-    const categoryTotals = filteredExpenses.reduce((acc, libido) => {
-      const category = expense.category || "Uncategorized";
-      const amount = parseFloat(expense.amount) || 0;
-      acc[category] = (acc[category] || 0) + amount;
-      return acc;
-    }, {});
-
-    const topCategory = Object.entries(categoryTotals).reduce(
-      (max, [name, total]) => total > max.total ? { name, total } : max,
-      { name: "N/A", total: 0 }
-    );
-
-    const avgExpense = filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0;
-
-    return {
-      totalExpenses,
-      thisMonthTotal,
-      highestExpense,
-      topCategory,
-      avgExpense,
-      expenseCount: filteredExpenses.length
-    };
-  }, [filteredExpenses]);
+  const [newProduct, setNewProduct] = useState({ name: "", price: "" });
+  const [newClient, setNewClient] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    address: "" 
+  });
+  const [newSupply, setNewSupply] = useState({
+    productId: "",
+    supplyType: "",
+    quantity: "",
+    date: new Date().toISOString().split("T")[0]
+  });
+  const [sales, setSales] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -176,303 +64,136 @@ const ExpensesPage = () => {
 
   useEffect(() => {
     if (user) {
-      const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
-      const unsubscribeExpenses = onSnapshot(
-        expensesQuery,
+      const salesQuery = query(collection(db, `users/${user.uid}/sales`));
+      const unsubscribeSales = onSnapshot(
+        salesQuery,
         (snapshot) => {
-          const expensesData = snapshot.docs.map((doc) => ({
+          const salesData = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
-          setExpenses(expensesData);
-          setLoading(false);
+          setSales(salesData);
         },
         (err) => {
-          console.error("Error fetching expenses:", err);
-          setError("Failed to load expenses");
-          setLoading(false);
+          console.error("Error fetching sales:", err);
         }
       );
 
-      const categoriesQuery = query(collection(db, `users/${user.uid}/categories`));
-      const unsubscribeCategories = onSnapshot(
-        categoriesQuery,
+      const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
+      const unsubscribeClients = onSnapshot(
+        clientsQuery,
         (snapshot) => {
-          const categoriesList = snapshot.docs.map((doc) => ({
+          const clientsData = snapshot.docs.map((doc) => ({
             id: doc.id,
-            name: doc.data().name,
+            ...doc.data(),
           }));
-          setCategories(categoriesList);
-          setError("");
+          setClients(clientsData);
         },
         (err) => {
-          console.error("Error fetching categories:", err);
-          setError("Failed to load categories");
+          console.error("Error fetching clients:", err);
+        }
+      );
+
+      const productsQuery = query(collection(db, `users/${user.uid}/products`));
+      const unsubscribeProducts = onSnapshot(
+        productsQuery,
+        (snapshot) => {
+          const productsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setProducts(productsData);
+        },
+        (err) => {
+          console.error("Error fetching products:", err);
         }
       );
 
       return () => {
-        unsubscribeExpenses();
-        unsubscribeCategories();
+        unsubscribeSales();
+        unsubscribeClients();
+        unsubscribeProducts();
       };
     }
   }, [user]);
 
-  useEffect(() => {
-    if (!expenses || !Array.isArray(expenses)) {
-      setFilteredExpenses([]);
-      return;
-    }
-
-    const filtered = expenses.filter(expense => {
-      if (!expense) return false;
-
-      // Text filter
-      const categoryMatch = expense.category?.toLowerCase().includes(filter.toLowerCase()) || false;
-      const payeeMatch = expense.payee?.toLowerCase().includes(filter.toLowerCase()) || false;
-      const descriptionMatch = expense.description?.toLowerCase().includes(filter.toLowerCase()) || false;
-
-      // Date filter
-      let dateMatch = true;
-      if (dateFilter.startDate && dateFilter.endDate && expense.createdAt) {
-        const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
-        const startDate = new Date(dateFilter.startDate);
-        const endDate = new Date(dateFilter.endDate);
-        dateMatch = expenseDate >= startDate && expenseDate <= endDate;
-      }
-
-      return (categoryMatch || payeeMatch || descriptionMatch || filter === "") && dateMatch;
-    });
-    
-    setFilteredExpenses(filtered);
-  }, [filter, expenses, dateFilter]);
-
-  const columns = [
-    {
-      header: "Category",
-      accessorKey: "category",
-      cell: info => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {info.getValue() || "Uncategorized"}
-        </span>
-      ),
-    },
-    {
-      header: "Amount (UGX)",
-      accessorKey: "amount",
-      cell: info => {
-        const amount = info.getValue();
-        const numAmount = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
-        return (
-          <span className="font-semibold text-green-700">
-            {numAmount.toLocaleString()}
-          </span>
-        );
-      },
-    },
-    {
-      header: "Description",
-      accessorKey: "description",
-      cell: info => (
-        <span className="text-gray-900 font-medium">
-          {info.getValue() || "-"}
-        </span>
-      ),
-    },
-    {
-      header: "Payee",
-      accessorKey: "payee",
-      cell: info => (
-        <span className="text-gray-600">
-          {info.getValue() || "-"}
-        </span>
-      ),
-    },
-    {
-      header: "Date",
-      accessorKey: "createdAt",
-      cell: info => {
-        const date = info.getValue();
-        if (!date) return '-';
-        
-        try {
-          const dateObj = date.toDate ? date.toDate() : new Date(date);
-          return (
-            <span className="text-gray-500 text-sm">
-              {format(dateObj, 'MMM dd, yyyy')}
-            </span>
-          );
-        } catch (err) {
-          console.error('Date formatting error:', err);
-          return '-';
-        }
-      },
-    },
-    {
-      header: "Actions",
-      cell: info => (
-        <div className="flex gap-1">
-          <button
-            onClick={() => {
-              setEditingExpense(info.row.original);
-              setShowForm(true);
-            }}
-            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleDeleteExpense(info.row.original.id)}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  const table = useReactTable({
-    columns,
-    data: filteredExpenses,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    state: {
-      sorting,
-    },
-    onSortingChange: setSorting,
-  });
-
-  const handleDeleteExpense = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this expense?")) return;
-    
-    try {
-      await deleteDoc(doc(db, `users/${user?.uid}/expenses`, id));
-    } catch (err) {
-      console.error("Error deleting expense:", err);
-      setError("Failed to delete expense");
-    }
-  };
-
-  const handleCategorySubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!categoryName.trim()) {
-      setCategoryError("Category name is required");
-      return;
-    }
-
-    try {
-      if (editingCategory) {
-        await updateDoc(doc(db, `users/${user?.uid}/categories`, editingCategory.id), {
-          name: categoryName.trim(),
-          updatedAt: new Date(),
-        });
-      } else {
-        await addDoc(collection(db, `users/${user?.uid}/categories`), {
-          name: categoryName.trim(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-      
-      setCategoryName("");
-      setCategoryError("");
-      setShowCategoryModal(false);
-      setEditingCategory(null);
-    } catch (err) {
-      console.error("Error saving category:", err);
-      setCategoryError("Failed to save category. Please try again.");
-    }
-  };
-
-  const handleDeleteCategory = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
-    
-    try {
-      await deleteDoc(doc(db, `users/${user?.uid}/categories`, id));
-      setCategories(categories.filter(category => category.id !== id));
-    } catch (err) {
-      console.error("Error deleting category:", err);
-      setError("Failed to delete category");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-8">
-        {/* Header Skeleton */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <Skeleton height={32} width={200} />
-          <div className="flex gap-3">
-            <Skeleton height={40} width={120} />
-            <Skeleton height={40} width={150} />
-          </div>
-        </div>
-
-        {/* Metrics Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <Skeleton circle height={48} width={48} />
-                <Skeleton height={20} width={60} />
-              </div>
-              <Skeleton height={32} width={100} className="mb-2" />
-              <Skeleton height={16} width={80} />
-            </div>
-          ))}
-        </div>
-
-        {/* Table Skeleton */}
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="mb-6">
-            <Skeleton height={40} width={300} />
-          </div>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton height={20} width={100} />
-                <Skeleton height={20} width={80} />
-                <Skeleton height={20} width={150} />
-                <Skeleton height={20} width={100} />
-                <Skeleton height={20} width={80} />
-                <Skeleton height={20} width={60} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Expense Tracker
-          </h1>
-          <p className="text-gray-600 mt-1">Manage and analyze your spending</p>
-        </div>
-        <div className="flex gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => {
-              setEditingExpense(null);
-              setShowForm(true);
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">Add Expense</span>
-          </button>
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <Tag className="w-5 h-5" />
-            <span className="font-medium">Categories</span>
-          </button>
+    <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
+      <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
+        <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
+              Sales Dashboard
+            </h1>
+            <p className="text-slate-600 text-lg max-w-2xl leading-relaxed">
+              Monitor your sales performance, manage transactions, and track your business growth with our comprehensive analytics platform.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full lg:w-auto">
+            <button
+              onClick={() => {
+                setEditingSale(null);
+                setShowForm(true);
+              }}
+              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-blue-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
+                  <Plus className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Add Sale</div>
+                  <div className="text-xs text-slate-500 mt-1">New Transaction</div>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setShowClientForm(true)}
+              className="group bg-white hover:bg-emerald-50 border-2 border-slate-200 hover:border-emerald-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 transition-colors">
+                  <Users className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Clients</div>
+                  <div className="text-xs text-slate-500 mt-1">Manage Customers</div>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setShowProductForm(true)}
+              className="group bg-white hover:bg-purple-50 border-2 border-slate-200 hover:border-purple-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-purple-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-purple-100 rounded-xl group-hover:bg-purple-200 transition-colors">
+                  <Package className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Products</div>
+                  <div className="text-xs text-slate-500 mt-1">Inventory Items</div>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setShowSupplyForm(true)}
+              className="group bg-white hover:bg-orange-50 border-2 border-slate-200 hover:border-orange-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-orange-100/50 hover:-translate-y-1"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-orange-100 rounded-xl group-hover:bg-orange-200 transition-colors">
+                  <Truck className="w-6 h-6 text-orange-600" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-slate-800 text-sm">Supplies</div>
+                  <div className="text-xs text-slate-500 mt-1">Stock Management</div>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -483,238 +204,95 @@ const ExpensesPage = () => {
         setShowDateFilter={setShowDateFilter}
       />
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center gap-2">
-          <X className="w-5 h-5" />
-          {error}
+      {sales && sales.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="p-6 border-b border-slate-100">
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Performance Analytics</h2>
+            <p className="text-slate-600">Real-time insights into your sales performance and trends</p>
+          </div>
+          <div className="p-6">
+            <SalesAnalytics sales={sales} products={products} dateFilter={dateFilter} />
+          </div>
         </div>
       )}
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <DollarSign className="w-6 h-6 text-blue-600" />
-            </div>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-              TOTAL
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.totalExpenses.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">{dateFilter.type === 'all' ? 'All time expenses' : `Expenses for ${dateFilter.type}`}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-green-100 rounded-xl">
-              <Calendar className="w-6 h-6 text-green-600" />
-            </div>
-            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              THIS MONTH
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.thisMonthTotal.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">{format(new Date(), 'MMMM yyyy')}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-100 rounded-xl">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
-              HIGHEST
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.highestExpense.amount.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm truncate">
-            {keyMetrics.highestExpense.description}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-orange-100 rounded-xl">
-              <BarChart3 className="w-6 h-6 text-orange-600" />
-            </div>
-            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-              TOP CATEGORY
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.topCategory.total.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">
-            {keyMetrics.topCategory.name}
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div className="p-6 border-b border-gray-100">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Recent Expenses</h2>
-              <p className="text-gray-500 text-sm mt-1">
-                {keyMetrics.expenseCount} total expenses • Average: UGX {keyMetrics.avgExpense.toLocaleString()}
-              </p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Sales Transactions</h2>
+              <p className="text-slate-600">Complete record of all your sales activities</p>
             </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200"
-              />
-              {filter && (
-                <X
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
-                  onClick={() => setFilter("")}
-                />
-              )}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                Live Data
+              </div>
             </div>
           </div>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50/50">
-              {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
-                    <th
-                      key={header.id}
-                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-50">
-              {table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="hover:bg-gray-50/50 transition-colors duration-150">
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-6">
+          <SalesTable
+            sales={sales}
+            products={products}
+            globalFilter={globalFilter}
+            setGlobalFilter={setGlobalFilter}
+            dateFilter={dateFilter}
+            setEditingSale={setEditingSale}
+            setShowForm={setShowForm}
+          />
         </div>
-
-        {filteredExpenses.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {filter || dateFilter.type !== 'all' ? "No matching expenses found" : "No expenses recorded yet"}
-            </h3>
-            <p className="text-gray-500">
-              {filter || dateFilter.type !== 'all' ? "Try adjusting your search terms or date filter" : "Add your first expense to get started"}
-            </p>
-          </div>
-        )}
       </div>
 
       {showForm && (
-        <ExpenseForm
-          expense={editingExpense}
-          onClose={() => {
-            setShowForm(false);
-            setEditingExpense(null);
-          }}
-        />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl">
+            <SalesForm
+              sale={editingSale}
+              clients={clients}
+              products={products}
+              onClose={() => {
+                setShowForm(false);
+                setEditingSale(null);
+              }}
+            />
+          </div>
+        </div>
       )}
 
-      {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 transform transition-all">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Manage Categories</h3>
-              <button
-                onClick={() => {
-                  setShowCategoryModal(false);
-                  setEditingCategory(null);
-                  setCategoryName("");
-                  setCategoryError("");
-                }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+      {showClientForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <ClientForm
+              newClient={newClient}
+              setNewClient={setNewClient}
+              setShowClientForm={setShowClientForm}
+            />
+          </div>
+        </div>
+      )}
 
-            <form onSubmit={handleCategorySubmit} className="mb-6">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={categoryName}
-                  onChange={(e) => setCategoryName(e.target.value)}
-                  placeholder="Enter category name"
-                  className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                />
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-                >
-                  {editingCategory ? "Update" : "Add"}
-                </button>
-              </div>
-              {categoryError && (
-                <p className="mt-2 text-sm text-red-600">{categoryError}</p>
-              )}
-            </form>
+      {showProductForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <ProductForm
+              newProduct={newProduct}
+              setNewProduct={setNewProduct}
+              setShowProductForm={setShowProductForm}
+            />
+          </div>
+        </div>
+      )}
 
-            <div className="space-y-2 max-h-60 overflow-auto">
-              {categories.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Tag className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-sm">No categories yet</p>
-                </div>
-              ) : (
-                categories.map(category => (
-                  <div
-                    key={category.id}
-                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <span className="text-sm font-medium text-gray-900">{category.name}</span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingCategory(category);
-                          setCategoryName(category.name);
-                        }}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(category.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+      {showSupplyForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <SuppliesForm
+              newSupply={newSupply}
+              setNewSupply={setNewSupply}
+              setShowSupplyForm={setShowSupplyForm}
+              products={products}
+            />
           </div>
         </div>
       )}
@@ -722,4 +300,4 @@ const ExpensesPage = () => {
   );
 };
 
-export default ExpensesPage;
+export default SalesPage;
