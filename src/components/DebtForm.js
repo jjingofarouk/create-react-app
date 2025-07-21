@@ -1,20 +1,50 @@
-import React, { useState } from "react";
-import { addDoc, doc, updateDoc, collection } from "firebase/firestore";
-import { db } from "../firebase";
+import React, { useState, useEffect } from "react";
+import { addDoc, doc, updateDoc, collection, query, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import AutocompleteInput from "./AutocompleteInput";
 import { X, User } from "lucide-react";
 import { format } from "date-fns";
 
-const DebtForm = ({ debt, clients, userId, onClose }) => {
+const DebtForm = ({ debt, onClose }) => {
   const [formData, setFormData] = useState({
     client: debt?.client || "",
     amount: debt?.amount || 0,
     notes: debt?.notes || "",
     createdAt: debt?.createdAt ? debt.createdAt.toDate() : new Date(),
   });
-
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const clientsQuery = query(collection(db, `users/${user.uid}/clients`));
+      const unsubscribeClients = onSnapshot(
+        clientsQuery,
+        (snapshot) => {
+          const clientsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setClients(clientsData);
+        },
+        (err) => {
+          console.error("Error fetching clients:", err);
+        }
+      );
+
+      return () => unsubscribeClients();
+    }
+  }, [user]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -33,7 +63,7 @@ const DebtForm = ({ debt, clients, userId, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm() || !user) return;
 
     setIsSubmitting(true);
     try {
@@ -43,13 +73,13 @@ const DebtForm = ({ debt, clients, userId, onClose }) => {
         notes: formData.notes || null,
         createdAt: new Date(formData.createdAt),
         updatedAt: new Date(),
-        saleId: debt?.saleId || null, // Retain saleId if editing, null for new manual debts
+        saleId: debt?.saleId || null,
       };
 
       if (debt) {
-        await updateDoc(doc(db, `users/${userId}/debts`, debt.id), debtData);
+        await updateDoc(doc(db, `users/${user.uid}/debts`, debt.id), debtData);
       } else {
-        await addDoc(collection(db, `users/${userId}/debts`), debtData);
+        await addDoc(collection(db, `users/${user.uid}/debts`), debtData);
       }
       onClose();
     } catch (err) {
