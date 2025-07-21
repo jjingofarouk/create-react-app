@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { AuthContext } from "./AuthContext";
+import { AuthContext } from "../AuthContext";
 import { auth } from "../firebase";
 import { Mail, Lock, LogIn, UserPlus, Eye, EyeOff, AlertCircle } from "lucide-react";
 
