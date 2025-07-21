@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { format, startOfDay, endOfDay, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { 
   DollarSign,
@@ -8,8 +8,61 @@ import {
   Package,
   CalendarDays
 } from "lucide-react";
+import { collection, query, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
-const SalesAnalytics = ({ sales, products, dateFilter }) => {
+const SalesAnalytics = ({ dateFilter }) => {
+  const [sales, setSales] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const salesQuery = query(collection(db, `users/${user.uid}/sales`));
+      const unsubscribeSales = onSnapshot(
+        salesQuery,
+        (snapshot) => {
+          const salesData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setSales(salesData);
+        },
+        (err) => {
+          console.error("Error примітив Error fetching sales:", err);
+        }
+      );
+
+      const productsQuery = query(collection(db, `users/${user.uid}/products`));
+      const unsubscribeProducts = onSnapshot(
+        productsQuery,
+        (snapshot) => {
+          const productsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setProducts(productsData);
+        },
+        (err) => {
+          console.error("Error fetching products:", err);
+        }
+      );
+
+      return () => {
+        unsubscribeSales();
+        unsubscribeProducts();
+      };
+    }
+  }, [user]);
+
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     if (dateFilter.type === 'all') return sales;
