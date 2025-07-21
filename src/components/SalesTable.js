@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   useReactTable, 
   getCoreRowModel, 
@@ -8,10 +8,61 @@ import {
 } from "@tanstack/react-table";
 import { format, startOfDay, endOfDay, isWithinInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Edit, Trash2, Search, X } from "lucide-react";
-import { collection, deleteDoc, doc, query, where, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { collection, deleteDoc, doc, query, where, getDocs, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
-const SalesTable = ({ sales, products, globalFilter, setGlobalFilter, dateFilter, userId, setEditingSale, setShowForm }) => {
+const SalesTable = ({ globalFilter, setGlobalFilter, dateFilter, setEditingSale, setShowForm }) => {
+  const [sales, setSales] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const salesQuery = query(collection(db, `users/${user.uid}/sales`));
+      const unsubscribeSales = onSnapshot(
+        salesQuery,
+        (snapshot) => {
+          const salesData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setSales(salesData);
+        },
+        (err) => {
+          console.error("Error fetching sales:", err);
+        }
+      );
+
+      const productsQuery = query(collection(db, `users/${user.uid}/products`));
+      const unsubscribeProducts = onSnapshot(
+        productsQuery,
+        (snapshot) => {
+          const productsData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setProducts(productsData);
+        },
+        (err) => {
+          console.error("Error fetching products:", err);
+        }
+      );
+
+      return () => {
+        unsubscribeSales();
+        unsubscribeProducts();
+      };
+    }
+  }, [user]);
+
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     
@@ -184,11 +235,11 @@ const SalesTable = ({ sales, products, globalFilter, setGlobalFilter, dateFilter
   });
 
   const handleDeleteSale = async (id) => {
-    if (window.confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
+    if (window.confirm("Are you sure you want to delete this sale? This action cannot be undone.") && user) {
       try {
-        await deleteDoc(doc(db, `users/${userId}/sales`, id));
+        await deleteDoc(doc(db, `users/${user.uid}/sales`, id));
         const debtsQuery = query(
-          collection(db, `users/${userId}/debts`),
+          collection(db, `users/${user.uid}/debts`),
           where("saleId", "==", id)
         );
         const querySnapshot = await getDocs(debtsQuery);
