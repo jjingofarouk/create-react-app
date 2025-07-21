@@ -1,5 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import { AuthContext } from './AuthContext';
 import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, AlertCircle, RefreshCw, LogOut, Menu } from 'lucide-react';
 import SalesPage from './components/SalesPage';
@@ -27,16 +29,16 @@ const App = () => {
     };
 
     return (
-      <header className="bg-white/80 backdrop-blur-md fixed top-0 left-0 right-0 z-[100]">
+      <header className="bg-white/40 backdrop-blur-sm fixed top-0 left-0 right-0 z-[100]">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Left - Hamburger Menu */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+              className="p-2 rounded-lg hover:bg-white/20 transition-colors duration-200"
               aria-label="Menu"
             >
-              <Menu className="w-5 h-5 text-gray-600" />
+              <Menu className="w-5 h-5 text-gray-700" />
             </button>
             
             {/* Center - RichBooks */}
@@ -51,10 +53,10 @@ const App = () => {
                   setActiveTab("profile");
                   navigate('/profile');
                 }}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                className="p-2 rounded-lg hover:bg-white/20 transition-colors duration-200"
                 aria-label="Profile"
               >
-                <User className="w-5 h-5 text-gray-600" />
+                <User className="w-5 h-5 text-gray-700" />
               </button>
             )}
           </div>
@@ -62,7 +64,7 @@ const App = () => {
         
         {/* Dropdown Menu */}
         {isMenuOpen && (
-          <div className="absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/50 shadow-lg">
+          <div className="absolute top-full left-0 right-0 bg-white/60 backdrop-blur-md border-t border-gray-200/30 shadow-lg">
             <div className="px-4 py-2">
               <div className="flex flex-col space-y-1">
                 <button
@@ -71,7 +73,7 @@ const App = () => {
                     navigate('/sales');
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-white/30 rounded-lg transition-colors duration-200"
                 >
                   <ShoppingCart className="w-4 h-4 text-emerald-600" />
                   <span className="text-sm text-gray-700">Sales</span>
@@ -82,7 +84,7 @@ const App = () => {
                     navigate('/debts');
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-white/30 rounded-lg transition-colors duration-200"
                 >
                   <CreditCard className="w-4 h-4 text-orange-600" />
                   <span className="text-sm text-gray-700">Debts</span>
@@ -93,7 +95,7 @@ const App = () => {
                     navigate('/expenses');
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-white/30 rounded-lg transition-colors duration-200"
                 >
                   <TrendingDown className="w-4 h-4 text-red-600" />
                   <span className="text-sm text-gray-700">Expenses</span>
@@ -104,7 +106,7 @@ const App = () => {
                     navigate('/bank');
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-white/30 rounded-lg transition-colors duration-200"
                 >
                   <Banknote className="w-4 h-4 text-blue-600" />
                   <span className="text-sm text-gray-700">Bank</span>
@@ -115,18 +117,18 @@ const App = () => {
                     navigate('/reports');
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-white/30 rounded-lg transition-colors duration-200"
                 >
                   <FileText className="w-4 h-4 text-purple-600" />
                   <span className="text-sm text-gray-700">Reports</span>
                 </button>
-                <hr className="my-2 border-gray-200" />
+                <hr className="my-2 border-gray-200/50" />
                 <button
                   onClick={() => {
                     handleSignOut();
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-red-50 rounded-lg transition-colors duration-200"
+                  className="flex items-center gap-3 px-3 py-2 text-left hover:bg-red-100/50 rounded-lg transition-colors duration-200"
                 >
                   <LogOut className="w-4 h-4 text-red-600" />
                   <span className="text-sm text-red-600">Sign Out</span>
@@ -237,15 +239,86 @@ const App = () => {
   };
 
   const LoadingScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 flex items-center justify-center">
-      <div className="text-center">
-        <div className="relative">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-blue-200 rounded-full animate-spin"></div>
-          <div className="absolute top-0 left-0 w-16 h-16 sm:w-20 sm:h-20 border-4 border-t-blue-600 rounded-full animate-spin"></div>
+    <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
+        {/* Header Skeleton */}
+        <div className="bg-white/40 backdrop-blur-sm fixed top-0 left-0 right-0 z-[100]">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <Skeleton height={36} width={36} borderRadius={8} />
+              <Skeleton height={24} width={100} borderRadius={4} />
+              <Skeleton height={36} width={36} borderRadius={8} />
+            </div>
+          </div>
         </div>
-        <p className="mt-4 text-neutral-600 font-medium">Loading RichBooks...</p>
+
+        {/* Main Content Skeleton */}
+        <main className="pt-[60px] pb-[90px] sm:pb-[100px] min-h-screen">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="space-y-6">
+              {/* Header Section */}
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <Skeleton height={32} width={200} className="mb-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4">
+                    <Skeleton height={20} width={80} className="mb-2" />
+                    <Skeleton height={36} width={120} />
+                  </div>
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4">
+                    <Skeleton height={20} width={80} className="mb-2" />
+                    <Skeleton height={36} width={120} />
+                  </div>
+                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4">
+                    <Skeleton height={20} width={80} className="mb-2" />
+                    <Skeleton height={36} width={120} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Content Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <Skeleton height={24} width={150} className="mb-4" />
+                  <div className="space-y-3">
+                    <Skeleton height={60} />
+                    <Skeleton height={60} />
+                    <Skeleton height={60} />
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <Skeleton height={24} width={150} className="mb-4" />
+                  <div className="space-y-3">
+                    <Skeleton height={60} />
+                    <Skeleton height={60} />
+                    <Skeleton height={60} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart Skeleton */}
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <Skeleton height={28} width={180} className="mb-6" />
+                <Skeleton height={300} />
+              </div>
+            </div>
+          </div>
+        </main>
+        
+        {/* Bottom Navigation Skeleton */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/80 shadow-2xl z-[90]">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="flex-1 flex flex-col items-center justify-center py-3 sm:py-4 px-1 min-h-[70px] sm:min-h-[80px]">
+                  <Skeleton height={24} width={24} className="mb-1.5" borderRadius={4} />
+                  <Skeleton height={12} width={40} borderRadius={2} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </nav>
       </div>
-    </div>
+    </SkeletonTheme>
   );
 
   if (loading) {
