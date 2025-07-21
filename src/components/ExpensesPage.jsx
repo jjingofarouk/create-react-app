@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Tag } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import { format } from "date-fns";
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
 
-const ExpensesPage = ({ expenses = [], userId }) => {
+const ExpensesPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [filter, setFilter] = useState("");
@@ -17,35 +17,63 @@ const ExpensesPage = ({ expenses = [], userId }) => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryName, setCategoryName] = useState("");
   const [categoryError, setCategoryError] = useState("");
+  const [expenses, setExpenses] = useState([]);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch categories on component mount
   useEffect(() => {
-    const fetchCategories = async () => {
-      if (!userId) return;
-      
-      try {
-        setLoading(true);
-        const categoriesSnapshot = await getDocs(collection(db, `users/${userId}/categories`));
-        const categoriesList = categoriesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-        }));
-        setCategories(categoriesList);
-        setError("");
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-        setError("Failed to load categories");
-      } finally {
-        setLoading(false);
-      }
-    };
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
 
-    fetchCategories();
-  }, [userId]);
+    return () => unsubscribe();
+  }, []);
 
-  // Filter expenses when filter or expenses change
+  useEffect(() => {
+    if (user) {
+      const expensesQuery = query(collection(db, `users/${user.uid}/expenses`));
+      const unsubscribeExpenses = onSnapshot(
+        expensesQuery,
+        (snapshot) => {
+          const expensesData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setExpenses(expensesData);
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Error fetching expenses:", err);
+          setError("Failed to load expenses");
+          setLoading(false);
+        }
+      );
+
+      const categoriesQuery = query(collection(db, `users/${user.uid}/categories`));
+      const unsubscribeCategories = onSnapshot(
+        categoriesQuery,
+        (snapshot) => {
+          const categoriesList = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            name: doc.data().name,
+          }));
+          setCategories(categoriesList);
+          setError("");
+        },
+        (err) => {
+          console.error("Error fetching categories:", err);
+          setError("Failed to load categories");
+        }
+      );
+
+      return () => {
+        unsubscribeExpenses();
+        unsubscribeCategories();
+      };
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!expenses || !Array.isArray(expenses)) {
       setFilteredExpenses([]);
@@ -65,7 +93,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
     setFilteredExpenses(filtered);
   }, [filter, expenses]);
 
-  // Table columns definition
   const columns = [
     {
       header: "Category",
@@ -98,7 +125,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
         if (!date) return '-';
         
         try {
-          // Handle Firebase Timestamp
           const dateObj = date.toDate ? date.toDate() : new Date(date);
           return format(dateObj, 'MMM dd, yyyy');
         } catch (err) {
@@ -131,7 +157,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
     },
   ];
 
-  // Initialize table
   const table = useReactTable({
     columns,
     data: filteredExpenses,
@@ -142,7 +167,7 @@ const ExpensesPage = ({ expenses = [], userId }) => {
     if (!window.confirm("Are you sure you want to delete this expense?")) return;
     
     try {
-      await deleteDoc(doc(db, `users/${userId}/expenses`, id));
+      await deleteDoc(doc(db, `users/${user?.uid}/expenses`, id));
     } catch (err) {
       console.error("Error deleting expense:", err);
       setError("Failed to delete expense");
@@ -159,12 +184,12 @@ const ExpensesPage = ({ expenses = [], userId }) => {
 
     try {
       if (editingCategory) {
-        await updateDoc(doc(db, `users/${userId}/categories`, editingCategory.id), {
+        await updateDoc(doc(db, `users/${user?.uid}/categories`, editingCategory.id), {
           name: categoryName.trim(),
           updatedAt: new Date(),
         });
       } else {
-        await addDoc(collection(db, `users/${userId}/categories`), {
+        await addDoc(collection(db, `users/${user?.uid}/categories`), {
           name: categoryName.trim(),
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -175,13 +200,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
       setCategoryError("");
       setShowCategoryModal(false);
       setEditingCategory(null);
-      
-      // Refresh categories
-      const categoriesSnapshot = await getDocs(collection(db, `users/${userId}/categories`));
-      setCategories(categoriesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-      })));
     } catch (err) {
       console.error("Error saving category:", err);
       setCategoryError("Failed to save category. Please try again.");
@@ -192,7 +210,7 @@ const ExpensesPage = ({ expenses = [], userId }) => {
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     
     try {
-      await deleteDoc(doc(db, `users/${userId}/categories`, id));
+      await deleteDoc(doc(db, `users/${user?.uid}/categories`, id));
       setCategories(categories.filter(category => category.id !== id));
     } catch (err) {
       console.error("Error deleting category:", err);
@@ -200,7 +218,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
     }
   };
 
-  // Show loading state
   if (loading) {
     return (
       <div className="space-y-6">
@@ -214,7 +231,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-neutral-800">Expenses Tracking</h2>
         <div className="flex gap-3 w-full sm:w-auto">
@@ -238,16 +254,13 @@ const ExpensesPage = ({ expenses = [], userId }) => {
         </div>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
       )}
 
-      {/* Main Content */}
       <div className="bg-white rounded-lg shadow border border-neutral-200 p-4">
-        {/* Search Filter */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
@@ -267,7 +280,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-neutral-200">
             <thead className="bg-neutral-50">
@@ -298,7 +310,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
           </table>
         </div>
 
-        {/* Empty State */}
         {filteredExpenses.length === 0 && (
           <div className="text-center py-8 text-neutral-500">
             {filter ? "No matching expenses found" : "No expenses recorded yet"}
@@ -306,12 +317,9 @@ const ExpensesPage = ({ expenses = [], userId }) => {
         )}
       </div>
 
-      {/* Expense Form Modal */}
       {showForm && (
         <ExpenseForm
           expense={editingExpense}
-          categories={categories}
-          userId={userId}
           onClose={() => {
             setShowForm(false);
             setEditingExpense(null);
@@ -319,7 +327,6 @@ const ExpensesPage = ({ expenses = [], userId }) => {
         />
       )}
 
-      {/* Category Management Modal */}
       {showCategoryModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
