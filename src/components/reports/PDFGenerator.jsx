@@ -23,6 +23,30 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
     debts: [255, 159, 64],        // Corporate Orange
   };
 
+  // Get dynamic report title based on date filter
+  const getReportTitle = () => {
+    switch (dateFilter.type) {
+      case 'today':
+        return 'DAILY FINANCIAL REPORT';
+      case 'week':
+        return 'WEEKLY FINANCIAL REPORT';
+      case 'month':
+        return 'MONTHLY FINANCIAL REPORT';
+      case 'custom':
+        return 'CUSTOM PERIOD FINANCIAL REPORT';
+      default:
+        return 'CONSOLIDATED FINANCIAL REPORT';
+    }
+  };
+
+  // Get period description for the introduction card
+  const getPeriodDescription = () => {
+    if (dateFilter.type !== "all" && dateFilter.startDate && dateFilter.endDate) {
+      return `${format(new Date(dateFilter.startDate), "MMM dd, yyyy")} — ${format(new Date(dateFilter.endDate), "MMM dd, yyyy")}`;
+    }
+    return "All Time";
+  };
+
   const generatePDF = async () => {
     if (loading) return;
     setLoading(true);
@@ -106,37 +130,88 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         // Left side - Company info
         doc.text("Richmond Manufacturer's Ltd - Financial Report", 15, footerY);
         
+        // Center - CONFIDENTIAL in red
+        doc.setTextColor(220, 38, 38); // Red color
+        doc.setFontSize(10);
+        doc.setFont("times", "bold");
+        doc.text("CONFIDENTIAL", pageWidth / 2, footerY, { align: "center" });
+        
         // Right side - Page number
+        doc.setTextColor(...secondary);
+        doc.setFontSize(9);
+        doc.setFont("times", "normal");
         doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15, footerY, { align: "right" });
       };
 
-      // Add confidential disclaimer at the end
-      const addConfidentialDisclaimer = (yPos) => {
+      // Add stylish introduction card
+      const addIntroductionCard = (yPos) => {
         // Check if we need a new page
-        if (yPos > pageHeight - 60) {
+        if (yPos > pageHeight - 100) {
           doc.addPage();
           yPos = 20;
         }
 
-        // Disclaimer box
-        doc.setFillColor(254, 242, 242); // Light red background
-        doc.setDrawColor(220, 38, 38); // Red border
-        doc.setLineWidth(1);
-        doc.roundedRect(15, yPos, pageWidth - 30, 30, 3, 3, "FD");
+        // Card background
+        doc.setFillColor(248, 250, 252); // Light gray background
+        doc.setDrawColor(203, 213, 225); // Border color
+        doc.setLineWidth(0.5);
+        doc.roundedRect(15, yPos, pageWidth - 30, 60, 4, 4, "FD");
         
-        // Disclaimer text
-        doc.setTextColor(220, 38, 38);
+        // Card header with gradient effect
+        doc.setFillColor(...accent);
+        doc.roundedRect(15, yPos, pageWidth - 30, 20, 4, 4, "F");
+        doc.rect(15, yPos + 16, pageWidth - 30, 4, "F"); // Fill the rounded bottom
+        
+        // Title
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.setFont("times", "bold");
+        doc.text(getReportTitle(), 20, yPos + 13);
+        
+        // Content area
+        const cardContentY = yPos + 30;
+        
+        // Generated date and time
+        doc.setTextColor(...primary);
         doc.setFontSize(12);
         doc.setFont("times", "bold");
-        doc.text("CONFIDENTIAL", 20, yPos + 10);
+        doc.text("Generated:", 25, cardContentY);
         
-        doc.setTextColor(153, 27, 27);
-        doc.setFontSize(10);
+        doc.setTextColor(...secondary);
+        doc.setFontSize(11);
         doc.setFont("times", "normal");
-        doc.text("This document contains confidential and proprietary information of Richmond Manufacturer's Ltd.", 20, yPos + 18);
-        doc.text("Unauthorized distribution or disclosure is strictly prohibited.", 20, yPos + 25);
+        doc.text(format(new Date(), "MMM dd, yyyy 'at' HH:mm"), 70, cardContentY);
         
-        return yPos + 40;
+        // Report period
+        doc.setTextColor(...primary);
+        doc.setFontSize(12);
+        doc.setFont("times", "bold");
+        doc.text("Period:", 25, cardContentY + 12);
+        
+        doc.setTextColor(...secondary);
+        doc.setFontSize(11);
+        doc.setFont("times", "normal");
+        doc.text(getPeriodDescription(), 60, cardContentY + 12);
+
+        // Report type badge
+        const badgeX = pageWidth - 80;
+        doc.setFillColor(...accent);
+        doc.roundedRect(badgeX, cardContentY - 5, 55, 18, 2, 2, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont("times", "bold");
+        
+        let badgeText = "";
+        switch (dateFilter.type) {
+          case 'today': badgeText = "DAILY"; break;
+          case 'week': badgeText = "WEEKLY"; break;
+          case 'month': badgeText = "MONTHLY"; break;
+          case 'custom': badgeText = "CUSTOM"; break;
+          default: badgeText = "ALL TIME";
+        }
+        doc.text(badgeText, badgeX + 27.5, cardContentY + 5, { align: "center" });
+
+        return yPos + 70;
       };
 
       // Add modern approval section card
@@ -219,33 +294,6 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return yPos + 80;
       };
 
-      // Start generating PDF - Add header only on first page
-      addHeader();
-      
-      // Title and date
-      let yPosition = 63;
-      doc.setTextColor(...primary);
-      doc.setFontSize(24);
-      doc.setFont("times", "bold");
-      doc.text("CONSOLIDATED FINANCIAL REPORT", 15, yPosition);
-      doc.setTextColor(...secondary);
-      doc.setFontSize(11);
-      doc.setFont("times", "normal");
-      doc.text(`Generated: ${format(new Date(), "MMM dd, yyyy HH:mm")}`, pageWidth - 15, yPosition, { align: "right" });
-      yPosition += 25;
-
-      // Date filter badge
-      if (dateFilter.type !== "all" && dateFilter.startDate && dateFilter.endDate) {
-        doc.setFillColor(...accent);
-        doc.roundedRect(15, yPosition - 4, pageWidth - 30, 16, 2, 2, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(12);
-        doc.setFont("times", "normal");
-        const dateRange = `Period: ${format(new Date(dateFilter.startDate), "MMM dd, yyyy")} — ${format(new Date(dateFilter.endDate), "MMM dd, yyyy")}`;
-        doc.text(dateRange, 18, yPosition + 6);
-        yPosition += 25;
-      }
-
       const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
         // Check if we need a new page for the table header
         if (startY > pageHeight - 60) {
@@ -267,6 +315,34 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
         const sectionColor = sectionColors[sectionType] || sectionColors.supplies;
 
+        // Adjust column widths for supplies and sales tables to match other tables
+        const isWideTable = sectionType === 'supplies' || sectionType === 'sales';
+        const tableWidth = pageWidth - 30;
+        
+        let columnStyles = {};
+        if (isWideTable) {
+          // For supplies and sales tables, distribute columns more evenly with narrower widths
+          const numColumns = columns.length;
+          const baseWidth = tableWidth / numColumns;
+          
+          for (let i = 0; i < numColumns; i++) {
+            columnStyles[i] = { 
+              cellWidth: baseWidth - 5, // Slightly narrower to ensure fit
+              halign: i === 0 ? "left" : (i >= numColumns - 2 ? "right" : "center")
+            };
+          }
+        } else {
+          // Standard column styles for other tables
+          columnStyles = {
+            0: { cellWidth: 'auto' },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 'auto', halign: "center" },
+            3: { cellWidth: 'auto', halign: "right" },
+            4: { cellWidth: 'auto', halign: "right" },
+            5: { cellWidth: 'auto', halign: "right" },
+          };
+        }
+
         doc.autoTable({
           columns,
           body: rows,
@@ -278,13 +354,13 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
             fontSize: 12,
             fontStyle: "bold",
             halign: "left",
-            cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
+            cellPadding: { top: 7, right: isWideTable ? 6 : 10, bottom: 7, left: isWideTable ? 6 : 10 },
             lineWidth: 0,
             minCellHeight: 18,
           },
           bodyStyles: {
-            fontSize: 11,
-            cellPadding: { top: 6, right: 10, bottom: 6, left: 10 },
+            fontSize: isWideTable ? 10 : 11,
+            cellPadding: { top: 6, right: isWideTable ? 6 : 10, bottom: 6, left: isWideTable ? 6 : 10 },
             textColor: secondary,
             lineWidth: 0.2,
             lineColor: border,
@@ -293,25 +369,25 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           alternateRowStyles: {
             fillColor: background,
           },
-          columnStyles: {
-            0: { cellWidth: 'auto' },
-            1: { cellWidth: 'auto' },
-            2: { cellWidth: 'auto', halign: "center" },
-            3: { cellWidth: 'auto', halign: "right" },
-            4: { cellWidth: 'auto', halign: "right" },
-            5: { cellWidth: 'auto', halign: "right" },
-          },
+          columnStyles: columnStyles,
           margin: { left: 15, right: 15 },
-          tableWidth: pageWidth - 30,
+          tableWidth: tableWidth,
           styles: {
             overflow: "ellipsize",
             cellWidth: "wrap",
-            fontSize: 11,
+            fontSize: isWideTable ? 10 : 11,
             font: "times",
           },
         });
         return doc.lastAutoTable.finalY + 20;
       };
+
+      // Start generating PDF - Add header only on first page
+      addHeader();
+      
+      // Add introduction card instead of separate title and period sections
+      let yPosition = 55;
+      yPosition = addIntroductionCard(yPosition);
 
       // Generate report sections with different colors
       yPosition = SuppliesSummary({ 
@@ -360,9 +436,6 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       // Add approval section
       yPosition = addApprovalSection(yPosition);
 
-      // Add confidential disclaimer at the end
-      addConfidentialDisclaimer(yPosition);
-
       // Add footers to all pages
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
@@ -370,10 +443,15 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         addFooter(i, totalPages);
       }
 
-      // Save PDF
-      const fileName = `Consolidated_Financial_Report_${format(new Date(), "yyyy-MM-dd")}_RML.pdf`;
+      // Save PDF with dynamic filename
+      const reportTypeForFile = dateFilter.type === 'today' ? 'Daily' : 
+                               dateFilter.type === 'week' ? 'Weekly' : 
+                               dateFilter.type === 'month' ? 'Monthly' : 
+                               dateFilter.type === 'custom' ? 'Custom' : 'Consolidated';
+      
+      const fileName = `${reportTypeForFile}_Financial_Report_${format(new Date(), "yyyy-MM-dd")}_RML.pdf`;
       doc.save(fileName);
-      toast.success("Consolidated report generated successfully!");
+      toast.success(`${reportTypeForFile} report generated successfully!`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error(`Failed to generate PDF: ${error.message}`);
@@ -396,7 +474,10 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       ) : (
         <>
           <Download className="w-5 h-5" />
-          <span>Generate Report</span>
+          <span>Generate {dateFilter.type === 'today' ? 'Daily' : 
+                         dateFilter.type === 'week' ? 'Weekly' : 
+                         dateFilter.type === 'month' ? 'Monthly' : 
+                         dateFilter.type === 'custom' ? 'Custom' : 'Consolidated'} Report</span>
         </>
       )}
     </button>
