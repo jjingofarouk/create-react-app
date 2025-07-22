@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { format, startOfDay } from "date-fns";
-import DateFilter from "./DateFilter";
+import DateFilter from "./reports/DateFilter";
 import PDFGenerator from "./reports/PDFGenerator";
 import useFirestoreData from "./reports/useFirestoreData";
 
