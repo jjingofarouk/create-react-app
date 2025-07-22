@@ -46,7 +46,7 @@ const BankDeposits = ({ doc, data, dateFilter, addTable, yPosition }) => {
   const filteredDeposits = filterData(data.bankDeposits.filter((d) => !d.isDepositorOnly));
   const depositsData = sortedData(filteredDeposits).map((item) => ({
     depositor: item.depositor || "Unknown",
-    bank: item.description || "Not Recorded",
+    bank: item.description || "Centenary Bank",
     amount: (item.amount || 0).toLocaleString(),
   }));
 
