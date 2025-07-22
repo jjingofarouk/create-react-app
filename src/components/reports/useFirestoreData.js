@@ -1,6 +1,7 @@
+// src/components/reports/useFirestoreData.jsx
 import { useState, useEffect } from "react";
 import { collection, query, onSnapshot } from "firebase/firestore";
-import { db } from "../../firebase";
+import { db } from "../firebase";
 
 const useFirestoreData = (user, setLoading) => {
   const [sales, setSales] = useState([]);
@@ -16,7 +17,7 @@ const useFirestoreData = (user, setLoading) => {
     if (user) {
       setLoading(true);
       let loadedCount = 0;
-      const totalCollections = 5;
+      const totalCollections = 8;
 
       const checkAllLoaded = () => {
         loadedCount++;
@@ -119,9 +120,11 @@ const useFirestoreData = (user, setLoading) => {
             ...doc.data(),
           }));
           setCategories(categoriesData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching categories:", err);
+          checkAllLoaded();
         }
       );
 
@@ -134,9 +137,11 @@ const useFirestoreData = (user, setLoading) => {
             ...doc.data(),
           }));
           setBankDeposits(bankDepositsData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching bank deposits:", err);
+          checkAllLoaded();
         }
       );
 
@@ -149,9 +154,11 @@ const useFirestoreData = (user, setLoading) => {
             ...doc.data(),
           }));
           setSupplies(suppliesData);
+          checkAllLoaded();
         },
         (err) => {
           console.error("Error fetching supplies:", err);
+          checkAllLoaded();
         }
       );
 
