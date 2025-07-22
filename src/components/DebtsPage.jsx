@@ -6,10 +6,10 @@ import Skeleton from 'react-loading-skeleton';
 import { flexRender, useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from "@tanstack/react-table";
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
-import DebtForm from "./DebtForm";
-import SalesForm from "./SalesForm";
-import DateFilter from "./DateFilter";
-import { format, differenceInDays, startOfMonth, endOfMonth, startOfDay } from "date-fns";
+import DebtForm from "./debts/DebtForm";
+import SalesForm from "./sales/SalesForm";
+import DateFilter from "./debts/DateFilter";
+import { format, differenceInDays } from "date-fns";
 
 const DebtsPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -504,25 +504,9 @@ const DebtsPage = () => {
   return (
     <div className="space-y-6">
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-2">
-            <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
-              Debts Management
-            </h1>
-            <p className="text-slate-600 text-lg max-w-2xl leading-relaxed">
-              Track and manage your debts efficiently with our comprehensive debt management platform.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingDebt(null);
-              setShowForm(true);
-            }}
-            className="bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        </div>
+        <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
+          Debts Management
+        </h1>
         <div className="mt-4">
           <DateFilter
             dateFilter={dateFilter}
@@ -671,11 +655,21 @@ const DebtsPage = () => {
         )}
       </div>
 
+      <button
+        onClick={() => {
+          setEditingDebt(null);
+          setShowForm(true);
+        }}
+        className="fixed bottom-6 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
       <SummaryCards />
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl my-8">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg my-8">
             <DebtForm
               debt={editingDebt}
               onClose={() => {
@@ -688,8 +682,8 @@ const DebtsPage = () => {
       )}
 
       {showSalesForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl my-8">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg my-8">
             <SalesForm
               sale={editingSale}
               clients={clients}
