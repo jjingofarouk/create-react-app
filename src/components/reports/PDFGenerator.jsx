@@ -5,16 +5,23 @@ import { format } from "date-fns";
 import { Download } from "lucide-react";
 import toast from "react-hot-toast";
 import logo from "../logo.jpg";
-import signature from "../signature.jpg";
 import SuppliesSummary from "./SuppliesSummary";
 import BankDeposits from "./BankDeposits";
 import Expenses from "./Expenses";
 import SalesSummary from "./SalesSummary";
-import ClientPaymentStatus from "./ClientPaymentStatus";
 import DebtsSummary from "./DebtsSummary";
 
 const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categories, userId }) => {
   const [loading, setLoading] = useState(false);
+
+  // Define colors for different sections
+  const sectionColors = {
+    supplies: [34, 197, 94], // Green
+    bankDeposits: [59, 130, 246], // Blue
+    expenses: [239, 68, 68], // Red
+    sales: [168, 85, 247], // Purple
+    debts: [245, 158, 11], // Orange
+  };
 
   const generatePDF = async () => {
     if (loading) return;
@@ -57,41 +64,6 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         });
       } catch (error) {
         console.warn("Failed to load logo:", error);
-      }
-
-      let signatureBase64 = null;
-      try {
-        signatureBase64 = await new Promise((resolve, reject) => {
-          const img = new Image();
-          const timeout = setTimeout(() => resolve(null), 5000);
-          img.onload = () => {
-            clearTimeout(timeout);
-            const canvas = document.createElement("canvas");
-            const aspectRatio = img.width / img.height;
-            const maxWidth = 60;
-            const maxHeight = 30;
-            let canvasWidth, canvasHeight;
-            if (aspectRatio > maxWidth / maxHeight) {
-              canvasWidth = maxWidth;
-              canvasHeight = maxWidth / aspectRatio;
-            } else {
-              canvasHeight = maxHeight;
-              canvasWidth = maxHeight * aspectRatio;
-            }
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-            resolve(canvas.toDataURL("image/png", 0.9));
-          };
-          img.onerror = () => {
-            clearTimeout(timeout);
-            resolve(null);
-          };
-          img.src = signature;
-        });
-      } catch (error) {
-        console.warn("Failed to load signature:", error);
       }
 
       // Header
@@ -138,7 +110,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         yPosition += 22;
       }
 
-      const addTable = (title, columns, rows, startY) => {
+      const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...primary);
@@ -151,24 +123,27 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           return startY + 30;
         }
 
+        // Get section color
+        const sectionColor = sectionColors[sectionType] || sectionColors.supplies;
+
         doc.autoTable({
           columns,
           body: rows,
           startY: startY + 8,
           theme: "plain",
           headStyles: {
-            fillColor: primary,
+            fillColor: sectionColor,
             textColor: [255, 255, 255],
             fontSize: 11,
             fontStyle: "bold",
             halign: "left",
-            cellPadding: { top: 6, right: 6, bottom: 6, left: 6 },
+            cellPadding: { top: 6, right: 8, bottom: 6, left: 8 },
             lineWidth: 0,
             minCellHeight: 16,
           },
           bodyStyles: {
             fontSize: 10,
-            cellPadding: { top: 5, right: 6, bottom: 5, left: 6 },
+            cellPadding: { top: 5, right: 8, bottom: 5, left: 8 },
             textColor: secondary,
             lineWidth: 0.2,
             lineColor: border,
@@ -177,79 +152,69 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           alternateRowStyles: {
             fillColor: background,
           },
+          // Standardized column styles for better space utilization
           columnStyles: {
-            product: { cellWidth: 50 },
-            supplyType: { cellWidth: 30 },
-            quantity: { halign: "center", cellWidth: 20 },
-            quantitySold: { halign: "center", cellWidth: 20 },
-            balance: { halign: "center", cellWidth: 20 },
-            depositor: { cellWidth: 50 },
-            bank: { cellWidth: 40 },
-            amount: { halign: "right", cellWidth: 35, fontStyle: "bold" },
-            category: { cellWidth: 40 },
-            percentage: { halign: "right", cellWidth: 25 },
-            client: { cellWidth: 50 },
-            debtCleared: { halign: "right", cellWidth: 35 },
-            debtBalance: { halign: "right", cellWidth: 35 },
-            totalEarnings: { halign: "right", cellWidth: 35 },
-            discountedEarnings: { halign: "right", cellWidth: 35 },
-            status: { halign: "center", cellWidth: 30 },
-            updatedAt: { halign: "center", cellWidth: 35 },
+            0: { cellWidth: 'auto' }, // First column auto-width
+            1: { cellWidth: 'auto' }, // Second column auto-width
+            2: { cellWidth: 'auto', halign: "center" }, // Third column centered
+            3: { cellWidth: 'auto', halign: "right" }, // Fourth column right-aligned
+            4: { cellWidth: 'auto', halign: "right" }, // Fifth column right-aligned
+            5: { cellWidth: 'auto', halign: "right" }, // Sixth column right-aligned
           },
-          margin: { left: 10, right: 10 },
-          tableWidth: "auto",
+          margin: { left: 15, right: 15 },
+          tableWidth: pageWidth - 30, // Use full page width minus margins
           styles: {
-            overflow: "linebreak",
+            overflow: "ellipsize", // Prevent text wrapping
             cellWidth: "wrap",
+            fontSize: 10,
           },
         });
         return doc.lastAutoTable.finalY + 20;
       };
 
-      // Generate report sections - FIXED: Pass dateFilter to all components
-      yPosition = SuppliesSummary({ doc, data, products, dateFilter, addTable, yPosition });
-      yPosition = BankDeposits({ doc, data, dateFilter, addTable, yPosition });
-      yPosition = Expenses({ doc, data, dateFilter, addTable, yPosition });
-      yPosition = SalesSummary({ doc, data, products, dateFilter, addTable, yPosition });
-      yPosition = ClientPaymentStatus({ doc, data, clients, dateFilter, addTable, yPosition });
-      yPosition = DebtsSummary({ doc, data, clients, dateFilter, addTable, yPosition });
-
-      // Add new page if needed
-      if (yPosition > pageHeight - 100) {
-        doc.addPage();
-        yPosition = 30;
-      }
-
-      // Signature section
-      doc.setFillColor(...background);
-      doc.roundedRect(15, yPosition - 4, pageWidth - 30, 60, 3, 3, "F");
-      doc.setDrawColor(...border);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(15, yPosition - 4, pageWidth - 30, 60, 3, 3, "S");
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...primary);
-      doc.text("Compiled By:", 20, yPosition + 8);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...secondary);
-      doc.text("Shadia Nakitto", 20, yPosition + 16);
-      doc.text("Sales and Accounts Analyst", 20, yPosition + 24);
-
-      if (signatureBase64) {
-        doc.addImage(signatureBase64, "PNG", 20, yPosition + 30, 60, 30);
-      }
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...primary);
-      doc.text("Approved By:", pageWidth - 100, yPosition + 8);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...secondary);
-      doc.text("Marketing Manager", pageWidth - 100, yPosition + 16);
-      doc.text("___________________________", pageWidth - 100, yPosition + 24);
+      // Generate report sections with different colors
+      yPosition = SuppliesSummary({ 
+        doc, 
+        data, 
+        products, 
+        dateFilter, 
+        addTable: (title, columns, rows, startY) => addTable(title, columns, rows, startY, 'supplies'), 
+        yPosition 
+      });
+      
+      yPosition = BankDeposits({ 
+        doc, 
+        data, 
+        dateFilter, 
+        addTable: (title, columns, rows, startY) => addTable(title, columns, rows, startY, 'bankDeposits'), 
+        yPosition 
+      });
+      
+      yPosition = Expenses({ 
+        doc, 
+        data, 
+        dateFilter, 
+        addTable: (title, columns, rows, startY) => addTable(title, columns, rows, startY, 'expenses'), 
+        yPosition 
+      });
+      
+      yPosition = SalesSummary({ 
+        doc, 
+        data, 
+        products, 
+        dateFilter, 
+        addTable: (title, columns, rows, startY) => addTable(title, columns, rows, startY, 'sales'), 
+        yPosition 
+      });
+      
+      yPosition = DebtsSummary({ 
+        doc, 
+        data, 
+        clients, 
+        dateFilter, 
+        addTable: (title, columns, rows, startY) => addTable(title, columns, rows, startY, 'debts'), 
+        yPosition 
+      });
 
       // Save PDF
       const fileName = `Consolidated_Financial_Report_${format(new Date(), "yyyy-MM-dd")}_RML.pdf`;
