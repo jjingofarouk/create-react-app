@@ -1,4 +1,3 @@
-// DebtsPage.jsx
 import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
@@ -239,7 +238,10 @@ const DebtsPage = () => {
     {
       header: "Amount (UGX)",
       accessorKey: "amount",
-      cell: (info) => (info.getValue() || 0).toLocaleString(),
+      cell: (info) => {
+        const value = parseFloat(info.getValue()) || 0;
+        return value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      },
       sortingFn: (rowA, rowB, columnId) => {
         const a = getSortValue(rowA, columnId);
         const b = getSortValue(rowB, columnId);
@@ -422,7 +424,7 @@ const DebtsPage = () => {
             <span className="text-sm font-medium text-red-600 bg-red-100 px-2 py-1 rounded">Amount</span>
           </div>
           <div className="text-2xl font-bold text-neutral-800 mb-1">
-            {summaryMetrics.totalAmountOwed.toLocaleString()} UGX
+            {summaryMetrics.totalAmountOwed.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX
           </div>
           <p className="text-sm text-neutral-600">
             {dateFilter.type === 'all' ? 'Total Amount Owed' : `Amount Owed for ${dateFilter.type}`}
@@ -448,7 +450,7 @@ const DebtsPage = () => {
             <span className="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">Highest</span>
           </div>
           <div className="text-2xl font-bold text-neutral-800 mb-1">
-            {summaryMetrics.highestDebt ? `${summaryMetrics.highestDebt.amount.toLocaleString()} UGX` : '0 UGX'}
+            {summaryMetrics.highestDebt ? `${summaryMetrics.highestDebt.amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX` : '0 UGX'}
           </div>
           <p className="text-sm text-neutral-600 truncate">
             {summaryMetrics.highestDebt ? summaryMetrics.highestDebt.client || 'Unknown Client' : 'No debts'}
@@ -463,7 +465,7 @@ const DebtsPage = () => {
             <span className="text-sm font-medium text-indigo-600 bg-indigo-100 px-2 py-1 rounded">Lowest</span>
           </div>
           <div className="text-2xl font-bold text-neutral-800 mb-1">
-            {summaryMetrics.lowestDebt ? `${summaryMetrics.lowestDebt.amount.toLocaleString()} UGX` : '0 UGX'}
+            {summaryMetrics.lowestDebt ? `${summaryMetrics.lowestDebt.amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX` : '0 UGX'}
           </div>
           <p className="text-sm text-neutral-600 truncate">
             {summaryMetrics.lowestDebt ? summaryMetrics.lowestDebt.client || 'Unknown Client' : 'No debts'}
@@ -491,7 +493,7 @@ const DebtsPage = () => {
             <span className="text-sm font-medium text-teal-600 bg-teal-100 px-2 py-1 rounded">Average</span>
           </div>
           <div className="text-2xl font-bold text-neutral-800 mb-1">
-            {Math.round(summaryMetrics.averageDebtAmount).toLocaleString()} UGX
+            {Math.round(summaryMetrics.averageDebtAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX
           </div>
           <p className="text-sm text-neutral-600">Average Debt Amount</p>
         </div>
@@ -501,6 +503,13 @@ const DebtsPage = () => {
 
   return (
     <div className="space-y-6">
+      <DateFilter
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        showDateFilter={showDateFilter}
+        setShowDateFilter={setShowDateFilter}
+      />
+
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-2">
@@ -511,34 +520,8 @@ const DebtsPage = () => {
               Track and manage your debts efficiently with our comprehensive debt management platform.
             </p>
           </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => {
-                setEditingDebt(null);
-                setShowForm(true);
-              }}
-              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-blue-100/50 hover:-translate-y-1"
-            >
-              <div className="flex flex-col items-center gap-3">
-                <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
-                  <Plus className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-slate-800 text-sm">Add Debt</div>
-                  <div className="text-xs text-slate-500 mt-1">New Debt Record</div>
-                </div>
-              </div>
-            </button>
-          </div>
         </div>
       </div>
-
-      <DateFilter
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        showDateFilter={showDateFilter}
-        setShowDateFilter={setShowDateFilter}
-      />
 
       <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
         <div className="p-6 border-b border-neutral-100">
@@ -677,6 +660,16 @@ const DebtsPage = () => {
           </div>
         )}
       </div>
+
+      <button
+        onClick={() => {
+          setEditingDebt(null);
+          setShowForm(true);
+        }}
+        className="fixed bottom-6 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       <SummaryCards />
 
