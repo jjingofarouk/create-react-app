@@ -1,13 +1,15 @@
+// src/components/reports/ReportsPage.jsx
 import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { format, startOfDay } from "date-fns";
 import DateFilter from "./DateFilter";
-import PDFGenerator from "./reports/PDFGenerator";
-import useFirestoreData from "./reports/useFirestoreData";
+import PDFGenerator from "./PDFGenerator";
+import useFirestoreData from "./useFirestoreData";
 
 const ReportsPage = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const today = format(startOfDay(new Date()), "yyyy-MM-dd");
   const [dateFilter, setDateFilter] = useState({
     type: "today",
@@ -21,7 +23,10 @@ const ReportsPage = () => {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
-      if (!currentUser) setLoading(false);
+      if (!currentUser) {
+        setLoading(false);
+        setError("Please log in to generate reports.");
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -60,6 +65,11 @@ const ReportsPage = () => {
 
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
         <h2 className="text-2xl font-bold text-slate-800 mb-6">Generate Consolidated Report</h2>
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <p>{error}</p>
+          </div>
+        )}
         {loading ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
@@ -67,7 +77,7 @@ const ReportsPage = () => {
             </div>
             <p className="text-slate-600">Loading data...</p>
           </div>
-        ) : (
+        ) : user ? (
           <PDFGenerator
             reportType="consolidated"
             dateFilter={dateFilter}
@@ -75,9 +85,10 @@ const ReportsPage = () => {
             clients={safeClients}
             products={safeProducts}
             categories={safeCategories}
-            userId={user?.uid}
+            userId={user.uid}
+            setError={setError}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );
