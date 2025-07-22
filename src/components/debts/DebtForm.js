@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { addDoc, doc, updateDoc, collection, query, onSnapshot, getDoc, writeBatch } from "firebase/firestore";
-import { db, auth } from "../firebase";
-import AutocompleteInput from "./AutocompleteInput";
+import { db, auth } from "../../firebase";
+import AutocompleteInput from "../AutocompleteInput";
 import { X, User, Package } from "lucide-react";
 import { format } from "date-fns";
 
@@ -180,9 +180,9 @@ const DebtForm = ({ debt, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col" style={{ maxHeight: '80vh' }}>
+        <div className="flex-shrink-0 flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200">
           <h3 className="text-lg font-semibold text-neutral-800">
             {debt ? "Edit Debt" : "Add New Debt"}
           </h3>
@@ -194,213 +194,214 @@ const DebtForm = ({ debt, onClose }) => {
           </button>
         </div>
 
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
-            {errors.submit}
-          </div>
-        )}
-
-        {debt?.saleId && (
-          <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
-            This debt is linked to a sale. Updating it will adjust the sale's payment status.
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
-            <AutocompleteInput
-              options={clients.map((c) => ({ id: c.id, name: c.name }))}
-              value={formData.client}
-              onChange={handleClientSelect}
-              placeholder="Select or type client name"
-              allowNew
-              icon={<User className="w-5 h-5 text-neutral-400" />}
-            />
-            {errors.client && <p className="mt-1 text-sm text-red-600">{errors.client}</p>}
-          </div>
-
-          {!debt?.saleId && (
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Product</label>
-              <AutocompleteInput
-                options={products.map((p) => ({ id: p.id, name: p.name }))}
-                value={formData.productId}
-                onChange={(value) => handleChange("productId", value)}
-                placeholder="Select product"
-                allowNew={false}
-                icon={<Package className="w-5 h-5 text-neutral-400" />}
-              />
-              {errors.productId && <p className="mt-1 text-sm text-red-600">{errors.productId}</p>}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {errors.submit && (
+            <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">
+              {errors.submit}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Total Amount (UGX)</label>
-            <input
-              type="number"
-              value={formData.amount}
-              onChange={(e) => handleChange("amount", e.target.value)}
-              min="0"
-              step="0.01"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-            />
-            {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-          </div>
+          {debt?.saleId && (
+            <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
+              This debt is linked to a sale. Updating it will adjust the sale's payment status.
+            </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Paid Today (UGX)</label>
-            <input
-              type="number"
-              value={formData.paidToday}
-              onChange={(e) => handleChange("paidToday", e.target.value)}
-              min="0"
-              step="0.01"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-            />
-            {errors.paidToday && <p className="mt-1 text-sm text-red-600">{errors.paidToday}</p>}
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Client</label>
+              <AutocompleteInput
+                options={clients.map((c) => ({ id: c.id, name: c.name }))}
+                value={formData.client}
+                onChange={handleClientSelect}
+                placeholder="Select or type client name"
+                allowNew
+                icon={<User className="w-5 h-5 text-neutral-400" />}
+              />
+              {errors.client && <p className="mt-1 text-sm text-red-600">{errors.client}</p>}
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Remaining Balance (UGX)</label>
-            <input
-              type="text"
-              value={(formData.amount - (parseFloat(formData.paidToday) || 0)).toLocaleString()}
-              readOnly
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-100 text-neutral-600"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
-            <input
-              type="date"
-              value={format(formData.createdAt, "yyyy-MM-dd")}
-              onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => handleChange("notes", e.target.value)}
-              rows="3"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Saving..." : debt ? "Update Debt" : "Save Debt"}
-            </button>
-          </div>
-        </form>
-
-        {showClientForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[95vh] flex flex-col">
-              <div className="flex justify-between items-center p-6 border-b border-neutral-200 flex-shrink-0">
-                <h3 className="text-lg font-semibold text-neutral-800">Add New Client</h3>
-                <button
-                  onClick={() => setShowClientForm(false)}
-                  className="text-neutral-400 hover:text-neutral-600 transition-colors p-1"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+            {!debt?.saleId && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Product</label>
+                <AutocompleteInput
+                  options={products.map((p) => ({ id: p.id, name: p.name }))}
+                  value={formData.productId}
+                  onChange={(value) => handleChange("productId", value)}
+                  placeholder="Select product"
+                  allowNew={false}
+                  icon={<Package className="w-5 h-5 text-neutral-400" />}
+                />
+                {errors.productId && <p className="mt-1 text-sm text-red-600">{errors.productId}</p>}
               </div>
-              
-              <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={handleAddClient} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Client Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={newClient.name}
-                      onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                      required
-                      placeholder="Enter client name"
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={newClient.email}
-                      onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                      placeholder="client@example.com"
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={newClient.phone}
-                      onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                      placeholder="+256 700 000 000"
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Address
-                    </label>
-                    <textarea
-                      value={newClient.address}
-                      onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-                      placeholder="Client address"
-                      rows={3}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors resize-none"
-                    />
-                  </div>
-                </form>
-              </div>
-              
-              <div className="flex justify-end gap-3 p-6 border-t border-neutral-200 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowClientForm(false)}
-                  className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddClient}
-                  disabled={!newClient.name.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  Add Client
-                </button>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Total Amount (UGX)</label>
+              <input
+                type="number"
+                value={formData.amount}
+                onChange={(e) => handleChange("amount", e.target.value)}
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+              />
+              {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Paid Today (UGX)</label>
+              <input
+                type="number"
+                value={formData.paidToday}
+                onChange={(e) => handleChange("paidToday", e.target.value)}
+                min="0"
+                step="0.01"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+              />
+              {errors.paidToday && <p className="mt-1 text-sm text-red-600">{errors.paidToday}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Remaining Balance (UGX)</label>
+              <input
+                type="text"
+                value={(formData.amount - (parseFloat(formData.paidToday) || 0)).toLocaleString()}
+                readOnly
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md bg-neutral-100 text-neutral-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={format(formData.createdAt, "yyyy-MM-dd")}
+                onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => handleChange("notes", e.target.value)}
+                rows="3"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-neutral-400 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? "Saving..." : debt ? "Update Debt" : "Save Debt"}
+              </button>
+            </div>
+          </form>
+
+          {showClientForm && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col" style={{ maxHeight: '80vh' }}>
+                <div className="flex-shrink-0 flex justify-between items-center p-4 sm:p-6 border-b border-neutral-200">
+                  <h3 className="text-lg font-semibold text-neutral-800">Add New Client</h3>
+                  <button
+                    onClick={() => setShowClientForm(false)}
+                    className="text-neutral-400 hover:text-neutral-600 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                  <form onSubmit={handleAddClient} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Client Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newClient.name}
+                        onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                        required
+                        placeholder="Enter client name"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={newClient.email}
+                        onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                        placeholder="client@example.com"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={newClient.phone}
+                        onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                        placeholder="+256 700 000 000"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
+                        Address
+                      </label>
+                      <textarea
+                        value={newClient.address}
+                        onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
+                        placeholder="Client address"
+                        rows={3}
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-colors resize-none"
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowClientForm(false)}
+                        className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!newClient.name.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Add Client
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
 };
 
 export default DebtForm;
