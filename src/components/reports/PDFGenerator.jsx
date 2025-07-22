@@ -1,3 +1,5 @@
+
+
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
@@ -21,15 +23,6 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
     expenses: [239, 68, 68],      // Corporate Red
     sales: [139, 69, 19],         // Professional Brown
     debts: [255, 159, 64],        // Corporate Orange
-  };
-
-  // Timeframe colors for buttons
-  const timeframeColors = {
-    today: [34, 197, 94],    // Green for daily
-    week: [59, 130, 246],    // Blue for weekly
-    month: [168, 85, 247],   // Purple for monthly
-    custom: [249, 115, 22],  // Orange for custom
-    all: [107, 114, 128]     // Gray for all time
   };
 
   // Get dynamic report title based on date filter
@@ -122,7 +115,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text("Kira Municipality, Kira Division | Tel: 0705555498 / 0776 210570", logoOffset, 32);
       };
 
-      // Function to add footer with circled CONFIDENTIAL
+      // Function to add footer to each page
       const addFooter = (pageNumber, totalPages) => {
         const footerY = pageHeight - 15;
         
@@ -139,24 +132,11 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         // Left side - Company info
         doc.text("Richmond Manufacturer's Ltd - Financial Report", 15, footerY);
         
-        // Center - CONFIDENTIAL with red double border circle
-        const confidentialX = pageWidth / 2;
-        const confidentialY = footerY - 3;
-        
-        // Outer red circle
-        doc.setDrawColor(220, 38, 38);
-        doc.setLineWidth(1.2);
-        doc.circle(confidentialX, confidentialY, 18, "S");
-        
-        // Inner red circle
-        doc.setLineWidth(0.8);
-        doc.circle(confidentialX, confidentialY, 15, "S");
-        
-        // CONFIDENTIAL text in red
-        doc.setTextColor(220, 38, 38);
+        // Center - CONFIDENTIAL in red
+        doc.setTextColor(220, 38, 38); // Red color
         doc.setFontSize(10);
         doc.setFont("times", "bold");
-        doc.text("CONFIDENTIAL", confidentialX, footerY, { align: "center" });
+        doc.text("CONFIDENTIAL", pageWidth / 2, footerY, { align: "center" });
         
         // Right side - Page number
         doc.setTextColor(...secondary);
@@ -165,83 +145,62 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15, footerY, { align: "right" });
       };
 
-      // Add dark introduction card with prominent dates
+      // Add stylish introduction card
       const addIntroductionCard = (yPos) => {
         // Check if we need a new page
-        if (yPos > pageHeight - 120) {
+        if (yPos > pageHeight - 100) {
           doc.addPage();
           yPos = 20;
         }
 
-        // Dark card background (black/dark gray)
-        doc.setFillColor(17, 24, 39); // Dark gray/black
-        doc.setDrawColor(75, 85, 99); // Darker border
-        doc.setLineWidth(1);
-        doc.roundedRect(15, yPos, pageWidth - 30, 80, 6, 6, "FD");
-        
-        // Inner subtle border for depth
-        doc.setDrawColor(55, 65, 81);
+        // Card background
+        doc.setFillColor(248, 250, 252); // Light gray background
+        doc.setDrawColor(203, 213, 225); // Border color
         doc.setLineWidth(0.5);
-        doc.roundedRect(17, yPos + 2, pageWidth - 34, 76, 4, 4, "S");
+        doc.roundedRect(15, yPos, pageWidth - 30, 60, 4, 4, "FD");
         
-        // Title section
+        // Card header with gradient effect
+        doc.setFillColor(...accent);
+        doc.roundedRect(15, yPos, pageWidth - 30, 20, 4, 4, "F");
+        doc.rect(15, yPos + 16, pageWidth - 30, 4, "F"); // Fill the rounded bottom
+        
+        // Title
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
+        doc.setFontSize(16);
         doc.setFont("times", "bold");
-        doc.text(getReportTitle(), 25, yPos + 20);
+        doc.text(getReportTitle(), 20, yPos + 13);
         
-        // Subtitle with accent color
-        doc.setTextColor(156, 163, 175); // Light gray
+        // Content area
+        const cardContentY = yPos + 30;
+        
+        // Generated date and time
+        doc.setTextColor(...primary);
         doc.setFontSize(12);
-        doc.setFont("times", "normal");
-        doc.text("Comprehensive Financial Analysis & Summary", 25, yPos + 32);
-        
-        // Content area with prominent date display
-        const cardContentY = yPos + 50;
-        
-        // Generated date - more prominent
-        doc.setTextColor(34, 197, 94); // Green accent
-        doc.setFontSize(13);
         doc.setFont("times", "bold");
-        doc.text("GENERATED:", 25, cardContentY);
+        doc.text("Generated:", 25, cardContentY);
         
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(14);
-        doc.setFont("times", "bold");
-        doc.text(format(new Date(), "MMM dd, yyyy"), 95, cardContentY);
-        
-        doc.setTextColor(203, 213, 225);
-        doc.setFontSize(12);
-        doc.setFont("times", "normal");
-        doc.text(`at ${format(new Date(), "HH:mm")}`, 150, cardContentY);
-        
-        // Report period - more prominent
-        doc.setTextColor(59, 130, 246); // Blue accent
-        doc.setFontSize(13);
-        doc.setFont("times", "bold");
-        doc.text("PERIOD:", 25, cardContentY + 15);
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(14);
-        doc.setFont("times", "bold");
-        doc.text(getPeriodDescription(), 80, cardContentY + 15);
-
-        // Colored timeframe badge
-        const badgeX = pageWidth - 90;
-        const badgeY = cardContentY - 8;
-        const currentTimeframeColor = timeframeColors[dateFilter.type] || timeframeColors.all;
-        
-        // Badge background with timeframe color
-        doc.setFillColor(...currentTimeframeColor);
-        doc.roundedRect(badgeX, badgeY, 65, 22, 3, 3, "F");
-        
-        // Badge border for definition
-        doc.setDrawColor(255, 255, 255);
-        doc.setLineWidth(0.8);
-        doc.roundedRect(badgeX, badgeY, 65, 22, 3, 3, "S");
-        
-        doc.setTextColor(255, 255, 255);
+        doc.setTextColor(...secondary);
         doc.setFontSize(11);
+        doc.setFont("times", "normal");
+        doc.text(format(new Date(), "MMM dd, yyyy 'at' HH:mm"), 70, cardContentY);
+        
+        // Report period
+        doc.setTextColor(...primary);
+        doc.setFontSize(12);
+        doc.setFont("times", "bold");
+        doc.text("Period:", 25, cardContentY + 12);
+        
+        doc.setTextColor(...secondary);
+        doc.setFontSize(11);
+        doc.setFont("times", "normal");
+        doc.text(getPeriodDescription(), 60, cardContentY + 12);
+
+        // Report type badge
+        const badgeX = pageWidth - 80;
+        doc.setFillColor(...accent);
+        doc.roundedRect(badgeX, cardContentY - 5, 55, 18, 2, 2, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
         doc.setFont("times", "bold");
         
         let badgeText = "";
@@ -252,12 +211,12 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           case 'custom': badgeText = "CUSTOM"; break;
           default: badgeText = "ALL TIME";
         }
-        doc.text(badgeText, badgeX + 32.5, cardContentY + 4, { align: "center" });
+        doc.text(badgeText, badgeX + 27.5, cardContentY + 5, { align: "center" });
 
-        return yPos + 90;
+        return yPos + 70;
       };
 
-      // Add modern approval section card with dark background
+      // Add modern approval section card
       const addApprovalSection = (yPos) => {
         // Check if we need a new page
         if (yPos > pageHeight - 100) {
@@ -265,157 +224,76 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           yPos = 20;
         }
 
-        // Dark card background
-        doc.setFillColor(17, 24, 39); // Dark gray/black
-        doc.setDrawColor(75, 85, 99); // Darker border
-        doc.setLineWidth(1);
-        doc.roundedRect(15, yPos, pageWidth - 30, 70, 6, 6, "FD");
-        
-        // Inner subtle border
-        doc.setDrawColor(55, 65, 81);
+        // Card background
+        doc.setFillColor(248, 250, 252); // Light gray background
+        doc.setDrawColor(203, 213, 225); // Border color
         doc.setLineWidth(0.5);
-        doc.roundedRect(17, yPos + 2, pageWidth - 34, 66, 4, 4, "S");
+        doc.roundedRect(15, yPos, pageWidth - 30, 70, 4, 4, "FD");
         
-        // Header accent bar
-        doc.setFillColor(99, 102, 241); // Indigo accent
-        doc.roundedRect(15, yPos, pageWidth - 30, 18, 6, 6, "F");
-        doc.rect(15, yPos + 12, pageWidth - 30, 6, "F");
+        // Card header
+        doc.setFillColor(...primary);
+        doc.roundedRect(15, yPos, pageWidth - 30, 15, 4, 4, "F");
+        doc.rect(15, yPos + 11, pageWidth - 30, 4, "F"); // Fill the rounded bottom
         
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(14);
         doc.setFont("times", "bold");
-        doc.text("DOCUMENT APPROVAL", 25, yPos + 12);
+        doc.text("DOCUMENT APPROVAL", 20, yPos + 10);
         
-        const cardContentY = yPos + 30;
+        const cardContentY = yPos + 25;
         
         // Left side - Compiled by
         const leftX = 25;
         const rightX = pageWidth / 2 + 10;
         
-        doc.setTextColor(34, 197, 94); // Green accent
+        doc.setTextColor(...primary);
         doc.setFontSize(12);
         doc.setFont("times", "bold");
         doc.text("COMPILED BY:", leftX, cardContentY);
         
-        doc.setTextColor(255, 255, 255);
+        doc.setTextColor(...secondary);
         doc.setFontSize(11);
-        doc.setFont("times", "bold");
-        doc.text("SHADIA NAKITTO", leftX, cardContentY + 12);
-        
-        doc.setTextColor(203, 213, 225);
-        doc.setFontSize(10);
         doc.setFont("times", "normal");
+        doc.text("SHADIA NAKITTO", leftX, cardContentY + 12);
+        doc.setFontSize(10);
         doc.text("Sales & Accounts Assistant", leftX, cardContentY + 20);
         
         // Signature line for compiled by
-        doc.setDrawColor(156, 163, 175);
+        doc.setDrawColor(...secondary);
         doc.setLineWidth(0.5);
         doc.line(leftX, cardContentY + 35, leftX + 70, cardContentY + 35);
         doc.setFontSize(9);
         doc.text("Signature", leftX, cardContentY + 42);
+        
+        doc.setFontSize(9);
         doc.text(`Date: ${format(new Date(), "MMM dd, yyyy")}`, leftX + 35, cardContentY + 42);
         
         // Vertical divider line
-        doc.setDrawColor(75, 85, 99);
-        doc.setLineWidth(0.8);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.5);
         doc.line(pageWidth / 2, cardContentY - 5, pageWidth / 2, yPos + 65);
         
         // Right side - Presented to
-        doc.setTextColor(59, 130, 246); // Blue accent
+        doc.setTextColor(...primary);
         doc.setFontSize(12);
         doc.setFont("times", "bold");
         doc.text("PRESENTED TO:", rightX, cardContentY);
         
-        doc.setTextColor(255, 255, 255);
+        doc.setTextColor(...secondary);
         doc.setFontSize(11);
-        doc.setFont("times", "bold");
-        doc.text("CHRISTINE NAKAZIBA", rightX, cardContentY + 12);
-        
-        doc.setTextColor(203, 213, 225);
-        doc.setFontSize(10);
         doc.setFont("times", "normal");
+        doc.text("CHRISTINE NAKAZIBA", rightX, cardContentY + 12);
+        doc.setFontSize(10);
         doc.text("Marketing Manager", rightX, cardContentY + 20);
         
         // Signature line for presented to
-        doc.setDrawColor(156, 163, 175);
+        doc.setDrawColor(...secondary);
         doc.setLineWidth(0.5);
         doc.line(rightX, cardContentY + 35, rightX + 70, cardContentY + 35);
         doc.setFontSize(9);
         doc.text("Signature & Date", rightX, cardContentY + 42);
 
         return yPos + 80;
-      };
-
-      // Add modern debt metrics card
-      const addDebtMetricsCard = (yPos, totalDebt, overdueDebt, clientsWithDebt) => {
-        // Check if we need a new page
-        if (yPos > pageHeight - 70) {
-          doc.addPage();
-          yPos = 20;
-        }
-
-        // Modern card background
-        doc.setFillColor(248, 250, 252); // Light background
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(0.8);
-        doc.roundedRect(15, yPos, pageWidth - 30, 55, 6, 6, "FD");
-        
-        // Header section
-        doc.setFillColor(99, 102, 241); // Indigo
-        doc.roundedRect(15, yPos, pageWidth - 30, 18, 6, 6, "F");
-        doc.rect(15, yPos + 12, pageWidth - 30, 6, "F");
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(14);
-        doc.setFont("times", "bold");
-        doc.text("DEBT METRICS OVERVIEW", 25, yPos + 12);
-        
-        // Metrics section with separators
-        const metricsY = yPos + 30;
-        const sectionWidth = (pageWidth - 40) / 3;
-        
-        // Total Debt
-        const totalX = 25;
-        doc.setTextColor(239, 68, 68); // Red
-        doc.setFontSize(16);
-        doc.setFont("times", "bold");
-        doc.text(`UGX ${totalDebt?.toLocaleString() || '0'}`, totalX, metricsY);
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(11);
-        doc.setFont("times", "normal");
-        doc.text("Total Outstanding", totalX, metricsY + 10);
-        
-        // First separator
-        doc.setDrawColor(203, 213, 225);
-        doc.setLineWidth(0.5);
-        doc.line(totalX + sectionWidth - 10, metricsY - 10, totalX + sectionWidth - 10, metricsY + 15);
-        
-        // Overdue Debt
-        const overdueX = totalX + sectionWidth;
-        doc.setTextColor(220, 38, 38); // Darker red
-        doc.setFontSize(16);
-        doc.setFont("times", "bold");
-        doc.text(`UGX ${overdueDebt?.toLocaleString() || '0'}`, overdueX, metricsY);
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(11);
-        doc.setFont("times", "normal");
-        doc.text("Overdue Amount", overdueX, metricsY + 10);
-        
-        // Second separator
-        doc.line(overdueX + sectionWidth - 10, metricsY - 10, overdueX + sectionWidth - 10, metricsY + 15);
-        
-        // Clients with Debt
-        const clientsX = overdueX + sectionWidth;
-        doc.setTextColor(249, 115, 22); // Orange
-        doc.setFontSize(16);
-        doc.setFont("times", "bold");
-        doc.text(`${clientsWithDebt || 0}`, clientsX, metricsY);
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(11);
-        doc.setFont("times", "normal");
-        doc.text("Active Debtors", clientsX, metricsY + 10);
-
-        return yPos + 65;
       };
 
       const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
@@ -509,7 +387,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       // Start generating PDF - Add header only on first page
       addHeader();
       
-      // Add dark introduction card with prominent dates
+      // Add introduction card instead of separate title and period sections
       let yPosition = 55;
       yPosition = addIntroductionCard(yPosition);
 
@@ -557,19 +435,10 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         yPosition 
       });
 
-      // Add modern debt metrics card (you'll need to pass the actual debt metrics data)
-      // Example usage - replace with actual calculated values from your data
-      const totalDebt = data?.debts?.reduce((sum, debt) => sum + debt.amount, 0) || 0;
-      const overdueDebt = data?.debts?.filter(debt => new Date(debt.dueDate) < new Date())
-                               .reduce((sum, debt) => sum + debt.amount, 0) || 0;
-      const clientsWithDebt = data?.debts?.length || 0;
-      
-      yPosition = addDebtMetricsCard(yPosition, totalDebt, overdueDebt, clientsWithDebt);
-
-      // Add dark approval section
+      // Add approval section
       yPosition = addApprovalSection(yPosition);
 
-      // Add footers with circled CONFIDENTIAL to all pages
+      // Add footers to all pages
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
@@ -593,27 +462,11 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
     }
   };
 
-  // Get button colors based on timeframe
-  const getButtonColor = () => {
-    switch (dateFilter.type) {
-      case 'today':
-        return 'bg-green-600 hover:bg-green-700';
-      case 'week':
-        return 'bg-blue-600 hover:bg-blue-700';
-      case 'month':
-        return 'bg-purple-600 hover:bg-purple-700';
-      case 'custom':
-        return 'bg-orange-600 hover:bg-orange-700';
-      default:
-        return 'bg-gray-600 hover:bg-gray-700';
-    }
-  };
-
   return (
     <button
       onClick={generatePDF}
       disabled={loading}
-      className={`w-full ${getButtonColor()} text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed`}
+      className="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {loading ? (
         <>
@@ -623,15 +476,10 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       ) : (
         <>
           <Download className="w-5 h-5" />
-          <span className="font-bold">
-            Generate {dateFilter.type === 'today' ? 'DAILY' : 
-                     dateFilter.type === 'week' ? 'WEEKLY' : 
-                     dateFilter.type === 'month' ? 'MONTHLY' : 
-                     dateFilter.type === 'custom' ? 'CUSTOM' : 'CONSOLIDATED'} Report
-          </span>
-          <span className="ml-2 px-2 py-1 bg-white bg-opacity-20 rounded text-xs font-normal">
-            {getPeriodDescription()}
-          </span>
+          <span>Generate {dateFilter.type === 'today' ? 'Daily' : 
+                         dateFilter.type === 'week' ? 'Weekly' : 
+                         dateFilter.type === 'month' ? 'Monthly' : 
+                         dateFilter.type === 'custom' ? 'Custom' : 'Consolidated'} Report</span>
         </>
       )}
     </button>
@@ -639,3 +487,5 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 };
 
 export default PDFGenerator;
+
+
