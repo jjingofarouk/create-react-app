@@ -1,6 +1,6 @@
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
-const SuppliesSummary = ({ doc, data, products, addTable, yPosition }) => {
+const SuppliesSummary = ({ doc, data, products, dateFilter, addTable, yPosition }) => {
   const safeFormatDate = (date) => {
     try {
       if (!date) return "-";
