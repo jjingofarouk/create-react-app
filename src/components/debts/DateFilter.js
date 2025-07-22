@@ -49,44 +49,44 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
   };
 
   return (
-    <div className="fixed bottom-24 right-6 z-40">
-      <div className="relative">
-        <button
-          onClick={() => setShowDateFilter(!showDateFilter)}
-          className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-2xl hover:scale-105 ${
-            dateFilter.type !== 'all' 
-              ? `${getFilterBadgeColor()} text-white` 
-              : 'bg-white/90 text-slate-700 hover:bg-white'
-          }`}
-        >
-          <div className="relative">
-            <Calendar className="w-5 h-5" />
-            {dateFilter.type !== 'all' && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            )}
-          </div>
-          <div className="flex flex-col items-start">
-            <span className="text-xs opacity-75 font-medium">Filter</span>
-            <span className="text-sm font-bold">{getDateFilterLabel()}</span>
-          </div>
-        </button>
-        
-        {showDateFilter && (
-          <div className="absolute bottom-full right-0 mb-4 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200 p-6 w-96 max-w-[90vw]">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-slate-600" />
-                  Date Filter
-                </h4>
-                <button
-                  onClick={() => setShowDateFilter(false)}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                </button>
-              </div>
-              
+    <div className="relative">
+      <button
+        onClick={() => setShowDateFilter(!showDateFilter)}
+        className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border border-slate-200 transition-all duration-300 hover:shadow-2xl hover:scale-105 w-full sm:w-80 ${
+          dateFilter.type !== 'all' 
+            ? `${getFilterBadgeColor()} text(visible with tag) text-white` 
+            : 'bg-white text-slate-700 hover:bg-gray-100'
+        }`}
+      >
+        <div className="relative">
+          <Calendar className="w-5 h-5" />
+          {dateFilter.type !== 'all' && (
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
+          )}
+        </div>
+        <div className="flex flex-col items-start">
+          <span className="text-xs opacity-75 font-medium">Filter</span>
+          <span className="text-sm font-bold">{getDateFilterLabel()}</span>
+        </div>
+      </button>
+      
+      {showDateFilter && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="flex-shrink-0 flex justify-between items-center border-b border-slate-200 pb-4 mb-4">
+              <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                <Filter className="w-5 h-5 text-slate-600" />
+                Date Filter
+              </h4>
+              <button
+                onClick={() => setShowDateFilter(false)}
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => handleDateFilterChange('all')}
@@ -133,7 +133,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
               <div className="pt-4 border-t border-slate-200">
                 <button
                   onClick={() => handleDateFilterChange('custom')}
-                  className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 mb-4 ${
+                  className={`w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
                     dateFilter.type === 'custom'
                       ? 'bg-orange-100 text-orange-800 shadow-md border-2 border-orange-300'
                       : 'bg-slate-50 text-slate-600 hover:bg-orange-50 border border-slate-200'
@@ -143,7 +143,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
                 </button>
                 
                 {dateFilter.type === 'custom' && (
-                  <div className="space-y-4 bg-slate-50 rounded-xl p-4">
+                  <div className="space-y-4 bg-slate-50 rounded-xl p-4 mt-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-semibold text-slate-700">From Date</label>
                       <input
@@ -176,8 +176,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
           </div>
         )}
       </div>
-    </div>
-  );
+    );
 };
 
 export default DateFilter;
