@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, deleteDoc, query, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
+import { Plus, Trash2, Edit, Search, X, Tag } from "lucide-react";
 import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
-import DateFilter from "./DateFilter";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import ExpensesDateFilter from "./ExpensesDateFilter";
+import { format } from "date-fns";
+import KeyMetrics from "./KeyMetrics";
 
 const ExpensesPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -32,66 +33,10 @@ const ExpensesPage = () => {
     endDate: new Date().toISOString().split("T")[0]
   });
 
-  const keyMetrics = useMemo(() => {
-    if (!filteredExpenses || filteredExpenses.length === 0) {
-      return {
-        totalExpenses: 0,
-        thisMonthTotal: 0,
-        highestExpense: { amount: 0, description: "N/A" },
-        topCategory: { name: "N/A", total: 0 },
-        avgExpense: 0,
-        expenseCount: 0
-      };
-    }
-
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-
-    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-    
-    const thisMonthExpenses = filteredExpenses.filter(expense => {
-      if (!expense.createdAt) return false;
-      const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
-      return expenseDate >= monthStart && expenseDate <= monthEnd;
-    });
-    
-    const thisMonthTotal = thisMonthExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-    
-    const highestExpense = filteredExpenses.reduce((max, expense) => {
-      const amount = parseFloat(expense.amount) || 0;
-      return amount > max.amount ? { amount, description: expense.description || "N/A" } : max;
-    }, { amount: 0, description: "N/A" });
-
-    const categoryTotals = filteredExpenses.reduce((acc, expense) => {
-      const category = expense.category || "Uncategorized";
-      const amount = parseFloat(expense.amount) || 0;
-      acc[category] = (acc[category] || 0) + amount;
-      return acc;
-    }, {});
-
-    const topCategory = Object.entries(categoryTotals).reduce(
-      (max, [name, total]) => total > max.total ? { name, total } : max,
-      { name: "N/A", total: 0 }
-    );
-
-    const avgExpense = filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0;
-
-    return {
-      totalExpenses,
-      thisMonthTotal,
-      highestExpense,
-      topCategory,
-      avgExpense,
-      expenseCount: filteredExpenses.length
-    };
-  }, [filteredExpenses]);
-
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -256,9 +201,7 @@ const ExpensesPage = () => {
     data: filteredExpenses,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    state: {
-      sorting,
-    },
+    state: { sorting },
     onSortingChange: setSorting,
   });
 
@@ -327,23 +270,9 @@ const ExpensesPage = () => {
             <Skeleton height={40} width={150} />
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <Skeleton circle height={48} width={48} />
-                <Skeleton height={20} width={60} />
-              </div>
-              <Skeleton height={32} width={100} className="mb-2" />
-              <Skeleton height={16} width={80} />
-            </div>
-          ))}
-        </div>
-
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <div className="mb-6">
-            <Skeleton thyself={40} width={300} />
+            <Skeleton height={40} width={300} />
           </div>
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
@@ -380,7 +309,7 @@ const ExpensesPage = () => {
                 setEditingExpense(null);
                 setShowForm(true);
               }}
-              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow fathom-blue-100/50 hover:-translate-y-1"
+              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-blue-100/50 hover:-translate-y-1"
             >
               <div className="flex flex-col items-center gap-3">
                 <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
@@ -410,7 +339,7 @@ const ExpensesPage = () => {
         </div>
       </div>
 
-      <DateFilter
+      <ExpensesDateFilter
         dateFilter={dateFilter}
         setDateFilter={setDateFilter}
         showDateFilter={showDateFilter}
@@ -424,79 +353,13 @@ const ExpensesPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <DollarSign className="w-6 h-6 text-blue-600" />
-            </div>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-              TOTAL
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.totalExpenses.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">{dateFilter.type === 'all' ? 'All time expenses' : `Expenses for ${dateFilter.type}`}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-green-100 rounded-xl">
-              <Calendar className="w-6 h-6 text-green-600" />
-            </div>
-            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              THIS MONTH
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.thisMonthTotal.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">{format(new Date(), 'MMMM yyyy')}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-100 rounded-xl">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
-              HIGHEST
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.highestExpense.amount.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm truncate">
-            {keyMetrics.highestExpense.description}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-orange-100 rounded-xl">
-              <BarChart3 className="w-6 h-6 text-orange-600" />
-            </div>
-            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-              TOP CATEGORY
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.topCategory.total.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">
-            {keyMetrics.topCategory.name}
-          </p>
-        </div>
-      </div>
-
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
         <div className="p-6 border-b border-gray-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Recent Expenses</h2>
               <p className="text-gray-500 text-sm mt-1">
-                {keyMetrics.expenseCount} total expenses • Average: UGX {keyMetrics.avgExpense.toLocaleString()}
+                {filteredExpenses.length} total expenses
               </p>
             </div>
             <div className="relative w-full sm:w-80">
@@ -562,6 +425,8 @@ const ExpensesPage = () => {
           </div>
         )}
       </div>
+
+      <KeyMetrics filteredExpenses={filteredExpenses} dateFilter={dateFilter} />
 
       {showForm && (
         <ExpenseForm
