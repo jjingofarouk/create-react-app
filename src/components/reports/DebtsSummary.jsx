@@ -1,6 +1,6 @@
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
-const DebtsSummary = ({ doc, data, clients, addTable, yPosition }) => {
+const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) => {
   const filterData = (dataset) => {
     if (!Array.isArray(dataset)) return [];
     if (dateFilter.type === "all") return dataset;
