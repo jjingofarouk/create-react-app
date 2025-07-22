@@ -1,10 +1,8 @@
-// App.js
 import React, { useState, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { AuthContext } from './AuthContext';
-import { DataContext } from './DataContext';
 import { User, ShoppingCart, CreditCard, TrendingDown, Banknote, FileText, AlertCircle, RefreshCw, LogOut, Menu } from 'lucide-react';
 import SalesPage from './components/SalesPage';
 import ExpensesPage from './components/ExpensesPage';
@@ -19,11 +17,6 @@ const App = () => {
   const [activeTab, setActiveTab] = useState("sales");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, loading: authLoading } = useContext(AuthContext);
-  const { loading: dataLoading, error: dataError } = useContext(DataContext);
-
-  // Combine loading and error states
-  const loading = authLoading || dataLoading;
-  const error = dataError;
 
   const Header = () => {
     const navigate = useNavigate();
@@ -192,43 +185,6 @@ const App = () => {
     );
   };
 
-  const ErrorScreen = () => {
-    const retry = () => {
-      window.location.reload();
-    };
-
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
-        <div className="text-center max-w-md">
-          <div className="relative">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-100 to-red-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 text-red-500" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full animate-ping opacity-20"></div>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-neutral-800 to-neutral-600 bg-clip-text text-transparent mb-3">
-            Oops! Something went wrong
-          </h2>
-          <p className="text-neutral-600 text-center text-sm sm:text-base mb-8 leading-relaxed">
-            {error || "An unexpected error occurred. Don't worry, we'll get this sorted out quickly."}
-          </p>
-          <button
-            className="inline-flex items-center gap-3 px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 hover:shadow-xl hover:scale-105 transition-all duration-300 text-sm sm:text-base shadow-lg"
-            onClick={retry}
-          >
-            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
-            Try Again
-          </button>
-        </div>
-        <div className="mt-6 text-center">
-          <p className="text-xs sm:text-sm text-neutral-400">
-            If the problem persists, please check your internet connection or contact support
-          </p>
-        </div>
-      </div>
-    );
-  };
-
   const LoadingScreen = () => (
     <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
@@ -312,7 +268,7 @@ const App = () => {
     </SkeletonTheme>
   );
 
-  if (loading) {
+  if (authLoading) {
     return <LoadingScreen />;
   }
 
@@ -323,30 +279,26 @@ const App = () => {
         {user && <Sidebar />}
         <main className="pt-[60px] pb-[90px] sm:pb-[100px] md:ml-64 min-h-screen">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-            {error ? (
-              <ErrorScreen />
-            ) : (
-              <div className="animate-in fade-in duration-500">
-                <Routes>
-                  {user ? (
-                    <>
-                      <Route path="/" element={<Navigate to="/sales" replace />} />
-                      <Route path="/sales" element={<SalesPage />} />
-                      <Route path="/debts" element={<DebtsPage />} />
-                      <Route path="/expenses" element={<ExpensesPage />} />
-                      <Route path="/bank" element={<BankPage />} />
-                      <Route path="/reports" element={<ReportsPage />} />
-                      <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="*" element={<Navigate to="/sales" replace />} />
-                    </>
-                  ) : (
-                    <>
-                      <Route path="*" element={<Auth />} />
-                    </>
-                  )}
-                </Routes>
-              </div>
-            )}
+            <div className="animate-in fade-in duration-500">
+              <Routes>
+                {user ? (
+                  <>
+                    <Route path="/" element={<Navigate to="/sales" replace />} />
+                    <Route path="/sales" element={<SalesPage />} />
+                    <Route path="/debts" element={<DebtsPage />} />
+                    <Route path="/expenses" element={<ExpensesPage />} />
+                    <Route path="/bank" element={<BankPage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="*" element={<Navigate to="/sales" replace />} />
+                  </>
+                ) : (
+                  <>
+                    <Route path="*" element={<Auth />} />
+                  </>
+                )}
+              </Routes>
+            </div>
           </div>
         </main>
         {user && <Navigation />}
