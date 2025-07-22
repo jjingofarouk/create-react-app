@@ -1,6 +1,6 @@
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
-const SalesSummary = ({ doc, data, products, addTable, yPosition }) => {
+const SalesSummary = ({ doc, data, products, dateFilter, addTable, yPosition }) => {
   const filterData = (dataset) => {
     if (!Array.isArray(dataset)) return [];
     if (dateFilter.type === "all") return dataset;
