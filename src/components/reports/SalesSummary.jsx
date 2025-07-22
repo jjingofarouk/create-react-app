@@ -61,7 +61,7 @@ const SalesSummary = ({ doc, data, products, dateFilter, addTable, yPosition }) 
       { header: "PRODUCT", dataKey: "product" },
       { header: "QUANTITY", dataKey: "totalQuantity" },
       { header: "EARNINGS (UGX)", dataKey: "totalEarnings" },
-      { header: "DISCOUNTED EARNINGS (UGX)", dataKey: "discountedEarnings" },
+      { header: "DISCOUNTS (UGX)", dataKey: "discountedEarnings" },
     ],
     salesSummaryData,
     yPosition
