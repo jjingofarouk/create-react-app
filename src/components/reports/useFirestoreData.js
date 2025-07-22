@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { collection, query, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+import { db } from "../../firebase";
 
 const useFirestoreData = (user, setLoading) => {
   const [sales, setSales] = useState([]);
