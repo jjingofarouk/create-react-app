@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import logo from "./logo.jpg";
 import signature from "./signature.jpg";
 
-const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categories, bankDeposits, depositors, userId }) => {
+const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categories, userId }) => {
   const [loading, setLoading] = useState(false);
 
   const safeFormatDate = (date) => {
@@ -27,13 +27,14 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
     if (!Array.isArray(dataset)) return [];
     if (dateFilter.type === "all") return dataset;
     return dataset.filter((item) => {
-      if (!item.createdAt) return true;
+      if (!item.createdAt && !item.date) return true;
       try {
         let itemDate;
-        if (item.createdAt.toDate) itemDate = item.createdAt.toDate();
-        else if (typeof item.createdAt === "string") itemDate = new Date(item.createdAt);
-        else if (item.createdAt instanceof Date) itemDate = item.createdAt;
-        else return true;
+        if (item.createdAt) {
+          itemDate = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+        } else if (item.date) {
+          itemDate = new Date(item.date);
+        }
         const start = dateFilter.startDate ? parseISO(dateFilter.startDate) : null;
         const end = dateFilter.endDate ? parseISO(dateFilter.endDate) : null;
         return start && end
@@ -50,10 +51,11 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
     dataset.sort((a, b) => {
       try {
         const getDate = (item) => {
-          if (!item.createdAt) return new Date(0);
-          if (item.createdAt.toDate) return item.createdAt.toDate();
-          if (typeof item.createdAt === "string") return new Date(item.createdAt);
-          if (item.createdAt instanceof Date) return item.createdAt;
+          if (item.createdAt) {
+            return item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+          } else if (item.date) {
+            return new Date(item.date);
+          }
           return new Date(0);
         };
         return getDate(b) - getDate(a);
@@ -66,7 +68,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
   const generatePDF = async () => {
     if (loading) return;
     setLoading(true);
-    
+
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
@@ -75,7 +77,6 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       const primary = [15, 23, 42];
       const secondary = [71, 85, 105];
       const accent = [99, 102, 241];
-      const success = [34, 197, 94];
       const background = [248, 250, 252];
       const border = [226, 232, 240];
 
@@ -188,59 +189,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         debts: Array.isArray(data?.debts) ? data.debts : [],
         expenses: Array.isArray(data?.expenses) ? data.expenses : [],
         bankDeposits: Array.isArray(data?.bankDeposits) ? data.bankDeposits : [],
-      };
-
-      const salesData = sortedData(filterData(safeData.sales)).map((item) => ({
-        client: item.client || "-",
-        product: item.product && typeof item.product === "object" && item.product.productId
-          ? products?.find((product) => product.id === item.product.productId)?.name || "-"
-          : item.product || "-",
-        quantity: item.product?.quantity || item.quantity || 0,
-        amount: item.totalAmount || (item.product?.unitPrice * item.product?.quantity) || item.amount || 0,
-        date: safeFormatDate(item.createdAt),
-      }));
-
-      const debtsData = sortedData(filterData(safeData.debts)).map((item) => ({
-        debtor: item.client || "-",
-        amount: item.amount || 0,
-        status: item.amount === 0 ? "PAID" : "PENDING",
-        date: safeFormatDate(item.createdAt),
-      }));
-
-      const expensesData = sortedData(filterData(safeData.expenses)).map((item) => ({
-        category: item.category || "-",
-        amount: typeof item.amount === "number" ? item.amount : parseFloat(item.amount) || 0,
-        description: item.description || "-",
-        payee: item.payee || "-",
-        date: safeFormatDate(item.createdAt),
-      }));
-
-      const depositsData = sortedData(filterData(safeData.bankDeposits)).map((item) => ({
-        depositor: item.depositor || "-",
-        amount: item.amount || 0,
-        description: item.description || "-",
-        date: safeFormatDate(item.createdAt),
-      }));
-
-      const totals = {
-        sales: {
-          count: salesData.length,
-          totalAmount: salesData.reduce((sum, item) => sum + item.amount, 0),
-          totalQuantity: salesData.reduce((sum, item) => sum + item.quantity, 0),
-        },
-        debts: {
-          count: debtsData.length,
-          totalAmount: debtsData.reduce((sum, item) => sum + item.amount, 0),
-          paidAmount: debtsData.filter((item) => item.status === "PAID").reduce((sum, item) => sum + item.amount, 0),
-        },
-        expenses: {
-          count: expensesData.length,
-          totalAmount: expensesData.reduce((sum, item) => sum + item.amount, 0),
-        },
-        deposits: {
-          count: depositsData.length,
-          totalAmount: depositsData.reduce((sum, item) => sum + item.amount, 0),
-        },
+        supplies: Array.isArray(data?.supplies) ? data.supplies : [],
       };
 
       const addTable = (title, columns, rows, startY) => {
@@ -248,7 +197,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...primary);
         doc.text(title, 15, startY);
-        
+
         if (rows.length === 0) {
           doc.setFontSize(10);
           doc.setTextColor(...secondary);
@@ -283,17 +232,22 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
             fillColor: background,
           },
           columnStyles: {
-            client: { cellWidth: 45 },
             product: { cellWidth: 50 },
-            debtor: { cellWidth: 55 },
-            category: { cellWidth: 38 },
-            depositor: { cellWidth: 55 },
-            description: { cellWidth: 60, fontSize: 9 },
-            payee: { cellWidth: 38 },
+            supplyType: { cellWidth: 30 },
+            quantity: { halign: "center", cellWidth: 20 },
+            quantitySold: { halign: "center", cellWidth: 20 },
+            balance: { halign: "center", cellWidth: 20 },
+            depositor: { cellWidth: 50 },
+            bank: { cellWidth: 40 },
             amount: { halign: "right", cellWidth: 35, fontStyle: "bold" },
-            quantity: { halign: "center", cellWidth: 18 },
-            status: { halign: "center", cellWidth: 25, fontStyle: "bold", fontSize: 9 },
-            date: { cellWidth: 32, fontSize: 9, textColor: secondary },
+            category: { cellWidth: 40 },
+            percentage: { halign: "right", cellWidth: 25 },
+            client: { cellWidth: 50 },
+            debtCleared: { halign: "right", cellWidth: 35 },
+            debtBalance: { halign: "right", cellWidth: 35 },
+            totalEarnings: { halign: "right", cell1489: 35 },
+            discountedEarnings: { halign: "right", cellWidth: 35 },
+            status: { halign: "center", cellWidth: 30 },
           },
           margin: { left: 10, right: 10 },
           tableWidth: "auto",
@@ -305,102 +259,257 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return doc.lastAutoTable.finalY + 20;
       };
 
+      // 1. Supplies Table
+      const filteredSupplies = filterData(safeData.supplies);
+      const supplySummary = filteredSupplies.reduce((acc, supply) => {
+        const product = products.find((p) => p.id === supply.productId);
+        const productName = product?.name || "Unknown";
+        if (!acc[productName]) {
+          acc[productName] = {
+            quantity: 0,
+            quantitySold: 0,
+          };
+        }
+        acc[productName].quantity += parseInt(supply.quantity || 0);
+        const salesForProduct = safeData.sales.filter(
+          (sale) => sale.productId === supply.productId
+        );
+        acc[productName].quantitySold += salesForProduct.reduce(
+          (sum, sale) => sum + parseInt(sale.quantity || 0),
+          0
+        );
+        return acc;
+      }, {});
+
+      const suppliesData = Object.entries(supplySummary).map(([product, data]) => ({
+        product,
+        quantity: data.quantity.toString(),
+        quantitySold: data.quantitySold.toString(),
+        balance: (data.quantity - data.quantitySold).toString(),
+      }));
+
       yPosition = addTable(
-        "Sales",
+        "Supplies Summary",
         [
-          { header: "CLIENT", dataKey: "client" },
           { header: "PRODUCT", dataKey: "product" },
-          { header: "QTY", dataKey: "quantity" },
-          { header: "AMOUNT (UGX)", dataKey: "amount" },
-          { header: "DATE", dataKey: "date" },
+          { header: "QUANTITY", dataKey: "quantity" },
+          { header: "SOLD", dataKey: "quantitySold" },
+          { header: "BALANCE", dataKey: "balance" },
         ],
-        salesData.map((item) => ({
-          client: item.client,
-          product: item.product,
-          quantity: item.quantity.toString(),
-          amount: item.amount.toLocaleString(),
-          date: item.date,
-        })),
+        suppliesData,
         yPosition
       );
 
-      yPosition = addTable(
-        "Debts",
-        [
-          { header: "DEBTOR", dataKey: "debtor" },
-          { header: "AMOUNT (UGX)", dataKey: "amount" },
-          { header: "STATUS", dataKey: "status" },
-          { header: "DATE", dataKey: "date" },
-        ],
-        debtsData.map((item) => ({
-          debtor: item.debtor,
-          amount: item.amount.toLocaleString(),
-          status: item.status,
-          date: item.date,
-        })),
-        yPosition
-      );
+      // 2. Bank Deposits Table
+      const filteredDeposits = filterData(safeData.bankDeposits.filter((d) => !d.isDepositorOnly));
+      const depositsData = sortedData(filteredDeposits).map((item) => ({
+        depositor: item.depositor || "-",
+        bank: item.bank || "-",
+        amount: (item.amount || 0).toLocaleString(),
+      }));
 
-      yPosition = addTable(
-        "Expenses",
-        [
-          { header: "CATEGORY", dataKey: "category" },
-          { header: "AMOUNT (UGX)", dataKey: "amount" },
-          { header: "DESCRIPTION", dataKey: "description" },
-          { header: "PAYEE", dataKey: "payee" },
-          { header: "DATE", dataKey: "date" },
-        ],
-        expensesData.map((item) => ({
-          category: item.category,
-          amount: item.amount.toLocaleString(),
-          description: item.description,
-          payee: item.payee,
-          date: item.date,
-        })),
-        yPosition
+      const totalDeposits = depositsData.reduce(
+        (sum, item) => sum + parseFloat(item.amount.replace(/,/g, "") || 0),
+        0
       );
 
       yPosition = addTable(
         "Bank Deposits",
         [
           { header: "DEPOSITOR", dataKey: "depositor" },
+          { header: "BANK", dataKey: "bank" },
           { header: "AMOUNT (UGX)", dataKey: "amount" },
-          { header: "DESCRIPTION", dataKey: "description" },
-          { header: "DATE", dataKey: "date" },
         ],
-        depositsData.map((item) => ({
-          depositor: item.depositor,
-          amount: item.amount.toLocaleString(),
-          description: item.description,
-          date: item.date,
-        })),
+        depositsData,
         yPosition
       );
 
-      if (yPosition > pageHeight - 100) {
-        doc.addPage();
-        yPosition = 30;
-      }
-      
-      doc.setFontSize(16);
+      doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...primary);
-      doc.text("SUMMARY", 15, yPosition);
-      yPosition += 15;
-      
+      doc.text(`Total Deposits: UGX ${totalDeposits.toLocaleString()}`, 15, yPosition);
+      yPosition += 20;
+
+      // 3. Expenses Table
+      const filteredExpenses = filterData(safeData.expenses);
+      const totalExpenses = filteredExpenses.reduce(
+        (sum, item) => sum + (parseFloat(item.amount) || 0),
+        0
+      );
+      const expensesData = sortedData(filteredExpenses).map((item) => ({
+        category: item.category || "Uncategorized",
+        amount: (parseFloat(item.amount) || 0).toLocaleString(),
+        percentage: totalExpenses
+          ? (((parseFloat(item.amount) || 0) / totalExpenses) * 100).toFixed(2) + "%"
+          : "0%",
+      }));
+
+      yPosition = addTable(
+        "Expenses",
+        [
+          { header: "CATEGORY", dataKey: "category" },
+          { header: "AMOUNT (UGX)", dataKey: "amount" },
+          { header: "PERCENTAGE", dataKey: "percentage" },
+        ],
+        expensesData,
+        yPosition
+      );
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...primary);
+      doc.text(`Total Expenses: UGX ${totalExpenses.toLocaleString()}`, 15, yPosition);
+      yPosition += 20;
+
+      // 4. Sales Summary
+      const filteredSales = filterData(safeData.sales);
+      const salesSummary = filteredSales.reduce((acc, sale) => {
+        const product = products.find((p) => p.id === sale.productId);
+        const productName = product?.name || "Unknown";
+        const unitPrice = parseFloat(product?.price || 0);
+        const quantity = parseInt(sale.quantity || 0);
+        const discount = parseFloat(sale.discount || 0);
+        const discountedPrice = unitPrice - discount;
+
+        if (!acc[productName]) {
+          acc[productName] = {
+            totalQuantity: 0,
+            totalEarnings: 0,
+            discountedEarnings: 0,
+          };
+        }
+
+        acc[productName].totalQuantity += quantity;
+        acc[productName].totalEarnings += quantity * unitPrice;
+        acc[productName].discountedEarnings += quantity * discountedPrice;
+        return acc;
+      }, {});
+
+      const salesSummaryData = Object.entries(salesSummary).map(([product, data]) => ({
+        product,
+        totalQuantity: data.totalQuantity.toString(),
+        totalEarnings: data.totalEarnings.toLocaleString(),
+        discountedEarnings: data.discountedEarnings.toLocaleString(),
+      }));
+
+      yPosition = addTable(
+        "Sales Summary by Product",
+        [
+          { header: "PRODUCT", dataKey: "product" },
+          { header: "QUANTITY", dataKey: "totalQuantity" },
+          { header: "TOTAL EARNINGS (UGX)", dataKey: "totalEarnings" },
+          { header: "DISCOUNTED EARNINGS (UGX)", dataKey: "discountedEarnings" },
+        ],
+        salesSummaryData,
+        yPosition
+      );
+
+      // Client Payment Status
+      const clientPaymentStatus = clients.map((client) => {
+        const clientDebts = safeData.debts.filter((debt) => debt.clientId === client.id);
+        const totalDebt = clientDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
+        const paidDebt = clientDebts.filter((debt) => debt.amount === 0).reduce((sum, debt) => sum + (parseFloat(debt.originalAmount || debt.amount) || 0), 0);
+        const status = totalDebt === 0 ? "Fully Paid" : paidDebt > 0 ? "Partially Paid" : "Not Paid";
+
+        return {
+          client: client.name || "-",
+          status,
+        };
+      });
+
+      const fullyPaidClients = clientPaymentStatus.filter((c) => c.status === "Fully Paid").map((c) => c.client);
+      const partiallyPaidClients = clientPaymentStatus.filter((c) => c.status === "Partially Paid").map((c) => c.client);
+      const notPaidClients = clientPaymentStatus.filter((c) => c.status === "Not Paid").map((c) => c.client);
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...primary);
+      doc.text("Client Payment Status", 15, yPosition);
+      yPosition += 10;
+
+      if (fullyPaidClients.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...secondary);
+        doc.text("Fully Paid Clients:", 15, yPosition);
+        doc.text(fullyPaidClients.join(", "), 15, yPosition + 8, { maxWidth: pageWidth - 30 });
+        yPosition += Math.ceil(doc.getTextDimensions(fullyPaidClients.join(", "), { maxWidth: pageWidth - 30 }).h) + 15;
+      }
+
+      if (partiallyPaidClients.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...secondary);
+        doc.text("Partially Paid Clients:", 15, yPosition);
+        doc.text(partiallyPaidClients.join(", "), 15, yPosition + 8, { maxWidth: pageWidth - 30 });
+        yPosition += Math.ceil(doc.getTextDimensions(partiallyPaidClients.join(", "), { maxWidth: pageWidth - 30 }).h) + 15;
+      }
+
+      if (notPaidClients.length > 0) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...secondary);
+        doc.text("Not Paid Clients:", 15, yPosition);
+        doc.text(notPaidClients.join(", "), 15, yPosition + 8, { maxWidth: pageWidth - 30 });
+        yPosition += Math.ceil(doc.getTextDimensions(notPaidClients.join(", "), { maxWidth: pageWidth - 30 }).h) + 15;
+      }
+
+      // 5. Debts Summary
+      const filteredDebts = filterData(safeData.debts);
+      const debtsData = sortedData(filteredDebts).map((item) => {
+        const client = clients.find((c) => c.id === item.clientId);
+        const originalAmount = parseFloat(item.originalAmount || item.amount || 0);
+        const currentAmount = parseFloat(item.amount || 0);
+        return {
+          client: client?.name || "-",
+          debtCleared: (originalAmount - currentAmount).toLocaleString(),
+          debtBalance: currentAmount.toLocaleString(),
+        };
+      });
+
+      yPosition = addTable(
+        "Debts Summary",
+        [
+          { header: "CLIENT", dataKey: "client" },
+          { header: "DEBT CLEARED (UGX)", dataKey: "debtCleared" },
+          { header: "DEBT BALANCE (UGX)", dataKey: "debtBalance" },
+        ],
+        debtsData,
+        yPosition
+      );
+
+      const activeDebts = filteredDebts.filter((debt) => debt.amount > 0);
+      const highestDebt = activeDebts.length > 0
+        ? activeDebts.reduce((max, debt) => (debt.amount > max.amount ? debt : max), activeDebts[0])
+        : null;
+      const lowestDebt = activeDebts.length > 0
+        ? activeDebts.reduce((min, debt) => (debt.amount < min.amount ? debt : min), activeDebts[0])
+        : null;
+      const oldestDebt = activeDebts.length > 0
+        ? activeDebts.reduce((oldest, debt) => {
+            const debtDate = debt.createdAt?.toDate ? debt.createdAt.toDate() : new Date(debt.createdAt);
+            const oldestDate = oldest.createdAt?.toDate ? oldest.createdAt.toDate() : new Date(oldest.createdAt);
+            return debtDate < oldestDate ? debt : oldest;
+          }, activeDebts[0])
+        : null;
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...primary);
+      doc.text("Debt Metrics", 15, yPosition);
+      yPosition += 10;
+
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...secondary);
-      doc.text(`Total Sales: UGX ${totals.sales.totalAmount.toLocaleString()} (${totals.sales.count} transactions)`, 15, yPosition);
+      doc.text(`Highest Debt: ${highestDebt ? `${(highestDebt.amount || 0).toLocaleString()} UGX (${clients.find((c) => c.id === highestDebt.clientId)?.name || '-'})` : 'No active debts'}`, 15, yPosition);
       yPosition += 10;
-      doc.text(`Total Debts: UGX ${totals.debts.totalAmount.toLocaleString()} (${totals.debts.count} records)`, 15, yPosition);
+      doc.text(`Lowest Debt: ${lowestDebt ? `${(lowestDebt.amount || 0).toLocaleString()} UGX (${clients.find((c) => c.id === lowestDebt.clientId)?.name || '-'})` : 'No active debts'}`, 15, yPosition);
       yPosition += 10;
-      doc.text(`Total Expenses: UGX ${totals.expenses.totalAmount.toLocaleString()} (${totals.expenses.count} records)`, 15, yPosition);
-      yPosition += 10;
-      doc.text(`Total Bank Deposits: UGX ${totals.deposits.totalAmount.toLocaleString()} (${totals.deposits.count} deposits)`, 15, yPosition);
+      doc.text(`Oldest Debt: ${oldestDebt ? `${safeFormatDate(oldestDebt.createdAt)} (${clients.find((c) => c.id === oldestDebt.clientId)?.name || '-'})` : 'No active debts'}`, 15, yPosition);
       yPosition += 20;
 
-      if (yPosition > pageHeight - 80) {
+      if (yPosition > pageHeight - 100) {
         doc.addPage();
         yPosition = 30;
       }
@@ -420,7 +529,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       doc.setTextColor(...secondary);
       doc.text("Shadia Nakitto", 20, yPosition + 16);
       doc.text("Sales and Accounts Analyst", 20, yPosition + 24);
-      
+
       if (signatureBase64) {
         doc.addImage(signatureBase64, "PNG", 20, yPosition + 30, 60, 30);
       }
@@ -434,7 +543,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       doc.setTextColor(...secondary);
       doc.text("Marketing Manager", pageWidth - 100, yPosition + 16);
       doc.text("___________________________", pageWidth - 100, yPosition + 24);
-      
+
       const fileName = `Consolidated_Financial_Report_${format(new Date(), "yyyy-MM-dd")}_RML.pdf`;
       doc.save(fileName);
       toast.success("Consolidated report generated successfully!");
@@ -450,7 +559,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
     <button
       onClick={generatePDF}
       disabled={loading}
-      className="mt-6 w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200 flex items-center justify-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {loading ? (
         <>
