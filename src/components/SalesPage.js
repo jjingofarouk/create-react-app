@@ -14,7 +14,7 @@ import {
   Truck,
 } from "lucide-react";
 import AutocompleteInput from "./AutocompleteInput";
-import SalesForm from "./SalesForm";
+import SalesForm from "./sales/SalesForm";
 import SuppliesForm from "./SuppliesForm";
 import SalesAnalytics from "./SalesAnalytics";
 import DateFilter from "./DateFilter";
