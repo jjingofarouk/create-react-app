@@ -54,7 +54,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
         onClick={() => setShowDateFilter(!showDateFilter)}
         className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border border-slate-200 transition-all duration-300 hover:shadow-2xl hover:scale-105 w-full sm:w-80 ${
           dateFilter.type !== 'all' 
-            ? `${getFilterBadgeColor()} text(visible with tag) text-white` 
+            ? `${getFilterBadgeColor()} text-white` 
             : 'bg-white text-slate-700 hover:bg-gray-100'
         }`}
       >
@@ -174,9 +174,10 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
               </button>
             </div>
           </div>
-        )}
-      </div>
-    );
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default DateFilter;
