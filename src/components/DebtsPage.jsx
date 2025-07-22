@@ -503,13 +503,6 @@ const DebtsPage = () => {
 
   return (
     <div className="space-y-6">
-      <DateFilter
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        showDateFilter={showDateFilter}
-        setShowDateFilter={setShowDateFilter}
-      />
-
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="space-y-2">
@@ -520,6 +513,23 @@ const DebtsPage = () => {
               Track and manage your debts efficiently with our comprehensive debt management platform.
             </p>
           </div>
+          <button
+            onClick={() => {
+              setEditingDebt(null);
+              setShowForm(true);
+            }}
+            className="bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="mt-4">
+          <DateFilter
+            dateFilter={dateFilter}
+            setDateFilter={setDateFilter}
+            showDateFilter={showDateFilter}
+            setShowDateFilter={setShowDateFilter}
+          />
         </div>
       </div>
 
@@ -660,16 +670,6 @@ const DebtsPage = () => {
           </div>
         )}
       </div>
-
-      <button
-        onClick={() => {
-          setEditingDebt(null);
-          setShowForm(true);
-        }}
-        className="fixed bottom-6 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
 
       <SummaryCards />
 
