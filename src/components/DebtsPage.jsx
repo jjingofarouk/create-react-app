@@ -1,15 +1,16 @@
+// DebtsPage.jsx
 import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { Plus, Trash2, Edit, Search, X, Link, ChevronUp, ChevronDown, ChevronsUpDown, TrendingUp, TrendingDown, Calendar, Users, DollarSign, Clock } from "lucide-react";
 import Skeleton from 'react-loading-skeleton';
-import { flexRender, useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from "@tanstack/react-table";
 import 'react-loading-skeleton/dist/skeleton.css';
 import AutocompleteInput from "./AutocompleteInput";
 import DebtForm from "./debts/DebtForm";
 import SalesForm from "./sales/SalesForm";
 import DateFilter from "./debts/DateFilter";
 import { format, differenceInDays } from "date-fns";
+import { flexRender, useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from "@tanstack/react-table";
 
 const DebtsPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -660,7 +661,7 @@ const DebtsPage = () => {
           setEditingDebt(null);
           setShowForm(true);
         }}
-        className="fixed bottom-6 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110"
+        className="fixed bottom-20 sm:bottom-24 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110 z-[100]"
       >
         <Plus className="w-6 h-6" />
       </button>
@@ -668,7 +669,7 @@ const DebtsPage = () => {
       <SummaryCards />
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg my-8">
             <DebtForm
               debt={editingDebt}
@@ -682,7 +683,7 @@ const DebtsPage = () => {
       )}
 
       {showSalesForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="w-full max-w-lg my-8">
             <SalesForm
               sale={editingSale}
