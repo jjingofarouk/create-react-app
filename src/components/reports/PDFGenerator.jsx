@@ -94,6 +94,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         console.warn("Failed to load signature:", error);
       }
 
+      // Header
       const headerHeight = 45;
       doc.setFillColor(...primary);
       doc.rect(0, 0, pageWidth, headerHeight, "F");
@@ -113,6 +114,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       doc.text("Plot 19191, Kimwanyi Road, Nakwero, Wakiso District", logoOffset, 26);
       doc.text("Kira Municipality, Kira Division | Tel: 0705555498 / 0776 210570", logoOffset, 32);
 
+      // Title and date
       let yPosition = headerHeight + 18;
       doc.setTextColor(...primary);
       doc.setFontSize(22);
@@ -124,6 +126,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       doc.text(`Generated: ${format(new Date(), "MMM dd, yyyy HH:mm")}`, pageWidth - 15, yPosition, { align: "right" });
       yPosition += 18;
 
+      // Date filter badge
       if (dateFilter.type !== "all" && dateFilter.startDate && dateFilter.endDate) {
         doc.setFillColor(...accent);
         doc.roundedRect(15, yPosition - 4, pageWidth - 30, 14, 2, 2, "F");
@@ -203,18 +206,21 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return doc.lastAutoTable.finalY + 20;
       };
 
-      yPosition = SuppliesSummary({ doc, data, products, addTable, yPosition });
-      yPosition = BankDeposits({ doc, data, addTable, yPosition });
-      yPosition = Expenses({ doc, data, addTable, yPosition });
-      yPosition = SalesSummary({ doc, data, products, addTable, yPosition });
+      // Generate report sections - FIXED: Pass dateFilter to all components
+      yPosition = SuppliesSummary({ doc, data, products, dateFilter, addTable, yPosition });
+      yPosition = BankDeposits({ doc, data, dateFilter, addTable, yPosition });
+      yPosition = Expenses({ doc, data, dateFilter, addTable, yPosition });
+      yPosition = SalesSummary({ doc, data, products, dateFilter, addTable, yPosition });
       yPosition = ClientPaymentStatus({ doc, data, clients, dateFilter, addTable, yPosition });
-      yPosition = DebtsSummary({ doc, data, clients, addTable, yPosition });
+      yPosition = DebtsSummary({ doc, data, clients, dateFilter, addTable, yPosition });
 
+      // Add new page if needed
       if (yPosition > pageHeight - 100) {
         doc.addPage();
         yPosition = 30;
       }
 
+      // Signature section
       doc.setFillColor(...background);
       doc.roundedRect(15, yPosition - 4, pageWidth - 30, 60, 3, 3, "F");
       doc.setDrawColor(...border);
@@ -245,6 +251,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       doc.text("Marketing Manager", pageWidth - 100, yPosition + 16);
       doc.text("___________________________", pageWidth - 100, yPosition + 24);
 
+      // Save PDF
       const fileName = `Consolidated_Financial_Report_${format(new Date(), "yyyy-MM-dd")}_RML.pdf`;
       doc.save(fileName);
       toast.success("Consolidated report generated successfully!");
