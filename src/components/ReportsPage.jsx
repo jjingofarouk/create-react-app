@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { format, startOfDay } from "date-fns";
 import DateFilter from "./DateFilter";
-import PDFGenerator from "./PDFGenerator";
-import useFirestoreData from "./useFirestoreData";
+import PDFGenerator from "./reports/PDFGenerator";
+import useFirestoreData from "./reports/useFirestoreData";
 
 const ReportsPage = () => {
   const [user, setUser] = useState(null);
