@@ -1,5 +1,3 @@
-
-
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
@@ -132,11 +130,28 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         // Left side - Company info
         doc.text("Richmond Manufacturer's Ltd - Financial Report", 15, footerY);
         
-        // Center - CONFIDENTIAL in red
+        // Center - CONFIDENTIAL with red border
         doc.setTextColor(220, 38, 38); // Red color
         doc.setFontSize(10);
         doc.setFont("times", "bold");
-        doc.text("CONFIDENTIAL", pageWidth / 2, footerY, { align: "center" });
+        
+        // Calculate text width for border
+        const confidentialText = "CONFIDENTIAL";
+        const textWidth = doc.getTextWidth(confidentialText);
+        const textHeight = 10;
+        const padding = 3;
+        const boxX = (pageWidth / 2) - (textWidth / 2) - padding;
+        const boxY = footerY - textHeight + 2;
+        const boxWidth = textWidth + (padding * 2);
+        const boxHeight = textHeight + 2;
+        
+        // Draw red border around CONFIDENTIAL
+        doc.setDrawColor(220, 38, 38); // Red border
+        doc.setLineWidth(1);
+        doc.rect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Add CONFIDENTIAL text
+        doc.text(confidentialText, pageWidth / 2, footerY, { align: "center" });
         
         // Right side - Page number
         doc.setTextColor(...secondary);
@@ -145,7 +160,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15, footerY, { align: "right" });
       };
 
-      // Add stylish introduction card
+      // Add stylish introduction card with dark background
       const addIntroductionCard = (yPos) => {
         // Check if we need a new page
         if (yPos > pageHeight - 100) {
@@ -153,14 +168,14 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           yPos = 20;
         }
 
-        // Card background
+        // Card background - light gray
         doc.setFillColor(248, 250, 252); // Light gray background
         doc.setDrawColor(203, 213, 225); // Border color
         doc.setLineWidth(0.5);
         doc.roundedRect(15, yPos, pageWidth - 30, 60, 4, 4, "FD");
         
-        // Card header with gradient effect
-        doc.setFillColor(...accent);
+        // Card header with dark background instead of purple
+        doc.setFillColor(31, 41, 55); // Dark gray background (slate-800)
         doc.roundedRect(15, yPos, pageWidth - 30, 20, 4, 4, "F");
         doc.rect(15, yPos + 16, pageWidth - 30, 4, "F"); // Fill the rounded bottom
         
@@ -180,7 +195,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text("Generated:", 25, cardContentY);
         
         doc.setTextColor(...secondary);
-        doc.setFontSize(11);
+        doc.setFontSize(12); // Increased from 11 to 12
         doc.setFont("times", "normal");
         doc.text(format(new Date(), "MMM dd, yyyy 'at' HH:mm"), 70, cardContentY);
         
@@ -191,13 +206,13 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text("Period:", 25, cardContentY + 12);
         
         doc.setTextColor(...secondary);
-        doc.setFontSize(11);
+        doc.setFontSize(12); // Increased from 11 to 12
         doc.setFont("times", "normal");
         doc.text(getPeriodDescription(), 60, cardContentY + 12);
 
-        // Report type badge
+        // Report type badge - keep the dark theme
         const badgeX = pageWidth - 80;
-        doc.setFillColor(...accent);
+        doc.setFillColor(31, 41, 55); // Dark gray to match header
         doc.roundedRect(badgeX, cardContentY - 5, 55, 18, 2, 2, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(10);
@@ -487,5 +502,3 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 };
 
 export default PDFGenerator;
-
-
