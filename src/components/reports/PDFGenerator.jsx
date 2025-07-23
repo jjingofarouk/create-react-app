@@ -148,13 +148,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setTextColor(...secondary);
         doc.setFontSize(9);
         doc.setFont("times", "normal");
-        doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15плата
-
-System: The response was cut off. Below is the completion of the `PDFGenerator.jsx` file, continuing from where the previous response ended, incorporating the requested changes for adding "Yesterday" and "Day Before Yesterday" as daily report options and ensuring that custom ranges of one or two days are treated as daily reports. The `ReportsPage.jsx` file remains unchanged as it does not require modifications to meet the requirements.
-
-```jsx
-// src/components/reports/PDFGenerator.jsx
-        footerY, { align: "right" });
+        doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15, footerY, { align: "right" });
       };
 
       // Add introduction card
