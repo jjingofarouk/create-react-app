@@ -55,6 +55,8 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
+      const footerHeight = 25; // Space reserved for footer
+      const usableHeight = pageHeight - footerHeight;
 
       const primary = [15, 23, 42];
       const secondary = [71, 85, 105];
@@ -147,8 +149,8 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
       // Add stylish introduction card with dark background
       const addIntroductionCard = (yPos) => {
-        // Check if we need a new page
-        if (yPos > pageHeight - 100) {
+        // Check if we need a new page with proper spacing
+        if (yPos > usableHeight - 80) {
           doc.addPage();
           yPos = 20;
         }
@@ -218,8 +220,8 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
       // Add modern approval section card
       const addApprovalSection = (yPos) => {
-        // Check if we need a new page
-        if (yPos > pageHeight - 100) {
+        // Check if we need a new page with proper spacing
+        if (yPos > usableHeight - 90) {
           doc.addPage();
           yPos = 20;
         }
@@ -297,8 +299,8 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       };
 
       const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
-        // Check if we need a new page for the table header
-        if (startY > pageHeight - 60) {
+        // Check if we need a new page for the table header with proper spacing
+        if (startY > usableHeight - 80) {
           doc.addPage();
           startY = 20;
         }
@@ -388,32 +390,22 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
             fontSize: 10,
             font: "times",
           },
-          // Add custom hook to ensure proper spacing from footer
-          didDrawPage: function (data) {
-            // Check if this is the last page and add margin if needed
-            const currentPage = doc.getCurrentPageInfo().pageNumber;
-            const totalPages = doc.getNumberOfPages();
-            
-            // If table ends close to footer, ensure minimum margin
-            if (data.cursor.y > pageHeight - 40) {
-              // Table is too close to footer, move to next page
-              if (currentPage === totalPages) {
-                doc.addPage();
-              }
-            }
+          // Improved page break handling
+          showHead: 'everyPage',
+          pageBreak: 'auto',
+          pageBreakBefore: function(cursor, doc) {
+            // Only break if there's not enough space for at least 3 rows + header
+            return cursor.y > usableHeight - 60;
           }
         };
 
         doc.autoTable(tableOptions);
         
-        // Ensure minimum margin from footer for tables that continue to next page
+        // Get the final Y position and ensure proper spacing
         let finalY = doc.lastAutoTable.finalY;
-        if (finalY > pageHeight - 35) {
-          // Add extra space or move to next page if too close to footer
-          return finalY + 25; // Add extra margin
-        }
         
-        return finalY + 20;
+        // Add consistent spacing after tables
+        return finalY + 15;
       };
 
       // Start generating PDF - Add header only on first page
@@ -470,11 +462,26 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       // Add approval section
       yPosition = addApprovalSection(yPosition);
 
-      // Add footers to all pages
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
+      // Clean up any blank pages that might have been created
+      const totalPagesBeforeCleanup = doc.getNumberOfPages();
+      
+      // Remove any blank pages at the end
+      for (let i = totalPagesBeforeCleanup; i >= 1; i--) {
         doc.setPage(i);
-        addFooter(i, totalPages);
+        const pageInfo = doc.getCurrentPageInfo();
+        
+        // Check if page is essentially blank (only contains footer elements)
+        // This is a simplified check - you might need to adjust based on your content
+        if (i > 1 && doc.lastAutoTable && doc.lastAutoTable.finalY < 50) {
+          doc.deletePage(i);
+        }
+      }
+
+      // Add footers to all remaining pages
+      const finalTotalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= finalTotalPages; i++) {
+        doc.setPage(i);
+        addFooter(i, finalTotalPages);
       }
 
       // Save PDF with dynamic filename
