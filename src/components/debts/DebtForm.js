@@ -19,8 +19,6 @@ const DebtForm = ({ debt, onClose }) => {
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
   const [user, setUser] = useState(null);
-  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", address: "" });
-  const [showClientForm, setShowClientForm] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
@@ -86,34 +84,25 @@ const DebtForm = ({ debt, onClose }) => {
   };
 
   const handleClientSelect = async (value) => {
-    if (!clients.find((c) => c.name === value) && value.trim()) {
-      setNewClient({ ...newClient, name: value });
-      setShowClientForm(true);
-    } else {
-      handleChange("client", value);
-    }
-  };
+    if (!value.trim() || !user) return;
 
-  const handleAddClient = async (e) => {
-    e.preventDefault();
-    if (!newClient.name.trim() || !user) return;
-
-    try {
-      const clientRef = await addDoc(collection(db, `users/${user.uid}/clients`), {
-        name: newClient.name.trim(),
-        email: newClient.email.trim() || null,
-        phone: newClient.phone.trim() || null,
-        address: newClient.address.trim() || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      setFormData((prev) => ({ ...prev, client: newClient.name }));
-      setNewClient({ name: "", email: "", phone: "", address: "" });
-      setShowClientForm(false);
-    } catch (err) {
-      console.error("Error adding client:", err);
-      setErrors({ submit: "Failed to add client. Please try again." });
+    // Check if the client already exists
+    const existingClient = clients.find((c) => c.name.toLowerCase() === value.toLowerCase());
+    if (!existingClient) {
+      try {
+        // Add new client to Firestore
+        await addDoc(collection(db, `users/${user.uid}/clients`), {
+          name: value.trim(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } catch (err) {
+        console.error("Error adding client:", err);
+        setErrors({ submit: "Failed to add client. Please try again." });
+        return;
+      }
     }
+    handleChange("client", value);
   };
 
   const handleSubmit = async (e) => {
@@ -180,292 +169,196 @@ const DebtForm = ({ debt, onClose }) => {
   };
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-3">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col border border-gray-100">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-red-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900">
-                {debt ? "Edit Debt" : "New Debt"}
-              </h3>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-3">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col border border-gray-100">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-red-600" />
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
+            <h3 className="text-xl font-semibold text-gray-900">
+              {debt ? "Edit Debt" : "New Debt"}
+            </h3>
           </div>
+          <button
+            onClickable
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6 space-y-6">
-              {/* Error Alert */}
-              {errors.submit && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-red-800 text-sm font-medium">{errors.submit}</p>
-                </div>
-              )}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6 space-y-6">
+            {/* Error Alert */}
+            {errors.submit && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-red-800 text-sm font-medium">{errors.submit}</p>
+              </div>
+            )}
 
-              {/* Sale Link Alert */}
-              {debt?.saleId && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                  <p className="text-blue-800 text-sm">
-                    This debt is linked to a sale. Changes will update the sale's payment status.
-                  </p>
-                </div>
-              )}
+            {/* Sale Link Alert */}
+            {debt?.saleId && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="text-blue-800 text-sm">
+                  This debt is linked to a sale. Changes will update the sale's payment status.
+                </p>
+              </div>
+            )}
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Client Field */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Client Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Client
+                </label>
+                <AutocompleteInput
+                  options={clients.map((c) => ({ id: c.id, name: c.name }))}
+                  value={formData.client}
+                  onChange={handleClientSelect}
+                  placeholder="Select or type client name"
+                  allowNew
+                  icon={<User className="w-5 h-5 text-gray-400" />}
+                />
+                {errors.client && (
+                  <p className="text-red-600 text-sm font-medium">{errors.client}</p>
+                )}
+              </div>
+
+              {/* Product Field */}
+              {!debt?.saleId && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Client
+                    <Package className="w-4 h-4" />
+                    Product
                   </label>
                   <AutocompleteInput
-                    options={clients.map((c) => ({ id: c.id, name: c.name }))}
-                    value={formData.client}
-                    onChange={handleClientSelect}
-                    placeholder="Select or add new client"
-                    allowNew
-                    icon={<User className="w-5 h-5 text-gray-400" />}
+                    options={products.map((p) => ({ id: p.id, name: p.name }))}
+                    value={formData.productId}
+                    onChange={(value) => handleChange("productId", value)}
+                    placeholder="Select product"
+                    allowNew={false}
+                    icon={<Package className="w-5 h-5 text-gray-400" />}
                   />
-                  {errors.client && (
-                    <p className="text-red-600 text-sm font-medium">{errors.client}</p>
+                  {errors.productId && (
+                    <p className="text-red-600 text-sm font-medium">{errors.productId}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Amount Fields Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-900">
+                    Total Amount
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={formData.amount}
+                      onChange={(e) => handleChange("amount", e.target.value)}
+                      min="0"
+                      step="0.01"
+                      className="w-full h-12 px-4 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+                      placeholder="0.00"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
+                      UGX
+                    </span>
+                  </div>
+                  {errors.amount && (
+                    <p className="text-red-600 text-sm font-medium">{errors.amount}</p>
                   )}
                 </div>
 
-                {/* Product Field */}
-                {!debt?.saleId && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                      <Package className="w-4 h-4" />
-                      Product
-                    </label>
-                    <AutocompleteInput
-                      options={products.map((p) => ({ id: p.id, name: p.name }))}
-                      value={formData.productId}
-                      onChange={(value) => handleChange("productId", value)}
-                      placeholder="Select product"
-                      allowNew={false}
-                      icon={<Package className="w-5 h-5 text-gray-400" />}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-900">
+                    Paid Today
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={formData.paidToday}
+                      onChange={(e) => handleChange("paidToday", e.target.value)}
+                      min="0"
+                      step="0.01"
+                      className="w-full h-12 px-4 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+                      placeholder="0.00"
                     />
-                    {errors.productId && (
-                      <p className="text-red-600 text-sm font-medium">{errors.productId}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Amount Fields Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">
-                      Total Amount
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={formData.amount}
-                        onChange={(e) => handleChange("amount", e.target.value)}
-                        min="0"
-                        step="0.01"
-                        className="w-full h-12 px-4 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                        placeholder="0.00"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
-                        UGX
-                      </span>
-                    </div>
-                    {errors.amount && (
-                      <p className="text-red-600 text-sm font-medium">{errors.amount}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">
-                      Paid Today
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={formData.paidToday}
-                        onChange={(e) => handleChange("paidToday", e.target.value)}
-                        min="0"
-                        step="0.01"
-                        className="w-full h-12 px-4 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                        placeholder="0.00"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
-                        UGX
-                      </span>
-                    </div>
-                    {errors.paidToday && (
-                      <p className="text-red-600 text-sm font-medium">{errors.paidToday}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Remaining Balance */}
-                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-gray-900">Remaining Balance</span>
-                    <span className="text-lg font-bold text-red-600">
-                      {(formData.amount - (parseFloat(formData.paidToday) || 0)).toLocaleString()} UGX
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
+                      UGX
                     </span>
                   </div>
+                  {errors.paidToday && (
+                    <p className="text-red-600 text-sm font-medium">{errors.paidToday}</p>
+                  )}
                 </div>
+              </div>
 
-                {/* Date Field */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={format(formData.createdAt, "yyyy-MM-dd")}
-                    onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
-                    className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                  />
+              {/* Remaining Balance */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-gray-900">Remaining Balance</span>
+                  <span className="text-lg font-bold text-red-600">
+                    {(formData.amount - (parseFloat(formData.paidToday) || 0)).toLocaleString()} UGX
+                  </span>
                 </div>
+              </div>
 
-                {/* Notes Field */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Notes
-                  </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => handleChange("notes", e.target.value)}
-                    rows="3"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all resize-none"
-                    placeholder="Add any additional notes..."
-                  />
-                </div>
+              {/* Date Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={format(formData.createdAt, "yyyy-MM-dd")}
+                  onChange={(e) => handleChange("createdAt", new Date(e.target.value))}
+                  className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+                />
+              </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 h-12 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 h-12 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSubmitting ? "Saving..." : debt ? "Update" : "Save"}
-                  </button>
-                </div>
-              </form>
-            </div>
+              {/* Notes Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Notes
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => handleChange("notes", e.target.value)}
+                  rows="3"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all resize-none"
+                  placeholder="Add any additional notes..."
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 h-12 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 h-12 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSubmitting ? "Saving..." : debt ? "Update" : "Save"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
-
-      {/* Client Form Modal */}
-      {showClientForm && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col border border-gray-100">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                  <User className="w-5 h-5 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">Add Client</h3>
-              </div>
-              <button
-                onClick={() => setShowClientForm(false)}
-                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-6">
-                <form onSubmit={handleAddClient} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">
-                      Client Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={newClient.name}
-                      onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                      required
-                      className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="Enter client name"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">Email</label>
-                    <input
-                      type="email"
-                      value={newClient.email}
-                      onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                      className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="client@example.com"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">Phone</label>
-                    <input
-                      type="tel"
-                      value={newClient.phone}
-                      onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                      className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="+256 700 000 000"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">Address</label>
-                    <textarea
-                      value={newClient.address}
-                      onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none"
-                      placeholder="Client address"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-3 pt-4 border-t border-gray-100">
-                    <button
-                      type="button"
-                      onClick={() => setShowClientForm(false)}
-                      className="flex-1 h-12 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!newClient.name.trim()}
-                      className="flex-1 h-12 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Add Client
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 };
 
