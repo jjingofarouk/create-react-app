@@ -116,6 +116,7 @@ const SalesForm = ({ sale, onClose, clients, products }) => {
           client: formData.client,
           amount: remainingBalance,
           saleId: saleRef.id,
+          lastPaidAmount: parseFloat(formData.amountPaid) || 0,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
@@ -269,7 +270,7 @@ const SalesForm = ({ sale, onClose, clients, products }) => {
 
           {formData.quantity && formData.unitPrice && (
             <div className="bg-neutral-50 rounded-lg p-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-neutral- seven mb-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-neutral-700 mb-3">
                 <Calculator className="w-4 h-4" />
                 Calculation Summary
               </div>
