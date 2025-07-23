@@ -317,20 +317,44 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
         const sectionColor = sectionColors[sectionType] || sectionColors.supplies;
 
-        // Standard table width for all tables
-        const tableWidth = pageWidth - 30;
+        // Optimized column styles for compact tables
+        let columnStyles = {};
         
-        // Use standard column styles for all tables
-        const columnStyles = {
-          0: { cellWidth: 'auto' },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 'auto', halign: "center" },
-          3: { cellWidth: 'auto', halign: "right" },
-          4: { cellWidth: 'auto', halign: "right" },
-          5: { cellWidth: 'auto', halign: "right" },
-        };
+        // For supplies and sales summary tables, use more compact widths
+        if (sectionType === 'supplies' || sectionType === 'sales') {
+          if (columns.length === 6) { // Product summary tables
+            columnStyles = {
+              0: { cellWidth: 45 }, // Product name - reduced
+              1: { cellWidth: 25, halign: "center" }, // Unit - compact
+              2: { cellWidth: 20, halign: "center" }, // Qty - compact
+              3: { cellWidth: 35, halign: "right" }, // Unit Price - reduced
+              4: { cellWidth: 35, halign: "right" }, // Total Cost - reduced
+              5: { cellWidth: 20, halign: "center" }, // % - compact
+            };
+          } else {
+            // Standard layout for other table structures
+            columnStyles = {
+              0: { cellWidth: 'auto' },
+              1: { cellWidth: 'auto' },
+              2: { cellWidth: 'auto', halign: "center" },
+              3: { cellWidth: 'auto', halign: "right" },
+              4: { cellWidth: 'auto', halign: "right" },
+              5: { cellWidth: 'auto', halign: "right" },
+            };
+          }
+        } else {
+          // Standard column styles for other tables
+          columnStyles = {
+            0: { cellWidth: 'auto' },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 'auto', halign: "center" },
+            3: { cellWidth: 'auto', halign: "right" },
+            4: { cellWidth: 'auto', halign: "right" },
+            5: { cellWidth: 'auto', halign: "right" },
+          };
+        }
 
-        doc.autoTable({
+        const tableOptions = {
           columns,
           body: rows,
           startY: startY + 8,
@@ -338,35 +362,58 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           headStyles: {
             fillColor: sectionColor,
             textColor: [255, 255, 255],
-            fontSize: 12,
+            fontSize: 11, // Slightly smaller for compact tables
             fontStyle: "bold",
             halign: "left",
-            cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
+            cellPadding: { top: 6, right: 8, bottom: 6, left: 8 }, // Reduced padding
             lineWidth: 0,
-            minCellHeight: 18,
+            minCellHeight: 16, // Reduced height
           },
           bodyStyles: {
-            fontSize: 11,
-            cellPadding: { top: 6, right: 10, bottom: 6, left: 10 },
+            fontSize: 10, // Smaller font for compact tables
+            cellPadding: { top: 5, right: 8, bottom: 5, left: 8 }, // Reduced padding
             textColor: secondary,
             lineWidth: 0.2,
             lineColor: border,
-            minCellHeight: 16,
+            minCellHeight: 14, // Reduced height
           },
           alternateRowStyles: {
             fillColor: background,
           },
           columnStyles: columnStyles,
           margin: { left: 15, right: 15 },
-          tableWidth: tableWidth,
           styles: {
             overflow: "ellipsize",
             cellWidth: "wrap",
-            fontSize: 11,
+            fontSize: 10,
             font: "times",
           },
-        });
-        return doc.lastAutoTable.finalY + 20;
+          // Add custom hook to ensure proper spacing from footer
+          didDrawPage: function (data) {
+            // Check if this is the last page and add margin if needed
+            const currentPage = doc.getCurrentPageInfo().pageNumber;
+            const totalPages = doc.getNumberOfPages();
+            
+            // If table ends close to footer, ensure minimum margin
+            if (data.cursor.y > pageHeight - 40) {
+              // Table is too close to footer, move to next page
+              if (currentPage === totalPages) {
+                doc.addPage();
+              }
+            }
+          }
+        };
+
+        doc.autoTable(tableOptions);
+        
+        // Ensure minimum margin from footer for tables that continue to next page
+        let finalY = doc.lastAutoTable.finalY;
+        if (finalY > pageHeight - 35) {
+          // Add extra space or move to next page if too close to footer
+          return finalY + 25; // Add extra margin
+        }
+        
+        return finalY + 20;
       };
 
       // Start generating PDF - Add header only on first page
