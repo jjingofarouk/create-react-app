@@ -130,27 +130,12 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         // Left side - Company info
         doc.text("Richmond Manufacturer's Ltd - Financial Report", 15, footerY);
         
-        // Center - CONFIDENTIAL with red border
+        // Center - CONFIDENTIAL (bold, no border)
         doc.setTextColor(220, 38, 38); // Red color
         doc.setFontSize(10);
         doc.setFont("times", "bold");
         
-        // Calculate text width for border
         const confidentialText = "CONFIDENTIAL";
-        const textWidth = doc.getTextWidth(confidentialText);
-        const textHeight = 10;
-        const padding = 3;
-        const boxX = (pageWidth / 2) - (textWidth / 2) - padding;
-        const boxY = footerY - textHeight + 2;
-        const boxWidth = textWidth + (padding * 2);
-        const boxHeight = textHeight + 2;
-        
-        // Draw red border around CONFIDENTIAL
-        doc.setDrawColor(220, 38, 38); // Red border
-        doc.setLineWidth(1);
-        doc.rect(boxX, boxY, boxWidth, boxHeight);
-        
-        // Add CONFIDENTIAL text
         doc.text(confidentialText, pageWidth / 2, footerY, { align: "center" });
         
         // Right side - Page number
@@ -332,33 +317,18 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
         const sectionColor = sectionColors[sectionType] || sectionColors.supplies;
 
-        // Adjust column widths for supplies and sales tables to match other tables
-        const isWideTable = sectionType === 'supplies' || sectionType === 'sales';
+        // Standard table width for all tables
         const tableWidth = pageWidth - 30;
         
-        let columnStyles = {};
-        if (isWideTable) {
-          // For supplies and sales tables, distribute columns more evenly with narrower widths
-          const numColumns = columns.length;
-          const baseWidth = tableWidth / numColumns;
-          
-          for (let i = 0; i < numColumns; i++) {
-            columnStyles[i] = { 
-              cellWidth: baseWidth - 5, // Slightly narrower to ensure fit
-              halign: i === 0 ? "left" : (i >= numColumns - 2 ? "right" : "center")
-            };
-          }
-        } else {
-          // Standard column styles for other tables
-          columnStyles = {
-            0: { cellWidth: 'auto' },
-            1: { cellWidth: 'auto' },
-            2: { cellWidth: 'auto', halign: "center" },
-            3: { cellWidth: 'auto', halign: "right" },
-            4: { cellWidth: 'auto', halign: "right" },
-            5: { cellWidth: 'auto', halign: "right" },
-          };
-        }
+        // Use standard column styles for all tables
+        const columnStyles = {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 'auto', halign: "center" },
+          3: { cellWidth: 'auto', halign: "right" },
+          4: { cellWidth: 'auto', halign: "right" },
+          5: { cellWidth: 'auto', halign: "right" },
+        };
 
         doc.autoTable({
           columns,
@@ -371,13 +341,13 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
             fontSize: 12,
             fontStyle: "bold",
             halign: "left",
-            cellPadding: { top: 7, right: isWideTable ? 6 : 10, bottom: 7, left: isWideTable ? 6 : 10 },
+            cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
             lineWidth: 0,
             minCellHeight: 18,
           },
           bodyStyles: {
-            fontSize: isWideTable ? 10 : 11,
-            cellPadding: { top: 6, right: isWideTable ? 6 : 10, bottom: 6, left: isWideTable ? 6 : 10 },
+            fontSize: 11,
+            cellPadding: { top: 6, right: 10, bottom: 6, left: 10 },
             textColor: secondary,
             lineWidth: 0.2,
             lineColor: border,
@@ -392,7 +362,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           styles: {
             overflow: "ellipsize",
             cellWidth: "wrap",
-            fontSize: isWideTable ? 10 : 11,
+            fontSize: 11,
             font: "times",
           },
         });
@@ -502,5 +472,3 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 };
 
 export default PDFGenerator;
-
-
