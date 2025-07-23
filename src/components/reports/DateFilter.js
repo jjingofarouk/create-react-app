@@ -1,11 +1,14 @@
+// src/components/reports/DateFilter.jsx
 import React from "react";
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
 import { Calendar, X, Filter } from "lucide-react";
 
 const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
   const handleDateFilterChange = (type) => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
+    const yesterday = subDays(today, 1).toISOString().split("T")[0];
+    const dayBeforeYesterday = subDays(today, 2).toISOString().split("T")[0];
     
     let startDate = todayStr;
     let endDate = todayStr;
@@ -14,6 +17,14 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
       case 'today':
         startDate = todayStr;
         endDate = todayStr;
+        break;
+      case 'yesterday':
+        startDate = yesterday;
+        endDate = yesterday;
+        break;
+      case 'dayBeforeYesterday':
+        startDate = dayBeforeYesterday;
+        endDate = dayBeforeYesterday;
         break;
       case 'week':
         startDate = startOfWeek(today, { weekStartsOn: 1 }).toISOString().split("T")[0];
@@ -49,6 +60,10 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
     switch (dateFilter.type) {
       case 'today':
         return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case 'dayBeforeYesterday':
+        return 'Day Before Yesterday';
       case 'week':
         return 'This Week';
       case 'month':
@@ -66,6 +81,10 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
     switch (dateFilter.type) {
       case 'today':
         return 'bg-blue-500 hover:bg-blue-600';
+      case 'yesterday':
+        return 'bg-blue-400 hover:bg-blue-500';
+      case 'dayBeforeYesterday':
+        return 'bg-blue-300 hover:bg-blue-400';
       case 'week':
         return 'bg-emerald-500 hover:bg-emerald-600';
       case 'month':
@@ -136,6 +155,26 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
                   }`}
                 >
                   Today
+                </button>
+                <button
+                  onClick={() => handleDateFilterChange('yesterday')}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                    dateFilter.type === 'yesterday'
+                      ? 'bg-blue-100 text-blue-800 shadow-md border-2 border-blue-300'
+                      : 'bg-slate-50 text-slate-600 hover:bg-blue-50 border border-slate-200'
+                  }`}
+                >
+                  Yesterday
+                </button>
+                <button
+                  onClick={() => handleDateFilterChange('dayBeforeYesterday')}
+                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                    dateFilter.type === 'dayBeforeYesterday'
+                      ? 'bg-blue-100 text-blue-800 shadow-md border-2 border-blue-300'
+                      : 'bg-slate-50 text-slate-600 hover:bg-blue-50 border border-slate-200'
+                  }`}
+                >
+                  Day Before Yesterday
                 </button>
                 <button
                   onClick={() => handleDateFilterChange('week')}
