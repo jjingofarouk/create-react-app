@@ -1,39 +1,16 @@
-import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { format } from "date-fns";
 
 const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPosition }) => {
-  // Helper function to get product name from productId
+  // Helper function to get product name (fallback if productName is not preprocessed)
   const getProductName = (productId) => {
     const product = products.find((p) => p.id === productId);
     return product?.name || "-";
   };
 
-  // Helper function to get productId for a debt (direct or via saleId)
-  const getDebtProductId = async (debt, userId) => {
-    if (debt.productId) {
-      return debt.productId;
-    }
-    if (debt.saleId) {
-      try {
-        const saleRef = doc(db, `users/${userId}/sales`, debt.saleId);
-        const saleSnap = await getDoc(saleRef);
-        if (saleSnap.exists()) {
-          return saleSnap.data().product?.productId || null;
-        }
-      } catch (error) {
-        console.warn("Error fetching sale for debt:", error);
-      }
-    }
-    return null;
-  };
-
-  // Since we need to fetch sale data asynchronously, we'll process debts
-  // Note: Since jsPDF is synchronous, we'll assume productId is available for manual debts
-  // For sale-linked debts, we'll log a warning if productId can't be fetched synchronously
-  // In a real async context, you'd need to preprocess debts, but jsPDF doesn't support async well
+  // Process debts, using precomputed productName if available
   const debtsData = data.debts.map((item) => {
     const client = clients.find((c) => c.name === item.client);
-    const productId = item.productId || (item.saleId ? "fetch-required" : "-");
-    const productName = item.productId ? getProductName(item.productId) : "-";
+    const productName = item.productName || getProductName(item.productId) || "-";
     return {
       client: client?.name || "-",
       debtBalance: (parseFloat(item.amount) || 0).toLocaleString(),
@@ -41,7 +18,6 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
       updatedAt: item.updatedAt
         ? format(item.updatedAt.toDate ? item.updatedAt.toDate() : new Date(item.updatedAt), "MMM dd, yyyy HH:mm")
         : "-",
-      productId,
       productName,
     };
   });
