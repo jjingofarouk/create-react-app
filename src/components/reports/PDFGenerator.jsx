@@ -62,6 +62,9 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       const background = [248, 250, 252];
       const border = [226, 232, 240];
 
+      // Minimum space required for footer (15px for footer + 15px buffer)
+      const footerSpace = 30;
+
       // Load logo
       let logoBase64 = null;
       try {
@@ -296,9 +299,10 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return yPos + 80;
       };
 
+      // Enhanced addTable function with uniform width and proper pagination
       const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
         // Check if we need a new page for the table header
-        if (startY > pageHeight - 60) {
+        if (startY > pageHeight - 80) {
           doc.addPage();
           startY = 20;
         }
@@ -317,41 +321,99 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
         const sectionColor = sectionColors[sectionType] || sectionColors.supplies;
 
-        // Standard table width for all tables
-        const tableWidth = pageWidth - 30;
+        // Standard table width for all tables (uniform width)
+        const tableWidth = pageWidth - 30; // 15px margins on each side
         
-        // Use standard column styles for all tables
-        const columnStyles = {
-          0: { cellWidth: 'auto' },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 'auto', halign: "center" },
-          3: { cellWidth: 'auto', halign: "right" },
-          4: { cellWidth: 'auto', halign: "right" },
-          5: { cellWidth: 'auto', halign: "right" },
-        };
+        // Dynamically calculate column widths to ensure uniform table width
+        const columnCount = columns.length;
+        
+        // Define different width strategies based on column count
+        let columnStyles = {};
+        
+        if (columnCount <= 3) {
+          // For tables with 3 or fewer columns, distribute evenly
+          const baseCellWidth = tableWidth / columnCount;
+          columns.forEach((col, index) => {
+            columnStyles[index] = {
+              cellWidth: baseCellWidth,
+              halign: index === columnCount - 1 ? "right" : "left",
+              overflow: "ellipsize",
+            };
+          });
+        } else if (columnCount === 4) {
+          // For 4-column tables, slightly optimize distribution
+          const widths = [tableWidth * 0.3, tableWidth * 0.25, tableWidth * 0.2, tableWidth * 0.25];
+          columns.forEach((col, index) => {
+            columnStyles[index] = {
+              cellWidth: widths[index],
+              halign: index >= 2 ? "right" : "left",
+              overflow: "ellipsize",
+            };
+          });
+        } else if (columnCount >= 5) {
+          // For 5+ column tables (SuppliesSummary, SalesSummary), use optimized distribution
+          if (columnCount === 5) {
+            const widths = [tableWidth * 0.25, tableWidth * 0.25, tableWidth * 0.2, tableWidth * 0.15, tableWidth * 0.15];
+            columns.forEach((col, index) => {
+              columnStyles[index] = {
+                cellWidth: widths[index],
+                halign: index >= 2 ? "right" : "left",
+                overflow: "ellipsize",
+              };
+            });
+          } else if (columnCount === 6) {
+            const widths = [tableWidth * 0.22, tableWidth * 0.22, tableWidth * 0.15, tableWidth * 0.15, tableWidth * 0.13, tableWidth * 0.13];
+            columns.forEach((col, index) => {
+              columnStyles[index] = {
+                cellWidth: widths[index],
+                halign: index >= 2 ? "right" : "left",
+                overflow: "ellipsize",
+              };
+            });
+          } else {
+            // For more than 6 columns, distribute evenly with smaller widths
+            const baseCellWidth = tableWidth / columnCount;
+            columns.forEach((col, index) => {
+              columnStyles[index] = {
+                cellWidth: baseCellWidth,
+                halign: index >= columnCount - 3 ? "right" : "left",
+                overflow: "ellipsize",
+              };
+            });
+          }
+        }
+
+        // Filter out empty rows before rendering
+        const filteredRows = rows.filter(row => {
+          return row && row.some(cell => cell !== null && cell !== undefined && cell.toString().trim() !== '');
+        });
 
         doc.autoTable({
           columns,
-          body: rows,
+          body: filteredRows,
           startY: startY + 8,
           theme: "plain",
           headStyles: {
             fillColor: sectionColor,
             textColor: [255, 255, 255],
-            fontSize: 12,
+            fontSize: columnCount > 4 ? 10 : 12, // Smaller font for tables with more columns
             fontStyle: "bold",
             halign: "left",
-            cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
+            cellPadding: columnCount > 4 ? 
+              { top: 6, right: 3, bottom: 6, left: 3 } : 
+              { top: 7, right: 5, bottom: 7, left: 5 },
             lineWidth: 0,
-            minCellHeight: 18,
+            minCellHeight: columnCount > 4 ? 16 : 18,
           },
           bodyStyles: {
-            fontSize: 11,
-            cellPadding: { top: 6, right: 10, bottom: 6, left: 10 },
+            fontSize: columnCount > 4 ? 9 : 11, // Smaller font for tables with more columns
+            cellPadding: columnCount > 4 ? 
+              { top: 5, right: 3, bottom: 5, left: 3 } : 
+              { top: 6, right: 5, bottom: 6, left: 5 },
             textColor: secondary,
             lineWidth: 0.2,
             lineColor: border,
-            minCellHeight: 16,
+            minCellHeight: columnCount > 4 ? 14 : 16,
           },
           alternateRowStyles: {
             fillColor: background,
@@ -362,21 +424,65 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           styles: {
             overflow: "ellipsize",
             cellWidth: "wrap",
-            fontSize: 11,
             font: "times",
+            fontSize: columnCount > 4 ? 9 : 11,
+          },
+          // Enhanced hooks for proper pagination and empty row handling
+          didParseCell: (data) => {
+            // Skip empty rows
+            if (data.row.section === "body") {
+              const isEmpty = data.row.cells.every(cell => 
+                !cell.content || cell.content.length === 0 || 
+                (Array.isArray(cell.content) && cell.content.every(c => !c || c.toString().trim() === ''))
+              );
+              if (isEmpty) {
+                data.row.height = 0;
+              }
+            }
+          },
+          willDrawCell: (data) => {
+            // Ensure proper page breaks with footer space
+            if (data.row.section === "body") {
+              const currentY = data.cursor.y;
+              const rowHeight = data.row.height;
+              const remainingSpace = pageHeight - currentY - footerSpace;
+
+              // If this row won't fit on the current page, move to next page
+              if (remainingSpace < rowHeight + 5) {
+                doc.addPage();
+                data.cursor.y = 20;
+              }
+            }
+          },
+          didDrawPage: (data) => {
+            // Ensure we don't draw too close to the footer
+            if (data.cursor.y > pageHeight - footerSpace) {
+              doc.addPage();
+              data.cursor.y = 20;
+            }
           },
         });
-        return doc.lastAutoTable.finalY + 20;
+
+        // Calculate final Y position with proper footer spacing
+        let finalY = doc.lastAutoTable.finalY || startY + 30;
+        
+        // If we're too close to the bottom, move to next page
+        if (finalY > pageHeight - footerSpace) {
+          doc.addPage();
+          finalY = 20;
+        }
+
+        return finalY + 20;
       };
 
       // Start generating PDF - Add header only on first page
       addHeader();
       
-      // Add introduction card instead of separate title and period sections
+      // Add introduction card
       let yPosition = 55;
       yPosition = addIntroductionCard(yPosition);
 
-      // Generate report sections with different colors
+      // Generate report sections with different colors and uniform table widths
       yPosition = SuppliesSummary({ 
         doc, 
         data, 
