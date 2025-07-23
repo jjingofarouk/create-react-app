@@ -86,11 +86,9 @@ const DebtForm = ({ debt, onClose }) => {
   const handleClientSelect = async (value) => {
     if (!value.trim() || !user) return;
 
-    // Check if the client already exists
     const existingClient = clients.find((c) => c.name.toLowerCase() === value.toLowerCase());
     if (!existingClient) {
       try {
-        // Add new client to Firestore
         await addDoc(collection(db, `users/${user.uid}/clients`), {
           name: value.trim(),
           createdAt: new Date(),
@@ -116,6 +114,7 @@ const DebtForm = ({ debt, onClose }) => {
         client: formData.client,
         amount: remainingAmount,
         productId: debt?.saleId ? null : formData.productId,
+        lastPaidAmount: parseFloat(formData.paidToday) || 0,
         notes: formData.notes || null,
         createdAt: new Date(formData.createdAt),
         updatedAt: new Date(),
@@ -171,7 +170,6 @@ const DebtForm = ({ debt, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-3">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col border border-gray-100">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
@@ -182,24 +180,21 @@ const DebtForm = ({ debt, onClose }) => {
             </h3>
           </div>
           <button
-            onClickable
+            onClick={onClose}
             className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-6">
-            {/* Error Alert */}
             {errors.submit && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                 <p className="text-red-800 text-sm font-medium">{errors.submit}</p>
               </div>
             )}
 
-            {/* Sale Link Alert */}
             {debt?.saleId && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <p className="text-blue-800 text-sm">
@@ -209,7 +204,6 @@ const DebtForm = ({ debt, onClose }) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Client Field */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <User className="w-4 h-4" />
@@ -228,7 +222,6 @@ const DebtForm = ({ debt, onClose }) => {
                 )}
               </div>
 
-              {/* Product Field */}
               {!debt?.saleId && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -249,7 +242,6 @@ const DebtForm = ({ debt, onClose }) => {
                 </div>
               )}
 
-              {/* Amount Fields Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-900">
@@ -298,7 +290,6 @@ const DebtForm = ({ debt, onClose }) => {
                 </div>
               </div>
 
-              {/* Remaining Balance */}
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-gray-900">Remaining Balance</span>
@@ -308,7 +299,6 @@ const DebtForm = ({ debt, onClose }) => {
                 </div>
               </div>
 
-              {/* Date Field */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
@@ -322,7 +312,6 @@ const DebtForm = ({ debt, onClose }) => {
                 />
               </div>
 
-              {/* Notes Field */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="w-4 h-4" />
@@ -337,7 +326,6 @@ const DebtForm = ({ debt, onClose }) => {
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t border-gray-100">
                 <button
                   type="button"
