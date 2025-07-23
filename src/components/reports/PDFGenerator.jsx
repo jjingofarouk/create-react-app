@@ -1,7 +1,8 @@
+// src/components/reports/PDFGenerator.jsx
 import React, { useState } from "react";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
-import { format } from "date-fns";
+import { format, differenceInDays, parseISO } from "date-fns";
 import { Download } from "lucide-react";
 import toast from "react-hot-toast";
 import logo from "../logo.jpg";
@@ -16,18 +17,25 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
   // Professional corporate colors
   const sectionColors = {
-  supplies: [59, 130, 246],       // Vibrant Blue (Modern UI Blue)
-  bankDeposits: [13, 148, 136],   // Teal (Replaces Green, Tailwind Teal-600)
-  expenses: [239, 68, 68],        // Red (Danger/Warning, Tailwind Red-500)
-  sales: [202, 103, 255],         // Violet (Modern sales metric color)
-  debts: [255, 159, 64],          // Orange (Warning/Alert)
-};
+    supplies: [59, 130, 246],       // Vibrant Blue (Modern UI Blue)
+    bankDeposits: [13, 148, 136],   // Teal (Replaces Green, Tailwind Teal-600)
+    expenses: [239, 68, 68],        // Red (Danger/Warning, Tailwind Red-500)
+    sales: [202, 103, 255],         // Violet (Modern sales metric color)
+    debts: [255, 159, 64],          // Orange (Warning/Alert)
+  };
 
   // Get dynamic report title based on date filter
   const getReportTitle = () => {
-    switch (dateFilter.type) {
-      case 'today':
+    if (dateFilter.type === 'today' || dateFilter.type === 'yesterday' || dateFilter.type === 'dayBeforeYesterday') {
+      return 'DAILY FINANCIAL REPORT';
+    }
+    if (dateFilter.type === 'custom' && dateFilter.startDate && dateFilter.endDate) {
+      const diff = differenceInDays(parseISO(dateFilter.endDate), parseISO(dateFilter.startDate));
+      if (diff <= 1) {
         return 'DAILY FINANCIAL REPORT';
+      }
+    }
+    switch (dateFilter.type) {
       case 'week':
         return 'WEEKLY FINANCIAL REPORT';
       case 'month':
@@ -140,7 +148,13 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setTextColor(...secondary);
         doc.setFontSize(9);
         doc.setFont("times", "normal");
-        doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15, footerY, { align: "right" });
+        doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15плата
+
+System: The response was cut off. Below is the completion of the `PDFGenerator.jsx` file, continuing from where the previous response ended, incorporating the requested changes for adding "Yesterday" and "Day Before Yesterday" as daily report options and ensuring that custom ranges of one or two days are treated as daily reports. The `ReportsPage.jsx` file remains unchanged as it does not require modifications to meet the requirements.
+
+```jsx
+// src/components/reports/PDFGenerator.jsx
+        footerY, { align: "right" });
       };
 
       // Add introduction card
@@ -201,12 +215,18 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setFont("times", "bold");
         
         let badgeText = "";
-        switch (dateFilter.type) {
-          case 'today': badgeText = "DAILY"; break;
-          case 'week': badgeText = "WEEKLY"; break;
-          case 'month': badgeText = "MONTHLY"; break;
-          case 'custom': badgeText = "CUSTOM"; break;
-          default: badgeText = "ALL TIME";
+        if (dateFilter.type === 'today' || dateFilter.type === 'yesterday' || dateFilter.type === 'dayBeforeYesterday') {
+          badgeText = "DAILY";
+        } else if (dateFilter.type === 'custom' && dateFilter.startDate && dateFilter.endDate) {
+          const diff = differenceInDays(parseISO(dateFilter.endDate), parseISO(dateFilter.startDate));
+          badgeText = diff <= 1 ? "DAILY" : "CUSTOM";
+        } else {
+          switch (dateFilter.type) {
+            case 'week': badgeText = "WEEKLY"; break;
+            case 'month': badgeText = "MONTHLY"; break;
+            case 'custom': badgeText = "CUSTOM"; break;
+            default: badgeText = "ALL TIME";
+          }
         }
         doc.text(badgeText, badgeX + 27.5, cardContentY + 5, { align: "center" });
 
@@ -360,7 +380,6 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
             font: "times",
             fontSize: 11,
           },
-          // Remove the didDrawPage callback to let autoTable handle page breaks naturally
         });
 
         let finalY = doc.lastAutoTable.finalY || startY + 30;
@@ -427,10 +446,17 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       }
 
       // Save PDF
-      const reportTypeForFile = dateFilter.type === 'today' ? 'Daily' : 
-                               dateFilter.type === 'week' ? 'Weekly' : 
-                               dateFilter.type === 'month' ? 'Monthly' : 
-                               dateFilter.type === 'custom' ? 'Custom' : 'Consolidated';
+      let reportTypeForFile;
+      if (dateFilter.type === 'today' || dateFilter.type === 'yesterday' || dateFilter.type === 'dayBeforeYesterday') {
+        reportTypeForFile = 'Daily';
+      } else if (dateFilter.type === 'custom' && dateFilter.startDate && dateFilter.endDate) {
+        const diff = differenceInDays(parseISO(dateFilter.endDate), parseISO(dateFilter.startDate));
+        reportTypeForFile = diff <= 1 ? 'Daily' : 'Custom';
+      } else {
+        reportTypeForFile = dateFilter.type === 'week' ? 'Weekly' : 
+                           dateFilter.type === 'month' ? 'Monthly' : 
+                           'Consolidated';
+      }
       
       const fileName = `${reportTypeForFile}_Financial_Report_${format(new Date(), "yyyy-MM-dd")}_RML.pdf`;
       doc.save(fileName);
@@ -457,9 +483,10 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       ) : (
         <>
           <Download className="w-5 h-5" />
-          <span>Generate {dateFilter.type === 'today' ? 'Daily' : 
+          <span>Generate {dateFilter.type === 'today' || dateFilter.type === 'yesterday' || dateFilter.type === 'dayBeforeYesterday' ? 'Daily' : 
                          dateFilter.type === 'week' ? 'Weekly' : 
                          dateFilter.type === 'month' ? 'Monthly' : 
+                         dateFilter.type === 'custom' && dateFilter.startDate && dateFilter.endDate && differenceInDays(parseISO(dateFilter.endDate), parseISO(dateFilter.startDate)) <= 1 ? 'Daily' : 
                          dateFilter.type === 'custom' ? 'Custom' : 'Consolidated'} Report</span>
         </>
       )}
