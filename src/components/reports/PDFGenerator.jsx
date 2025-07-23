@@ -58,12 +58,9 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
       const primary = [15, 23, 42];
       const secondary = [71, 85, 105];
-      const accent = [99, 102, 241];
       const background = [248, 250, 252];
       const border = [226, 232, 240];
-
-      // Minimum space required for footer (15px for footer + 15px buffer)
-      const footerSpace = 30;
+      const footerSpace = 30; // Space for footer (15px footer + 15px buffer)
 
       // Load logo
       let logoBase64 = null;
@@ -133,13 +130,11 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         // Left side - Company info
         doc.text("Richmond Manufacturer's Ltd - Financial Report", 15, footerY);
         
-        // Center - CONFIDENTIAL (bold, no border)
+        // Center - CONFIDENTIAL
         doc.setTextColor(220, 38, 38); // Red color
         doc.setFontSize(10);
         doc.setFont("times", "bold");
-        
-        const confidentialText = "CONFIDENTIAL";
-        doc.text(confidentialText, pageWidth / 2, footerY, { align: "center" });
+        doc.text("CONFIDENTIAL", pageWidth / 2, footerY, { align: "center" });
         
         // Right side - Page number
         doc.setTextColor(...secondary);
@@ -148,24 +143,23 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text(`Page ${pageNumber} of ${totalPages}`, pageWidth - 15, footerY, { align: "right" });
       };
 
-      // Add stylish introduction card with dark background
+      // Add introduction card
       const addIntroductionCard = (yPos) => {
-        // Check if we need a new page
-        if (yPos > pageHeight - 100) {
+        if (yPos > pageHeight - footerSpace - 60) {
           doc.addPage();
           yPos = 20;
         }
 
-        // Card background - light gray
-        doc.setFillColor(248, 250, 252); // Light gray background
-        doc.setDrawColor(203, 213, 225); // Border color
+        // Card background
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.5);
         doc.roundedRect(15, yPos, pageWidth - 30, 60, 4, 4, "FD");
         
-        // Card header with dark background instead of purple
-        doc.setFillColor(31, 41, 55); // Dark gray background (slate-800)
+        // Card header
+        doc.setFillColor(31, 41, 55);
         doc.roundedRect(15, yPos, pageWidth - 30, 20, 4, 4, "F");
-        doc.rect(15, yPos + 16, pageWidth - 30, 4, "F"); // Fill the rounded bottom
+        doc.rect(15, yPos + 16, pageWidth - 30, 4, "F");
         
         // Title
         doc.setTextColor(255, 255, 255);
@@ -183,7 +177,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text("Generated:", 25, cardContentY);
         
         doc.setTextColor(...secondary);
-        doc.setFontSize(12); // Increased from 11 to 12
+        doc.setFontSize(12);
         doc.setFont("times", "normal");
         doc.text(format(new Date(), "MMM dd, yyyy 'at' HH:mm"), 70, cardContentY);
         
@@ -194,13 +188,13 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.text("Period:", 25, cardContentY + 12);
         
         doc.setTextColor(...secondary);
-        doc.setFontSize(12); // Increased from 11 to 12
+        doc.setFontSize(12);
         doc.setFont("times", "normal");
         doc.text(getPeriodDescription(), 60, cardContentY + 12);
 
-        // Report type badge - keep the dark theme
+        // Report type badge
         const badgeX = pageWidth - 80;
-        doc.setFillColor(31, 41, 55); // Dark gray to match header
+        doc.setFillColor(31, 41, 55);
         doc.roundedRect(badgeX, cardContentY - 5, 55, 18, 2, 2, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(10);
@@ -219,24 +213,23 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return yPos + 70;
       };
 
-      // Add modern approval section card
+      // Add approval section
       const addApprovalSection = (yPos) => {
-        // Check if we need a new page
-        if (yPos > pageHeight - 100) {
+        if (yPos > pageHeight - footerSpace - 70) {
           doc.addPage();
           yPos = 20;
         }
 
         // Card background
-        doc.setFillColor(248, 250, 252); // Light gray background
-        doc.setDrawColor(203, 213, 225); // Border color
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.5);
         doc.roundedRect(15, yPos, pageWidth - 30, 70, 4, 4, "FD");
         
         // Card header
         doc.setFillColor(...primary);
         doc.roundedRect(15, yPos, pageWidth - 30, 15, 4, 4, "F");
-        doc.rect(15, yPos + 11, pageWidth - 30, 4, "F"); // Fill the rounded bottom
+        doc.rect(15, yPos + 11, pageWidth - 30, 4, "F");
         
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(14);
@@ -261,17 +254,15 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setFontSize(10);
         doc.text("Sales & Accounts Assistant", leftX, cardContentY + 20);
         
-        // Signature line for compiled by
+        // Signature line
         doc.setDrawColor(...secondary);
         doc.setLineWidth(0.5);
         doc.line(leftX, cardContentY + 35, leftX + 70, cardContentY + 35);
         doc.setFontSize(9);
         doc.text("Signature", leftX, cardContentY + 42);
-        
-        doc.setFontSize(9);
         doc.text(`Date: ${format(new Date(), "MMM dd, yyyy")}`, leftX + 35, cardContentY + 42);
         
-        // Vertical divider line
+        // Vertical divider
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.5);
         doc.line(pageWidth / 2, cardContentY - 5, pageWidth / 2, yPos + 65);
@@ -289,7 +280,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setFontSize(10);
         doc.text("Marketing Manager", rightX, cardContentY + 20);
         
-        // Signature line for presented to
+        // Signature line
         doc.setDrawColor(...secondary);
         doc.setLineWidth(0.5);
         doc.line(rightX, cardContentY + 35, rightX + 70, cardContentY + 35);
@@ -299,10 +290,10 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return yPos + 80;
       };
 
-      // Enhanced addTable function with uniform width and proper pagination
+      // Add table with uniform width and footer spacing
       const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
-        // Check if we need a new page for the table header
-        if (startY > pageHeight - 80) {
+        // Check if we need a new page
+        if (startY > pageHeight - footerSpace - 60) {
           doc.addPage();
           startY = 20;
         }
@@ -312,7 +303,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         doc.setTextColor(...primary);
         doc.text(title, 15, startY);
 
-        if (rows.length === 0) {
+        if (!rows || rows.length === 0) {
           doc.setFontSize(11);
           doc.setTextColor(...secondary);
           doc.text("No data available for this period", 15, startY + 15);
@@ -320,73 +311,15 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         }
 
         const sectionColor = sectionColors[sectionType] || sectionColors.supplies;
+        const tableWidth = pageWidth - 30; // Uniform width for all tables
 
-        // Standard table width for all tables (uniform width)
-        const tableWidth = pageWidth - 30; // 15px margins on each side
-        
-        // Dynamically calculate column widths to ensure uniform table width
-        const columnCount = columns.length;
-        
-        // Define different width strategies based on column count
-        let columnStyles = {};
-        
-        if (columnCount <= 3) {
-          // For tables with 3 or fewer columns, distribute evenly
-          const baseCellWidth = tableWidth / columnCount;
-          columns.forEach((col, index) => {
-            columnStyles[index] = {
-              cellWidth: baseCellWidth,
-              halign: index === columnCount - 1 ? "right" : "left",
-              overflow: "ellipsize",
-            };
-          });
-        } else if (columnCount === 4) {
-          // For 4-column tables, slightly optimize distribution
-          const widths = [tableWidth * 0.3, tableWidth * 0.25, tableWidth * 0.2, tableWidth * 0.25];
-          columns.forEach((col, index) => {
-            columnStyles[index] = {
-              cellWidth: widths[index],
-              halign: index >= 2 ? "right" : "left",
-              overflow: "ellipsize",
-            };
-          });
-        } else if (columnCount >= 5) {
-          // For 5+ column tables (SuppliesSummary, SalesSummary), use optimized distribution
-          if (columnCount === 5) {
-            const widths = [tableWidth * 0.25, tableWidth * 0.25, tableWidth * 0.2, tableWidth * 0.15, tableWidth * 0.15];
-            columns.forEach((col, index) => {
-              columnStyles[index] = {
-                cellWidth: widths[index],
-                halign: index >= 2 ? "right" : "left",
-                overflow: "ellipsize",
-              };
-            });
-          } else if (columnCount === 6) {
-            const widths = [tableWidth * 0.22, tableWidth * 0.22, tableWidth * 0.15, tableWidth * 0.15, tableWidth * 0.13, tableWidth * 0.13];
-            columns.forEach((col, index) => {
-              columnStyles[index] = {
-                cellWidth: widths[index],
-                halign: index >= 2 ? "right" : "left",
-                overflow: "ellipsize",
-              };
-            });
-          } else {
-            // For more than 6 columns, distribute evenly with smaller widths
-            const baseCellWidth = tableWidth / columnCount;
-            columns.forEach((col, index) => {
-              columnStyles[index] = {
-                cellWidth: baseCellWidth,
-                halign: index >= columnCount - 3 ? "right" : "left",
-                overflow: "ellipsize",
-              };
-            });
-          }
-        }
-
-        // Filter out empty rows before rendering
-        const filteredRows = rows.filter(row => {
-          return row && row.some(cell => cell !== null && cell !== undefined && cell.toString().trim() !== '');
-        });
+        // Filter out invalid rows
+        const filteredRows = rows.filter(row => 
+          row && 
+          Object.values(row).some(cell => 
+            cell !== null && cell !== undefined && cell.toString().trim() !== ''
+          )
+        );
 
         doc.autoTable({
           columns,
@@ -396,66 +329,37 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           headStyles: {
             fillColor: sectionColor,
             textColor: [255, 255, 255],
-            fontSize: columnCount > 4 ? 10 : 12, // Smaller font for tables with more columns
+            fontSize: 12,
             fontStyle: "bold",
             halign: "left",
-            cellPadding: columnCount > 4 ? 
-              { top: 6, right: 3, bottom: 6, left: 3 } : 
-              { top: 7, right: 5, bottom: 7, left: 5 },
+            cellPadding: { top: 7, right: 5, bottom: 7, left: 5 },
             lineWidth: 0,
-            minCellHeight: columnCount > 4 ? 16 : 18,
+            minCellHeight: 18,
           },
           bodyStyles: {
-            fontSize: columnCount > 4 ? 9 : 11, // Smaller font for tables with more columns
-            cellPadding: columnCount > 4 ? 
-              { top: 5, right: 3, bottom: 5, left: 3 } : 
-              { top: 6, right: 5, bottom: 6, left: 5 },
+            fontSize: 11,
+            cellPadding: { top: 6, right: 5, bottom: 6, left: 5 },
             textColor: secondary,
             lineWidth: 0.2,
             lineColor: border,
-            minCellHeight: columnCount > 4 ? 14 : 16,
+            minCellHeight: 16,
           },
           alternateRowStyles: {
             fillColor: background,
           },
-          columnStyles: columnStyles,
+          columnStyles: {
+            // Let jsPDF-autoTable handle column widths automatically
+          },
           margin: { left: 15, right: 15 },
           tableWidth: tableWidth,
           styles: {
             overflow: "ellipsize",
             cellWidth: "wrap",
             font: "times",
-            fontSize: columnCount > 4 ? 9 : 11,
-          },
-          // Enhanced hooks for proper pagination and empty row handling
-          didParseCell: (data) => {
-            // Skip empty rows
-            if (data.row.section === "body") {
-              const isEmpty = data.row.cells.every(cell => 
-                !cell.content || cell.content.length === 0 || 
-                (Array.isArray(cell.content) && cell.content.every(c => !c || c.toString().trim() === ''))
-              );
-              if (isEmpty) {
-                data.row.height = 0;
-              }
-            }
-          },
-          willDrawCell: (data) => {
-            // Ensure proper page breaks with footer space
-            if (data.row.section === "body") {
-              const currentY = data.cursor.y;
-              const rowHeight = data.row.height;
-              const remainingSpace = pageHeight - currentY - footerSpace;
-
-              // If this row won't fit on the current page, move to next page
-              if (remainingSpace < rowHeight + 5) {
-                doc.addPage();
-                data.cursor.y = 20;
-              }
-            }
+            fontSize: 11,
           },
           didDrawPage: (data) => {
-            // Ensure we don't draw too close to the footer
+            // Ensure footer space is respected
             if (data.cursor.y > pageHeight - footerSpace) {
               doc.addPage();
               data.cursor.y = 20;
@@ -463,10 +367,8 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           },
         });
 
-        // Calculate final Y position with proper footer spacing
         let finalY = doc.lastAutoTable.finalY || startY + 30;
-        
-        // If we're too close to the bottom, move to next page
+        // Ensure footer space
         if (finalY > pageHeight - footerSpace) {
           doc.addPage();
           finalY = 20;
@@ -475,14 +377,12 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return finalY + 20;
       };
 
-      // Start generating PDF - Add header only on first page
+      // Start generating PDF
       addHeader();
-      
-      // Add introduction card
       let yPosition = 55;
       yPosition = addIntroductionCard(yPosition);
 
-      // Generate report sections with different colors and uniform table widths
+      // Generate report sections
       yPosition = SuppliesSummary({ 
         doc, 
         data, 
@@ -536,7 +436,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         addFooter(i, totalPages);
       }
 
-      // Save PDF with dynamic filename
+      // Save PDF
       const reportTypeForFile = dateFilter.type === 'today' ? 'Daily' : 
                                dateFilter.type === 'week' ? 'Weekly' : 
                                dateFilter.type === 'month' ? 'Monthly' : 
