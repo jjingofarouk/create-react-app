@@ -16,12 +16,12 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
 
   // Professional corporate colors
   const sectionColors = {
-    supplies: [41, 98, 255],      // Corporate Blue
-    bankDeposits: [16, 185, 129], // Professional Green
-    expenses: [239, 68, 68],      // Corporate Red
-    sales: [139, 69, 19],         // Professional Brown
-    debts: [255, 159, 64],        // Corporate Orange
-  };
+  supplies: [59, 130, 246],       // Vibrant Blue (Modern UI Blue)
+  bankDeposits: [13, 148, 136],   // Teal (Replaces Green, Tailwind Teal-600)
+  expenses: [239, 68, 68],        // Red (Danger/Warning, Tailwind Red-500)
+  sales: [202, 103, 255],         // Violet (Modern sales metric color)
+  debts: [255, 159, 64],          // Orange (Warning/Alert)
+};
 
   // Get dynamic report title based on date filter
   const getReportTitle = () => {
@@ -292,7 +292,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
         return yPos + 80;
       };
 
-      // Add table with uniform width and footer spacing
+      // Add table with uniform width and proper page break handling
       const addTable = (title, columns, rows, startY, sectionType = 'supplies') => {
         // Check if we need a new page for the table header
         if (startY > pageHeight - footerSpace - 60) {
@@ -352,7 +352,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
           columnStyles: {
             // Let jsPDF-autoTable handle column widths automatically
           },
-          margin: { left: 15, right: 15 },
+          margin: { left: 15, right: 15, bottom: footerSpace },
           tableWidth: tableWidth,
           styles: {
             overflow: "ellipsize",
@@ -360,15 +360,7 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
             font: "times",
             fontSize: 11,
           },
-          didDrawPage: (data) => {
-            // Only add a new page if the next table or section won't fit
-            const currentY = data.cursor.y;
-            const spaceNeededForNextSection = 80; // Estimated height for next table header or section
-            if (currentY + spaceNeededForNextSection > pageHeight - footerSpace) {
-              doc.addPage();
-              data.cursor.y = 20;
-            }
-          },
+          // Remove the didDrawPage callback to let autoTable handle page breaks naturally
         });
 
         let finalY = doc.lastAutoTable.finalY || startY + 30;
