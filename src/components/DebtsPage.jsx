@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, Link } from "lucide-react";
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
+import { Plus } from "lucide-react";
 import DebtForm from "./debts/DebtForm";
 import SalesForm from "./sales/SalesForm";
 import DebtTable from "./debts/DebtTable";
@@ -186,6 +184,7 @@ const DebtsPage = () => {
             handleDeleteDebt={handleDeleteDebt}
             loading={loading}
             total={strawTotal}
+            showTotalAtTop
           />
         </div>
 
@@ -201,6 +200,7 @@ const DebtsPage = () => {
             handleDeleteDebt={handleDeleteDebt}
             loading={loading}
             total={toiletPaperTotal}
+            showTotalAtTop
           />
         </div>
       </div>
