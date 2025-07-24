@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, deleteDoc, query, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { Plus, Trash2, Edit, Search, X, Tag, TrendingUp, DollarSign, Calendar, BarChart3 } from "lucide-react";
-import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel } from "@tanstack/react-table";
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
+import { Plus, Trash2, Edit, Search, X, Tag, ChevronUp, ChevronDown } from "lucide-react";
+import { useReactTable, getCoreRowModel, flexRender, getSortedRowModel, getPaginationRowModel } from "@tanstack/react-table";
 import AutocompleteInput from "./AutocompleteInput";
 import ExpenseForm from "./ExpenseForm";
-import DateFilter from "./DateFilter";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import ExpensesDateFilter from "./ExpensesDateFilter";
+import { format } from "date-fns";
 
 const ExpensesPage = () => {
   const [showForm, setShowForm] = useState(false);
@@ -22,76 +20,23 @@ const ExpensesPage = () => {
   const [categoryError, setCategoryError] = useState("");
   const [expenses, setExpenses] = useState([]);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [sorting, setSorting] = useState([]);
-  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [sorting, setSorting] = useState([{ id: 'createdAt', desc: true }]);
   const [dateFilter, setDateFilter] = useState({
-    type: 'today',
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date().toISOString().split("T")[0]
+    type: 'all',
+    startDate: '',
+    endDate: ''
   });
-
-  const keyMetrics = useMemo(() => {
-    if (!filteredExpenses || filteredExpenses.length === 0) {
-      return {
-        totalExpenses: 0,
-        thisMonthTotal: 0,
-        highestExpense: { amount: 0, description: "N/A" },
-        topCategory: { name: "N/A", total: 0 },
-        avgExpense: 0,
-        expenseCount: 0
-      };
-    }
-
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-
-    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-    
-    const thisMonthExpenses = filteredExpenses.filter(expense => {
-      if (!expense.createdAt) return false;
-      const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
-      return expenseDate >= monthStart && expenseDate <= monthEnd;
-    });
-    
-    const thisMonthTotal = thisMonthExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-    
-    const highestExpense = filteredExpenses.reduce((max, expense) => {
-      const amount = parseFloat(expense.amount) || 0;
-      return amount > max.amount ? { amount, description: expense.description || "N/A" } : max;
-    }, { amount: 0, description: "N/A" });
-
-    const categoryTotals = filteredExpenses.reduce((acc, expense) => {
-      const category = expense.category || "Uncategorized";
-      const amount = parseFloat(expense.amount) || 0;
-      acc[category] = (acc[category] || 0) + amount;
-      return acc;
-    }, {});
-
-    const topCategory = Object.entries(categoryTotals).reduce(
-      (max, [name, total]) => total > max.total ? { name, total } : max,
-      { name: "N/A", total: 0 }
-    );
-
-    const avgExpense = filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0;
-
-    return {
-      totalExpenses,
-      thisMonthTotal,
-      highestExpense,
-      topCategory,
-      avgExpense,
-      expenseCount: filteredExpenses.length
-    };
-  }, [filteredExpenses]);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 25,
+  });
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -106,12 +51,10 @@ const ExpensesPage = () => {
             ...doc.data(),
           }));
           setExpenses(expensesData);
-          setLoading(false);
         },
         (err) => {
           console.error("Error fetching expenses:", err);
           setError("Failed to load expenses");
-          setLoading(false);
         }
       );
 
@@ -155,8 +98,8 @@ const ExpensesPage = () => {
       let dateMatch = true;
       if (dateFilter.startDate && dateFilter.endDate && expense.createdAt) {
         const expenseDate = expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt);
-        const startDate = new Date(dateFilter.startDate);
-        const endDate = new Date(dateFilter.endDate);
+        const startDate = new Date(dateFilter.startDate + 'T00:00:00');
+        const endDate = new Date(dateFilter.endDate + 'T23:59:59');
         dateMatch = expenseDate >= startDate && expenseDate <= endDate;
       }
 
@@ -164,7 +107,15 @@ const ExpensesPage = () => {
     });
     
     setFilteredExpenses(filtered);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
   }, [filter, expenses, dateFilter]);
+
+  const totalAmount = useMemo(() => {
+    return filteredExpenses.reduce((sum, expense) => {
+      const amount = typeof expense.amount === 'number' ? expense.amount : parseFloat(expense.amount) || 0;
+      return sum + amount;
+    }, 0);
+  }, [filteredExpenses]);
 
   const columns = [
     {
@@ -188,6 +139,11 @@ const ExpensesPage = () => {
           </span>
         );
       },
+      sortingFn: (rowA, rowB) => {
+        const a = typeof rowA.original.amount === 'number' ? rowA.original.amount : parseFloat(rowA.original.amount) || 0;
+        const b = typeof rowB.original.amount === 'number' ? rowB.original.amount : parseFloat(rowB.original.amount) || 0;
+        return a - b;
+      }
     },
     {
       header: "Description",
@@ -226,6 +182,11 @@ const ExpensesPage = () => {
           return '-';
         }
       },
+      sortingFn: (rowA, rowB) => {
+        const dateA = rowA.original.createdAt?.toDate ? rowA.original.createdAt.toDate() : new Date(rowA.original.createdAt);
+        const dateB = rowB.original.createdAt?.toDate ? rowB.original.createdAt.toDate() : new Date(rowB.original.createdAt);
+        return dateA.getTime() - dateB.getTime();
+      }
     },
     {
       header: "Actions",
@@ -256,10 +217,13 @@ const ExpensesPage = () => {
     data: filteredExpenses,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    state: {
+    getPaginationRowModel: getPaginationRowModel(),
+    state: { 
       sorting,
+      pagination 
     },
     onSortingChange: setSorting,
+    onPaginationChange: setPagination,
   });
 
   const handleDeleteExpense = async (id) => {
@@ -317,55 +281,10 @@ const ExpensesPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <Skeleton height={32} width={200} />
-          <div className="flex gap-3">
-            <Skeleton height={40} width={120} />
-            <Skeleton height={40} width={150} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white p-6 rounded-xl border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <Skeleton circle height={48} width={48} />
-                <Skeleton height={20} width={60} />
-              </div>
-              <Skeleton height={32} width={100} className="mb-2" />
-              <Skeleton height={16} width={80} />
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="mb-6">
-            <Skeleton thyself={40} width={300} />
-          </div>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton height={20} width={100} />
-                <Skeleton height={20} width={80} />
-                <Skeleton height={20} width={150} />
-                <Skeleton height={20} width={100} />
-                <Skeleton height={20} width={80} />
-                <Skeleton height={20} width={60} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
+    <div className="space-y-6">
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="space-y-2">
             <h1 className="text-3xl lg:text-4xl font-bold text-slate-800 tracking-tight">
               Expense Tracker
@@ -374,48 +293,31 @@ const ExpensesPage = () => {
               Manage and analyze your spending with our comprehensive expense tracking platform.
             </p>
           </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => {
-                setEditingExpense(null);
-                setShowForm(true);
-              }}
-              className="group bg-white hover:bg-blue-50 border-2 border-slate-200 hover:border-blue-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow fathom-blue-100/50 hover:-translate-y-1"
-            >
-              <div className="flex flex-col items-center gap-3">
-                <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
-                  <Plus className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-slate-800 text-sm">Add Expense</div>
-                  <div className="text-xs text-slate-500 mt-1">New Transaction</div>
-                </div>
+          <button
+            onClick={() => setShowCategoryModal(true)}
+            className="group bg-white hover:bg-gray-50 border-2 border-slate-200 hover:border-gray-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-gray-100/50 hover:-translate-y-1"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-gray-200 transition-colors">
+                <Tag className="w-6 h-6 text-gray-600" />
               </div>
-            </button>
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              className="group bg-white hover:bg-gray-50 border-2 border-slate-200 hover:border-gray-300 rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:shadow-gray-100/50 hover:-translate-y-1"
-            >
-              <div className="flex flex-col items-center gap-3">
-                <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-gray-200 transition-colors">
-                  <Tag className="w-6 h-6 text-gray-600" />
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-slate-800 text-sm">Categories</div>
-                  <div className="text-xs text-slate-500 mt-1">Manage Categories</div>
-                </div>
+              <div className="text-center">
+                <div className="font-semibold text-slate-800 text-sm">Categories</div>
+                <div className="text-xs text-slate-500 mt-1">Manage Categories</div>
               </div>
-            </button>
-          </div>
+            </div>
+          </button>
         </div>
       </div>
 
-      <DateFilter
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        showDateFilter={showDateFilter}
-        setShowDateFilter={setShowDateFilter}
-      />
+      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+        <ExpensesDateFilter
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
+          showDateFilter={showDateFilter}
+          setShowDateFilter={setShowDateFilter}
+        />
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center gap-2">
@@ -424,98 +326,44 @@ const ExpensesPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <DollarSign className="w-6 h-6 text-blue-600" />
-            </div>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-              TOTAL
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.totalExpenses.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">{dateFilter.type === 'all' ? 'All time expenses' : `Expenses for ${dateFilter.type}`}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-green-100 rounded-xl">
-              <Calendar className="w-6 h-6 text-green-600" />
-            </div>
-            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              THIS MONTH
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.thisMonthTotal.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">{format(new Date(), 'MMMM yyyy')}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-100 rounded-xl">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
-            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
-              HIGHEST
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.highestExpense.amount.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm truncate">
-            {keyMetrics.highestExpense.description}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-orange-100 rounded-xl">
-              <BarChart3 className="w-6 h-6 text-orange-600" />
-            </div>
-            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
-              TOP CATEGORY
-            </span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            UGX {keyMetrics.topCategory.total.toLocaleString()}
-          </h3>
-          <p className="text-gray-500 text-sm">
-            {keyMetrics.topCategory.name}
-          </p>
-        </div>
+      <div className="relative w-full sm:w-80">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search expenses..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200"
+        />
+        {filter && (
+          <X
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+            onClick={() => setFilter("")}
+          />
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
         <div className="p-6 border-b border-gray-100">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Recent Expenses</h2>
               <p className="text-gray-500 text-sm mt-1">
-                {keyMetrics.expenseCount} total expenses • Average: UGX {keyMetrics.avgExpense.toLocaleString()}
+                {filteredExpenses.length} total expenses
               </p>
             </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200"
-              />
-              {filter && (
-                <X
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
-                  onClick={() => setFilter("")}
-                />
-              )}
-            </div>
           </div>
+          
+          {filteredExpenses.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex justify-between items-center">
+                <span className="text-green-800 font-medium">Total Amount:</span>
+                <span className="text-green-800 font-bold text-xl">
+                  UGX {totalAmount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -526,9 +374,26 @@ const ExpensesPage = () => {
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100/50 transition-colors"
+                      onClick={header.column.getToggleSortingHandler()}
                     >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      <div className="flex items-center gap-2">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() && (
+                          <div className="flex flex-col">
+                            <ChevronUp 
+                              className={`w-3 h-3 ${
+                                header.column.getIsSorted() === 'asc' ? 'text-blue-600' : 'text-gray-400'
+                              }`} 
+                            />
+                            <ChevronDown 
+                              className={`w-3 h-3 -mt-1 ${
+                                header.column.getIsSorted() === 'desc' ? 'text-blue-600' : 'text-gray-400'
+                              }`} 
+                            />
+                          </div>
+                        )}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -561,21 +426,90 @@ const ExpensesPage = () => {
             </p>
           </div>
         )}
+
+        {filteredExpenses.length > 0 && (
+          <div className="p-6 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-green-800 font-medium">Total Amount:</span>
+                  <span className="text-green-800 font-bold text-xl">
+                    UGX {totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Show</span>
+                  <select
+                    value={table.getState().pagination.pageSize}
+                    onChange={e => {
+                      table.setPageSize(Number(e.target.value))
+                    }}
+                    className="border border-gray-300 rounded-lg px-3 py-1 text-sm"
+                  >
+                    {[25, 50, 100].map(pageSize => (
+                      <option key={pageSize} value={pageSize}>
+                        {pageSize}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-sm text-gray-600">entries</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                  </span>
+                  <button
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
+      <button
+        onClick={() => {
+          setEditingExpense(null);
+          setShowForm(true);
+        }}
+        className="fixed bottom-20 sm:bottom-24 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110 z-[100]"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
       {showForm && (
-        <ExpenseForm
-          expense={editingExpense}
-          onClose={() => {
-            setShowForm(false);
-            setEditingExpense(null);
-          }}
-        />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg my-8">
+            <ExpenseForm
+              expense={editingExpense}
+              onClose={() => {
+                setShowForm(false);
+                setEditingExpense(null);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg my-8 bg-white rounded-xl shadow-2xl p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Manage Categories</h3>
               <button
