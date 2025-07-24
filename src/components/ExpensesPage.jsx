@@ -308,7 +308,9 @@ const ExpensesPage = () => {
             </div>
           </button>
         </div>
+      </div>
 
+      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
         <ExpensesDateFilter
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
