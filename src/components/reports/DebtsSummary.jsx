@@ -7,14 +7,9 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     if (!Array.isArray(dataset)) return [];
     if (dateFilter.type === "all") return dataset;
     return dataset.filter((item) => {
-      if (!item.createdAt && !item.date) return true;
+      if (!item.updatedAt) return true;
       try {
-        let itemDate;
-        if (item.createdAt) {
-          itemDate = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
-        } else if (item.date) {
-          itemDate = new Date(item.date);
-        }
+        const itemDate = item.updatedAt.toDate ? item.updatedAt.toDate() : new Date(item.updatedAt);
         const start = dateFilter.startDate ? parseISO(dateFilter.startDate) : null;
         const end = dateFilter.endDate ? parseISO(dateFilter.endDate) : null;
         return start && end
@@ -31,10 +26,8 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     dataset.sort((a, b) => {
       try {
         const getDate = (item) => {
-          if (item.createdAt) {
-            return item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
-          } else if (item.date) {
-            return new Date(item.date);
+          if (item.updatedAt) {
+            return item.updatedAt.toDate ? item.updatedAt.toDate() : new Date(item.updatedAt);
           }
           return new Date(0);
         };
@@ -46,7 +39,18 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     });
 
   const filteredDebts = filterData(data.debts);
-  const debtsData = sortedData(filteredDebts).map((item) => {
+  
+  // Separate debts by product
+  const toiletPaperDebts = filteredDebts.filter(debt => 
+    debt.product && debt.product.toLowerCase().includes('toilet paper')
+  );
+  
+  const strawsDebts = filteredDebts.filter(debt => 
+    debt.product && debt.product.toLowerCase().includes('straw')
+  );
+
+  // Create toilet paper debts table data
+  const toiletPaperData = sortedData(toiletPaperDebts).map((item) => {
     const client = clients.find((c) => c.name === item.client);
     return {
       client: client?.name || "-",
@@ -55,17 +59,41 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     };
   });
 
+  // Create straws debts table data
+  const strawsData = sortedData(strawsDebts).map((item) => {
+    const client = clients.find((c) => c.name === item.client);
+    return {
+      client: client?.name || "-",
+      debtBalance: (parseFloat(item.amount) || 0).toLocaleString(),
+      updatedAt: item.updatedAt ? format(item.updatedAt.toDate ? item.updatedAt.toDate() : new Date(item.updatedAt), "MMM dd, yyyy HH:mm") : "-",
+    };
+  });
+
+  // Add Toilet Paper Debts table
   yPosition = addTable(
-    "Debts Summary",
+    "Toilet Paper Debts",
     [
       { header: "CLIENT", dataKey: "client" },
       { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
       { header: "UPDATED AT", dataKey: "updatedAt" },
     ],
-    debtsData,
+    toiletPaperData,
     yPosition
   );
 
+  // Add Straws Debts table
+  yPosition = addTable(
+    "Straws Debts",
+    [
+      { header: "CLIENT", dataKey: "client" },
+      { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
+      { header: "UPDATED AT", dataKey: "updatedAt" },
+    ],
+    strawsData,
+    yPosition
+  );
+
+  // Calculate metrics for all active debts (combined)
   const activeDebts = filteredDebts.filter((debt) => debt.amount > 0);
   
   // Calculate total debts
@@ -79,16 +107,20 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     : null;
   const oldestDebt = activeDebts.length > 0
     ? activeDebts.reduce((oldest, debt) => {
-        const debtDate = debt.createdAt?.toDate ? debt.createdAt.toDate() : new Date(debt.createdAt);
-        const oldestDate = oldest.createdAt?.toDate ? oldest.createdAt.toDate() : new Date(oldest.createdAt);
+        const debtDate = debt.updatedAt?.toDate ? debt.updatedAt.toDate() : new Date(debt.updatedAt);
+        const oldestDate = oldest.updatedAt?.toDate ? oldest.updatedAt.toDate() : new Date(oldest.updatedAt);
         return debtDate < oldestDate ? debt : oldest;
       }, activeDebts[0])
     : null;
 
+  // Calculate product-specific metrics
+  const toiletPaperTotal = toiletPaperDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
+  const strawsTotal = strawsDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
+
   // Create modern debt metrics cards
   const addDebtMetricsCards = (yPos) => {
     // Check if we need a new page
-    if (yPos > doc.internal.pageSize.height - 120) {
+    if (yPos > doc.internal.pageSize.height - 140) {
       doc.addPage();
       yPos = 20;
     }
@@ -134,7 +166,7 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     doc.setFont("times", "normal");
     doc.text(`${activeDebts.length} active debt${activeDebts.length !== 1 ? 's' : ''}`, card1X + 25, card1Y + 30);
 
-    // Card 2: Highest Debt
+    // Card 2: Toilet Paper Debts
     const card2X = card1X + cardWidth + gap;
     const card2Y = yPos;
     
@@ -145,36 +177,28 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     doc.roundedRect(card2X, card2Y, cardWidth, cardHeight, 3, 3, "FD");
     
     // Icon background (circle)
-    doc.setFillColor(255, 159, 64); // Orange for highest
+    doc.setFillColor(59, 130, 246); // Blue for toilet paper
     doc.circle(card2X + 12, card2Y + 12, 6, "F");
     
     // Card content
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(14);
     doc.setFont("times", "bold");
-    doc.text("Highest Debt", card2X + 25, card2Y + 10);
+    doc.text("Toilet Paper Debts", card2X + 25, card2Y + 10);
     
-    if (highestDebt) {
-      doc.setTextColor(255, 159, 64);
-      doc.setFontSize(14);
-      doc.setFont("times", "bold");
-      doc.text(`${(highestDebt.amount || 0).toLocaleString()} UGX`, card2X + 25, card2Y + 22);
-      
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(10);
-      doc.setFont("times", "normal");
-      const clientName = clients.find((c) => c.name === highestDebt.client)?.name || '-';
-      doc.text(clientName, card2X + 25, card2Y + 30);
-    } else {
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(12);
-      doc.setFont("times", "normal");
-      doc.text("No active debts", card2X + 25, card2Y + 22);
-    }
+    doc.setTextColor(59, 130, 246);
+    doc.setFontSize(14);
+    doc.setFont("times", "bold");
+    doc.text(`${toiletPaperTotal.toLocaleString()} UGX`, card2X + 25, card2Y + 22);
+    
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(10);
+    doc.setFont("times", "normal");
+    doc.text(`${toiletPaperDebts.length} debt${toiletPaperDebts.length !== 1 ? 's' : ''}`, card2X + 25, card2Y + 30);
 
     yPos += cardHeight + 15;
 
-    // Card 3: Lowest Debt
+    // Card 3: Straws Debts
     const card3X = 15;
     const card3Y = yPos;
     
@@ -185,34 +209,26 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     doc.roundedRect(card3X, card3Y, cardWidth, cardHeight, 3, 3, "FD");
     
     // Icon background (circle)
-    doc.setFillColor(16, 185, 129); // Green for lowest
+    doc.setFillColor(16, 185, 129); // Green for straws
     doc.circle(card3X + 12, card3Y + 12, 6, "F");
     
     // Card content
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(14);
     doc.setFont("times", "bold");
-    doc.text("Lowest Debt", card3X + 25, card3Y + 10);
+    doc.text("Straws Debts", card3X + 25, card3Y + 10);
     
-    if (lowestDebt) {
-      doc.setTextColor(16, 185, 129);
-      doc.setFontSize(14);
-      doc.setFont("times", "bold");
-      doc.text(`${(lowestDebt.amount || 0).toLocaleString()} UGX`, card3X + 25, card3Y + 22);
-      
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(10);
-      doc.setFont("times", "normal");
-      const clientName = clients.find((c) => c.name === lowestDebt.client)?.name || '-';
-      doc.text(clientName, card3X + 25, card3Y + 30);
-    } else {
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(12);
-      doc.setFont("times", "normal");
-      doc.text("No active debts", card3X + 25, card3Y + 22);
-    }
+    doc.setTextColor(16, 185, 129);
+    doc.setFontSize(14);
+    doc.setFont("times", "bold");
+    doc.text(`${strawsTotal.toLocaleString()} UGX`, card3X + 25, card3Y + 22);
+    
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(10);
+    doc.setFont("times", "normal");
+    doc.text(`${strawsDebts.length} debt${strawsDebts.length !== 1 ? 's' : ''}`, card3X + 25, card3Y + 30);
 
-    // Card 4: Oldest Debt
+    // Card 4: Most Recent Update
     const card4X = card3X + cardWidth + gap;
     const card4Y = yPos;
     
@@ -223,25 +239,34 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
     doc.roundedRect(card4X, card4Y, cardWidth, cardHeight, 3, 3, "FD");
     
     // Icon background (circle)
-    doc.setFillColor(139, 69, 19); // Brown for oldest
+    doc.setFillColor(139, 69, 19); // Brown for most recent
     doc.circle(card4X + 12, card4Y + 12, 6, "F");
     
     // Card content
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(14);
     doc.setFont("times", "bold");
-    doc.text("Oldest Debt", card4X + 25, card4Y + 10);
+    doc.text("Most Recent Update", card4X + 25, card4Y + 10);
     
-    if (oldestDebt) {
+    // Find the most recently updated debt
+    const mostRecentDebt = activeDebts.length > 0
+      ? activeDebts.reduce((newest, debt) => {
+          const debtDate = debt.updatedAt?.toDate ? debt.updatedAt.toDate() : new Date(debt.updatedAt);
+          const newestDate = newest.updatedAt?.toDate ? newest.updatedAt.toDate() : new Date(newest.updatedAt);
+          return debtDate > newestDate ? debt : newest;
+        }, activeDebts[0])
+      : null;
+    
+    if (mostRecentDebt) {
       doc.setTextColor(139, 69, 19);
       doc.setFontSize(12);
       doc.setFont("times", "bold");
-      doc.text(format(oldestDebt.createdAt?.toDate ? oldestDebt.createdAt.toDate() : new Date(oldestDebt.createdAt), "MMM dd, yyyy"), card4X + 25, card4Y + 22);
+      doc.text(format(mostRecentDebt.updatedAt?.toDate ? mostRecentDebt.updatedAt.toDate() : new Date(mostRecentDebt.updatedAt), "MMM dd, yyyy"), card4X + 25, card4Y + 22);
       
       doc.setTextColor(71, 85, 105);
       doc.setFontSize(10);
       doc.setFont("times", "normal");
-      const clientName = clients.find((c) => c.name === oldestDebt.client)?.name || '-';
+      const clientName = clients.find((c) => c.name === mostRecentDebt.client)?.name || '-';
       doc.text(clientName, card4X + 25, card4Y + 30);
     } else {
       doc.setTextColor(71, 85, 105);
@@ -260,4 +285,3 @@ const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) =
 };
 
 export default DebtsSummary;
-
