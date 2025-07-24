@@ -423,7 +423,8 @@ const PDFGenerator = ({ reportType, dateFilter, data, clients, products, categor
       yPosition = DebtsSummary({ 
         doc, 
         data, 
-        clients, 
+        clients,
+        products,
         dateFilter, 
         addTable: (title, columns, rows, startY) => addTable(title, columns, rows, startY, 'debts'), 
         yPosition 
