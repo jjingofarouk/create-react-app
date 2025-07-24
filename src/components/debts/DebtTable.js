@@ -14,7 +14,8 @@ const DebtTable = ({
   setShowSalesForm,
   handleDeleteDebt,
   loading,
-  total
+  total,
+  showTotalAtTop
 }) => {
   const [sorting, setSorting] = React.useState([]);
   const [pagination, setPagination] = React.useState({
@@ -176,6 +177,13 @@ const DebtTable = ({
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden">
+      {showTotalAtTop && (
+        <div className="p-4 bg-neutral-50 border-b border-neutral-100">
+          <div className="text-right font-bold text-neutral-800">
+            Total: {total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         {loading ? (
           <div className="p-6">
@@ -225,13 +233,15 @@ const DebtTable = ({
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-right font-bold">
-                    Total: {total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX
-                  </td>
-                </tr>
-              </tfoot>
+              {!showTotalAtTop && (
+                <tfoot>
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-right font-bold">
+                      Total: {total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} UGX
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
             <div className="p-6 border-t border-neutral-100">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
