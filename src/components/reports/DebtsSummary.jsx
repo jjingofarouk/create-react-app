@@ -2,9 +2,9 @@ import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from "date-f
 import { TrendingUp, TrendingDown, Clock, DollarSign } from "lucide-react";
 
 const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPosition }) => {
-  const filterData = (dataset) => {
+  const filterData = (dataset, ignoreDateFilter = false) => {
     if (!Array.isArray(dataset)) return [];
-    if (dateFilter.type === "all") return dataset;
+    if (ignoreDateFilter || dateFilter.type === "all") return dataset;
     return dataset.filter((item) => {
       if (!item.createdAt && !item.date) return true;
       try {
@@ -44,7 +44,17 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
       }
     });
 
-  const filteredDebts = filterData(data.debts);
+  // For daily reports, show all current debts regardless of date filter
+  const isDailyReport =
+    dateFilter.type === "today" ||
+    dateFilter.type === "yesterday" ||
+    dateFilter.type === "dayBeforeYesterday" ||
+    (dateFilter.type === "custom" &&
+      dateFilter.startDate &&
+      dateFilter.endDate &&
+      parseISO(dateFilter.endDate).getTime() - parseISO(dateFilter.startDate).getTime() <= 24 * 60 * 60 * 1000);
+
+  const filteredDebts = filterData(data.debts, isDailyReport);
   const strawDebts = filteredDebts.filter(debt => {
     const product = products.find(p => p.id === debt.productId);
     return product?.name.toLowerCase().includes('straw');
@@ -72,6 +82,9 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
     };
   });
 
+  const strawTotal = strawDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
+  const toiletPaperTotal = toiletPaperDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
+
   yPosition = addTable(
     "Straw Debts Summary",
     [
@@ -79,7 +92,11 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
       { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
       { header: "UPDATED AT", dataKey: "updatedAt" },
     ],
-    strawDebtsData,
+    [...strawDebtsData, {
+      client: "Total",
+      debtBalance: strawTotal.toLocaleString(),
+      updatedAt: ""
+    }],
     yPosition,
     'debts'
   );
@@ -91,16 +108,17 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
       { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
       { header: "UPDATED AT", dataKey: "updatedAt" },
     ],
-    toiletPaperDebtsData,
+    [...toiletPaperDebtsData, {
+      client: "Total",
+      debtBalance: toiletPaperTotal.toLocaleString(),
+      updatedAt: ""
+    }],
     yPosition,
     'debts'
   );
 
   const activeStrawDebts = strawDebts.filter((debt) => debt.amount > 0);
   const activeToiletPaperDebts = toiletPaperDebts.filter((debt) => debt.amount > 0);
-
-  const strawTotal = activeStrawDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
-  const toiletPaperTotal = activeToiletPaperDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
 
   const strawHighestDebt = activeStrawDebts.length > 0
     ? activeStrawDebts.reduce((max, debt) => (debt.amount > max.amount ? debt : max), activeStrawDebts[0])
@@ -304,7 +322,16 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
     doc.setLineWidth(0.5);
     doc.roundedRect(card6X, card6Y, cardWidth, cardHeight, 3, 3, "FD");
     doc.setFillColor(255, 159, 64);
-    doc.circle(card6X + 12, card6ursedAt?.toDate ? toiletPaperHighestDebt.createdAt.toDate() : new Date(toiletPaperHighestDebt.createdAt), "MMM dd, yyyy"), card6X + 25, card6Y + 22);
+    doc.circle(card6X + 12, card6Y + 12, 6, "F");
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(14);
+    doc.setFont("times", "bold");
+    doc.text("Highest Debt", card6X + 25, card6Y + 10);
+    if (toiletPaperHighestDebt) {
+      doc.setTextColor(255, 159, 64);
+      doc.setFontSize(14);
+      doc.setFont("times", "bold");
+      doc.text(`${(toiletPaperHighestDebt.amount || 0).toLocaleString()} UGX`, card6X + 25, card6Y + 22);
       doc.setTextColor(71, 85, 105);
       doc.setFontSize(10);
       doc.setFont("times", "normal");
