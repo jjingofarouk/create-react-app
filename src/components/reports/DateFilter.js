@@ -1,3 +1,4 @@
+// src/components/reports/DateFilter.jsx
 import React from "react";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from "date-fns";
 import { Calendar, X, Filter } from "lucide-react";
@@ -153,7 +154,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
                       : 'bg-slate-50 text-slate-600 hover:bg-blue-50 border border-slate-200'
                   }`}
                 >
-                  Today (All Debts)
+                  Today
                 </button>
                 <button
                   onClick={() => handleDateFilterChange('yesterday')}
@@ -163,7 +164,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
                       : 'bg-slate-50 text-slate-600 hover:bg-blue-50 border border-slate-200'
                   }`}
                 >
-                  Yesterday (All Debts)
+                  Yesterday
                 </button>
                 <button
                   onClick={() => handleDateFilterChange('dayBeforeYesterday')}
@@ -173,7 +174,7 @@ const DateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilt
                       : 'bg-slate-50 text-slate-600 hover:bg-blue-50 border border-slate-200'
                   }`}
                 >
-                  Day Before Yesterday (All Debts)
+                  Day Before Yesterday
                 </button>
                 <button
                   onClick={() => handleDateFilterChange('week')}
