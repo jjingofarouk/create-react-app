@@ -1,6 +1,9 @@
+
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
-const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPosition }) => {
+import { TrendingUp, TrendingDown, Clock, DollarSign } from "lucide-react";
+
+const DebtsSummary = ({ doc, data, clients, dateFilter, addTable, yPosition }) => {
   const filterData = (dataset) => {
     if (!Array.isArray(dataset)) return [];
     if (dateFilter.type === "all") return dataset;
@@ -44,71 +47,30 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
     });
 
   const filteredDebts = filterData(data.debts);
-  
-  // Group debts by product
-  const debtsByProduct = {};
-  let totalAllDebts = 0;
-  
-  filteredDebts.forEach((debt) => {
-    const product = products.find(p => p.id === debt.productId);
-    const productName = product ? product.name : 'Unknown Product';
-    
-    if (!debtsByProduct[productName]) {
-      debtsByProduct[productName] = [];
-    }
-    
-    debtsByProduct[productName].push(debt);
-    totalAllDebts += parseFloat(debt.amount) || 0;
+  const debtsData = sortedData(filteredDebts).map((item) => {
+    const client = clients.find((c) => c.name === item.client);
+    return {
+      client: client?.name || "-",
+      debtBalance: (parseFloat(item.amount) || 0).toLocaleString(),
+      updatedAt: item.updatedAt ? format(item.updatedAt.toDate ? item.updatedAt.toDate() : new Date(item.updatedAt), "MMM dd, yyyy HH:mm") : "-",
+    };
   });
 
-  // Create tables for each product
-  Object.entries(debtsByProduct).forEach(([productName, debts]) => {
-    const debtsData = sortedData(debts).map((item) => {
-      const client = clients.find((c) => c.name === item.client);
-      return {
-        client: client?.name || "-",
-        debtBalance: (parseFloat(item.amount) || 0).toLocaleString(),
-        updatedAt: item.updatedAt ? format(item.updatedAt.toDate ? item.updatedAt.toDate() : new Date(item.updatedAt), "MMM dd, yyyy HH:mm") : "-",
-      };
-    });
-
-    // Calculate total for this product
-    const productTotal = debts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
-    
-    // Add total row
-    debtsData.push({
-      client: "TOTAL",
-      debtBalance: `${productTotal.toLocaleString()} UGX`,
-      updatedAt: "",
-    });
-
-    yPosition = addTable(
-      `${productName} Debts`,
-      [
-        { header: "CLIENT", dataKey: "client" },
-        { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
-        { header: "UPDATED AT", dataKey: "updatedAt" },
-      ],
-      debtsData,
-      yPosition
-    );
-  });
-
-  // If no debts found, show a message
-  if (Object.keys(debtsByProduct).length === 0) {
-    yPosition = addTable(
-      "Debts Summary",
-      [
-        { header: "CLIENT", dataKey: "client" },
-        { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
-        { header: "UPDATED AT", dataKey: "updatedAt" },
-      ],
-      [],
-      yPosition
-    );
-  }
+  yPosition = addTable(
+    "Debts Summary",
+    [
+      { header: "CLIENT", dataKey: "client" },
+      { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
+      { header: "UPDATED AT", dataKey: "updatedAt" },
+    ],
+    debtsData,
+    yPosition
+  );
 
   const activeDebts = filteredDebts.filter((debt) => debt.amount > 0);
+  
+  // Calculate total debts
+  const totalDebts = activeDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
   
   const highestDebt = activeDebts.length > 0
     ? activeDebts.reduce((max, debt) => (debt.amount > max.amount ? debt : max), activeDebts[0])
@@ -166,7 +128,7 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
     doc.setTextColor(239, 68, 68);
     doc.setFontSize(16);
     doc.setFont("times", "bold");
-    doc.text(`${totalAllDebts.toLocaleString()} UGX`, card1X + 25, card1Y + 22);
+    doc.text(`${totalDebts.toLocaleString()} UGX`, card1X + 25, card1Y + 22);
     
     doc.setTextColor(71, 85, 105);
     doc.setFontSize(10);
@@ -299,3 +261,5 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
 };
 
 export default DebtsSummary;
+
+
