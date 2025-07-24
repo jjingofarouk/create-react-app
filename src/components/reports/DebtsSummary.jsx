@@ -55,13 +55,16 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
       parseISO(dateFilter.endDate).getTime() - parseISO(dateFilter.startDate).getTime() <= 24 * 60 * 60 * 1000);
 
   const filteredDebts = filterData(data.debts, isDailyReport);
+  
+  // Fixed product name matching - exact string comparison
   const strawDebts = filteredDebts.filter(debt => {
     const product = products.find(p => p.id === debt.productId);
-    return product?.name.toLowerCase().includes('straws');
+    return product?.name === 'Straws';
   });
+  
   const toiletPaperDebts = filteredDebts.filter(debt => {
     const product = products.find(p => p.id === debt.productId);
-    return product?.name.toLowerCase().includes('toilet paper');
+    return product?.name === 'Toilet Paper';
   });
 
   const strawDebtsData = sortedData(strawDebts).map((item) => {
@@ -86,7 +89,7 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
   const toiletPaperTotal = toiletPaperDebts.reduce((sum, debt) => sum + (parseFloat(debt.amount) || 0), 0);
 
   yPosition = addTable(
-    "Straw Debts Summary",
+    "Straws Debts Summary",
     [
       { header: "CLIENT", dataKey: "client" },
       { header: "OUTSTANDING DEBT (UGX)", dataKey: "debtBalance" },
@@ -164,13 +167,13 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
     const cardHeight = 35;
     const gap = 10;
 
-    // Straw Debt Cards
+    // Straws Debt Cards
     doc.setFontSize(14);
     doc.setFont("times", "bold");
-    doc.text("Straw Debts", 15, yPos);
+    doc.text("Straws Debts", 15, yPos);
     yPos += 10;
 
-    // Card 1: Total Straw Debts
+    // Card 1: Total Straws Debts
     const card1X = 15;
     const card1Y = yPos;
     doc.setFillColor(248, 250, 252);
@@ -192,7 +195,7 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
     doc.setFont("times", "normal");
     doc.text(`${activeStrawDebts.length} active debt${activeStrawDebts.length !== 1 ? 's' : ''}`, card1X + 25, card1Y + 30);
 
-    // Card 2: Highest Straw Debt
+    // Card 2: Highest Straws Debt
     const card2X = card1X + cardWidth + gap;
     const card2Y = yPos;
     doc.setFillColor(248, 250, 252);
@@ -224,7 +227,7 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
 
     yPos += cardHeight + 15;
 
-    // Card 3: Lowest Straw Debt
+    // Card 3: Lowest Straws Debt
     const card3X = 15;
     const card3Y = yPos;
     doc.setFillColor(248, 250, 252);
@@ -254,7 +257,7 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
       doc.text("No active debts", card3X + 25, card3Y + 22);
     }
 
-    // Card 4: Oldest Straw Debt
+    // Card 4: Oldest Straws Debt
     const card4X = card3X + cardWidth + gap;
     const card4Y = yPos;
     doc.setFillColor(248, 250, 252);
