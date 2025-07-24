@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { Calendar, X, Filter } from "lucide-react";
 
-const ExpensesDateFilter = ({ dateFilter, setDateFilter, showDateFilter, setShowDateFilter }) => {
+const ExpensesDateFilter = ({ dateFilter, setDateFilter }) => {
+  const [showDateFilter, setShowDateFilter] = useState(false);
+
   const handleDateFilterChange = (type) => {
     const today = new Date();
     let startDate, endDate;
