@@ -112,9 +112,13 @@ const SalesForm = ({ sale, onClose, clients, products }) => {
 
       if (remainingBalance > 0) {
         const debtRef = doc(collection(db, `users/${user.uid}/debts`));
+        const product = products.find(p => p.id === formData.productId);
         batch.set(debtRef, {
           client: formData.client,
           amount: remainingBalance,
+          productId: formData.productId,
+          productName: product ? product.name : "",
+          supplyType: formData.supplyType,
           saleId: saleRef.id,
           lastPaidAmount: parseFloat(formData.amountPaid) || 0,
           createdAt: new Date(),
