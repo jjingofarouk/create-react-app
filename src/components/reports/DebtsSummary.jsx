@@ -57,7 +57,7 @@ const DebtsSummary = ({ doc, data, clients, products, dateFilter, addTable, yPos
   const filteredDebts = filterData(data.debts, isDailyReport);
   const strawDebts = filteredDebts.filter(debt => {
     const product = products.find(p => p.id === debt.productId);
-    return product?.name.toLowerCase().includes('straw');
+    return product?.name.toLowerCase().includes('straws');
   });
   const toiletPaperDebts = filteredDebts.filter(debt => {
     const product = products.find(p => p.id === debt.productId);
