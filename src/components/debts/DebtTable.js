@@ -254,7 +254,7 @@ const DebtTable = ({
                     }}
                     className="border border-neutral-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {[10, 20, 30, 50].map((pageSize) => (
+                    {[10, 20, 50, 100].map((pageSize) => (
                       <option key={pageSize} value={pageSize}>
                         {pageSize}
                       </option>
