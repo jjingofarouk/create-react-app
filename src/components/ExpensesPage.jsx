@@ -27,6 +27,7 @@ const ExpensesPage = () => {
     startDate: '',
     endDate: ''
   });
+  const [showDateFilter, setShowDateFilter] = useState(false);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 25,
@@ -281,7 +282,7 @@ const ExpensesPage = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-[100vw] overflow-x-hidden bg-white">
+    <div className="space-y-6">
       <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="space-y-2">
@@ -311,6 +312,8 @@ const ExpensesPage = () => {
         <ExpensesDateFilter
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
+          showDateFilter={showDateFilter}
+          setShowDateFilter={setShowDateFilter}
         />
       </div>
 
@@ -321,6 +324,23 @@ const ExpensesPage = () => {
         </div>
       )}
 
+      <div className="relative w-full sm:w-80">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search expenses..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200"
+        />
+        {filter && (
+          <X
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+            onClick={() => setFilter("")}
+          />
+        )}
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
         <div className="p-6 border-b border-gray-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
@@ -329,22 +349,6 @@ const ExpensesPage = () => {
               <p className="text-gray-500 text-sm mt-1">
                 {filteredExpenses.length} total expenses
               </p>
-            </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200"
-              />
-              {filter && (
-                <X
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
-                  onClick={() => setFilter("")}
-                />
-              )}
             </div>
           </div>
           
@@ -477,30 +481,33 @@ const ExpensesPage = () => {
         )}
       </div>
 
-      {/* Floating Add Button */}
       <button
         onClick={() => {
           setEditingExpense(null);
           setShowForm(true);
         }}
-        className="fixed bottom-6 right-6 bg-red-500 hover:bg-red-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 z-50"
+        className="fixed bottom-20 sm:bottom-24 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110 z-[100]"
       >
         <Plus className="w-6 h-6" />
       </button>
 
       {showForm && (
-        <ExpenseForm
-          expense={editingExpense}
-          onClose={() => {
-            setShowForm(false);
-            setEditingExpense(null);
-          }}
-        />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg my-8">
+            <ExpenseForm
+              expense={editingExpense}
+              onClose={() => {
+                setShowForm(false);
+                setEditingExpense(null);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg my-8 bg-white rounded-xl shadow-2xl p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Manage Categories</h3>
               <button
