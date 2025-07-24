@@ -3,7 +3,7 @@ import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestor
 import { db, auth } from "../firebase";
 import { Plus } from "lucide-react";
 import DebtForm from "./debts/DebtForm";
-import SalesForm from "./debts/SalesForm";
+import SalesForm from "./sales/SalesForm";
 import DebtTable from "./debts/DebtTable";
 import SummaryCards from "./debts/SummaryCards";
 import SearchFilter from "./debts/SearchFilter";
