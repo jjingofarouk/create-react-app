@@ -3,7 +3,7 @@ import { collection, query, onSnapshot, deleteDoc, doc } from "firebase/firestor
 import { db, auth } from "../firebase";
 import { Plus } from "lucide-react";
 import DebtForm from "./debts/DebtForm";
-import SalesForm from "./sales/SalesForm";
+import SalesForm from "./debts/SalesForm";
 import DebtTable from "./debts/DebtTable";
 import SummaryCards from "./debts/SummaryCards";
 import SearchFilter from "./debts/SearchFilter";
@@ -210,7 +210,7 @@ const DebtsPage = () => {
           setEditingDebt(null);
           setShowForm(true);
         }}
-        className="fixed bottom-20 sm:bottom-24 right-6 bg-red-600 text-white rounded-full p-4 shadow-lg hover:bg-red-700 transition-all duration-200 hover:scale-110 z-[100]"
+        className="fixed bottom-20 sm:bottom-24 right-6 bg-orange-600 text-white rounded-full p-4 shadow-lg hover:bg-orange-700 transition-all duration-200 hover:scale-110 z-[100]"
       >
         <Plus className="w-6 h-6" />
       </button>
